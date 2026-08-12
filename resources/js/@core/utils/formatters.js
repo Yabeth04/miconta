@@ -45,3 +45,76 @@ export const formatAmount = value => {
 
   return n.toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
+
+/**
+ * Convierte texto con formato es (1.234,56) a número, o '' si vacío/inválido.
+ *
+ * @param {string|number|null|undefined} value
+ * @returns {number|''}
+ */
+export const parseAmount = value => {
+  if (value === '' || value == null)
+    return ''
+
+  if (typeof value === 'number')
+    return Number.isNaN(value) ? '' : value
+
+  const normalized = String(value)
+    .trim()
+    .replace(/\./g, '')
+    .replace(',', '.')
+    .replace(/[^\d.-]/g, '')
+
+  if (!normalized || normalized === '-' || normalized === '.')
+    return ''
+
+  const n = Number(normalized)
+
+  return Number.isNaN(n) ? '' : n
+}
+
+/**
+ * Formatea mientras se escribe: miles con punto y hasta 2 decimales con coma.
+ * Ej: "1234567,5" → "1.234.567,5"
+ *
+ * @param {string} raw
+ * @returns {string}
+ */
+export const maskAmountInput = raw => {
+  if (raw == null || raw === '')
+    return ''
+
+  let s = String(raw).replace(/[^\d,]/g, '')
+
+  const commaIdx = s.indexOf(',')
+  if (commaIdx !== -1) {
+    const intPart = s.slice(0, commaIdx).replace(/,/g, '')
+    const decPart = s.slice(commaIdx + 1).replace(/,/g, '').slice(0, 2)
+
+    s = `${intPart},${decPart}`
+  }
+
+  const [intRaw, dec] = s.split(',')
+  const digits = intRaw.replace(/\D/g, '')
+  const withDots = digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+
+  return dec !== undefined ? `${withDots},${dec}` : withDots
+}
+
+/**
+ * Monto para inputs (2 decimales); vacío → ''.
+ *
+ * @param {string|number|null|undefined} value
+ * @returns {string}
+ */
+export const formatAmountValue = value => {
+  if (value === '' || value == null)
+    return ''
+
+  const n = Number(value)
+
+  if (Number.isNaN(n))
+    return ''
+
+  return n.toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}

@@ -1,5 +1,5 @@
 import App from '@/App.vue'
-import { formatAmount, formatDate } from '@core/utils/formatters'
+import { formatAmount, formatAmountValue, formatDate, parseAmount } from '@core/utils/formatters'
 import { registerPlugins } from '@core/utils/plugins'
 import { createApp } from 'vue'
 import Toast, { useToast } from 'vue-toastification'
@@ -14,6 +14,8 @@ const app = createApp(App)
 
 app.config.globalProperties.$formatDate = formatDate
 app.config.globalProperties.$formatAmount = formatAmount
+app.config.globalProperties.$formatAmountValue = formatAmountValue
+app.config.globalProperties.$parseAmount = parseAmount
 app.use(Toast)
 app.config.globalProperties.$toast = useToast()
 

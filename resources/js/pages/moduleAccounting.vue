@@ -78,15 +78,18 @@
           md="4"
         >
           <VTextField
+            v-currency-live
             v-model="v$.amount.$model"
             class="monto-with-action"
-            type="number"
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
             label="Monto"
             variant="outlined"
             rounded="lg"
-            hide-spin-buttons
             hide-details="auto"
             :error-messages="errors(v$.amount)"
+            @blur="normalizeAmount"
             @keyup.enter="storeAccounting"
           >
             <template #append-inner>
@@ -373,7 +376,7 @@
 import submittedVuelidateForm from '@/mixins/submittedVuelidateForm'
 import AccountingMobileFormSheet from '@/views/pages/accounting/AccountingMobileFormSheet.vue'
 import { useVuelidate } from '@vuelidate/core'
-import { decimal, helpers, required } from '@vuelidate/validators'
+import { helpers, required } from '@vuelidate/validators'
 import axios from 'axios'
 import { useDisplay } from 'vuetify'
 
@@ -430,8 +433,12 @@ export default {
         required: helpers.withMessage('Tipo de movimiento requerido', required),
       },
       amount: {
-        required: helpers.withMessage('Monto requerido', required),
-        decimal: helpers.withMessage('Ingresa un monto válido', decimal),
+        required: helpers.withMessage('Monto requerido', v => this.$parseAmount(v) !== ''),
+        valid: helpers.withMessage('Ingresa un monto válido', v => {
+          const n = this.$parseAmount(v)
+
+          return n !== '' && n >= 0
+        }),
       },
       selectedPaymentType: {
         required: helpers.withMessage('Tipo de pago requerido', required),
@@ -452,7 +459,7 @@ export default {
           date: this.$formatDate(this.date),
           'movement_type': this.selectedMovementType,
           'payment_type': this.selectedPaymentType,
-          amount: this.amount,
+          amount: this.$parseAmount(this.amount),
           description: this.description,
         })
         .then(() => {
@@ -539,6 +546,11 @@ export default {
       this.description = ''
       this.submitted = false
       this.v$.$reset()
+    },
+    normalizeAmount() {
+      const n = this.$parseAmount(this.amount)
+
+      this.amount = n === '' ? '' : this.$formatAmountValue(n)
     },
     paymentTypeLabel(value) {
       const found = this.paymentTypes.find(p => p.value === value)
