@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Models\Accounting;
@@ -16,7 +15,22 @@ class AccountingController extends Controller
             ->orderByDesc('id')
             ->paginate(10);
 
-        return response()->json($accounting, 200);
+        $payload = $accounting->toArray();
+
+        // totales globales (SUM en BD; no carga todas las filas)
+        if ($accounting->currentPage() === 1) {
+            $totals = DB::table('accounting')
+                ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'debe' THEN amount ELSE 0 END), 0) as total_debe")
+                ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'haber' THEN amount ELSE 0 END), 0) as total_haber")
+                ->first();
+
+            $payload['totals'] = [
+                'debe'  => (float) $totals->total_debe,
+                'haber' => (float) $totals->total_haber,
+            ];
+        }
+
+        return response()->json($payload, 200);
     }
 
     public function store(Request $request)
@@ -68,11 +82,11 @@ class AccountingController extends Controller
     private function validateAccounting(Request $request)
     {
         return $request->validate([
-            'date' => ['required', 'date'],
+            'date'          => ['required', 'date'],
             'movement_type' => ['required', 'in:haber,debe'],
-            'payment_type' => ['required', 'in:sinpe,efectivo,transferencia,tarjeta,otros'],
-            'amount' => ['required', 'numeric', 'min:0'],
-            'description' => ['nullable', 'string', 'max:255'],
+            'payment_type'  => ['required', 'in:sinpe,efectivo,transferencia,tarjeta,otros'],
+            'amount'        => ['required', 'numeric', 'min:0'],
+            'description'   => ['nullable', 'string', 'max:255'],
         ]);
     }
 }

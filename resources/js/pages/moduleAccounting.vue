@@ -281,7 +281,6 @@
       <div
         v-if="mdAndUp"
         class="accounting-totals accounting-totals--desktop px-4 py-3"
-        aria-hidden="true"
       >
         <div class="accounting-totals__desktop-grid">
           <div class="accounting-totals__desktop-icon-wrap d-flex align-center justify-center">
@@ -296,7 +295,7 @@
               Totales
             </span>
             <span class="text-caption text-medium-emphasis">
-              Ejemplo visual (estático)
+              Todos los movimientos
             </span>
           </div>
           <div class="accounting-totals__desktop-metric text-end">
@@ -307,7 +306,7 @@
               class="accounting-totals__desktop-value accounting-table__num text-body-1 font-weight-semibold"
               style="color: red;"
             >
-              15.420,50
+              {{ $formatAmount(totalDebe) }}
             </span>
           </div>
           <div class="accounting-totals__desktop-metric text-end">
@@ -318,7 +317,7 @@
               class="accounting-totals__desktop-value accounting-table__num text-body-1 font-weight-semibold"
               style="color: green;"
             >
-              22.100,00
+              {{ $formatAmount(totalHaber) }}
             </span>
           </div>
           <div class="accounting-totals__desktop-tail d-flex align-center text-medium-emphasis text-caption" />
@@ -329,7 +328,6 @@
       <div
         v-if="mdAndDown"
         class="accounting-totals accounting-totals--mobile pa-4"
-        aria-hidden="true"
       >
         <p class="accounting-totals__mobile-title text-body-2 font-weight-semibold mb-3">
           Totales
@@ -341,7 +339,7 @@
               class="accounting-table__num text-body-2 font-weight-medium"
               style="color: red;"
             >
-              15.420,50
+              {{ $formatAmount(totalDebe) }}
             </span>
           </div>
           <div class="text-end">
@@ -350,7 +348,7 @@
               class="accounting-table__num text-body-2 font-weight-medium"
               style="color: green;"
             >
-              22.100,00
+              {{ $formatAmount(totalHaber) }}
             </span>
           </div>
         </div>
@@ -407,6 +405,8 @@ export default {
       hasMore: true,
       loading: false,
       scrollKey: 0,
+      totalDebe: 0,
+      totalHaber: 0,
     }
   },
   validations() {
@@ -492,6 +492,12 @@ export default {
         const rows = response.data.data ?? []
 
         this.accounting = [...this.accounting, ...rows]
+
+        // totales solo vienen en la página 1 (SUM en backend)
+        if (response.data.totals) {
+          this.totalDebe = response.data.totals.debe ?? 0
+          this.totalHaber = response.data.totals.haber ?? 0
+        }
 
         const next = response.data.next_page_url
 
