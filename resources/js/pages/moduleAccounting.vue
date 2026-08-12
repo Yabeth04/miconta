@@ -132,7 +132,6 @@
         class="accounting-table"
         density="comfortable"
         fixed-header
-        height="min(400px, 55vh)"
         hover
       >
         <thead>
@@ -553,6 +552,12 @@ export default {
 <style scoped>
 .accounting-table-card {
   border-color: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+/* Crece con el contenido; solo hace scroll al llegar al tope (evita el hueco vacío) */
+.accounting-table :deep(.v-table__wrapper) {
+  max-height: min(400px, 55vh);
+  overflow-y: auto;
 }
 
 .accounting-table :deep(thead th) {
