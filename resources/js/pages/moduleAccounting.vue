@@ -146,10 +146,10 @@
             <th class="accounting-table__th text-start">
               Descripción
             </th>
-            <th class="accounting-table__th text-end">
+            <th class="accounting-table__th text-end accounting-table__th--amount">
               Debe / Gasto
             </th>
-            <th class="accounting-table__th text-end">
+            <th class="accounting-table__th text-end accounting-table__th--amount">
               Haber / Ingreso
             </th>
             <th class="accounting-table__th text-start accounting-table__th--narrow">
@@ -169,13 +169,13 @@
               {{ item.description || '—' }}
             </td>
             <td
-              class="text-end accounting-table__num"
+              class="text-end accounting-table__num accounting-table__amount"
               style="color: red;"
             >
               {{ item.movement_type === 'debe' ? $formatAmount(item.amount) : '—' }}
             </td>
             <td
-              class="text-end accounting-table__num"
+              class="text-end accounting-table__num accounting-table__amount"
               style="color: green;"
             >
               {{ item.movement_type === 'haber' ? $formatAmount(item.amount) : '—' }}
@@ -574,6 +574,20 @@ export default {
 
 .accounting-table__th--narrow {
   width: 1%;
+  white-space: nowrap;
+}
+
+/* Montos compactos y juntos a la derecha */
+.accounting-table__th--amount,
+.accounting-table__amount {
+  width: 1%;
+  white-space: nowrap;
+  padding-inline: 0.75rem !important;
+}
+
+.accounting-table__th--amount + .accounting-table__th--amount,
+.accounting-table__amount + .accounting-table__amount {
+  padding-inline-start: 0.5rem !important;
 }
 
 .accounting-table :deep(tbody tr:nth-child(even)) {
@@ -599,8 +613,8 @@ export default {
 
 .accounting-totals__desktop-grid {
   display: grid;
-  grid-template-columns: 120px 1fr minmax(7rem, auto) minmax(7rem, auto) minmax(5rem, auto);
-  column-gap: 0.75rem;
+  grid-template-columns: 120px 1fr auto auto auto;
+  column-gap: 0.5rem;
   align-items: center;
 }
 
