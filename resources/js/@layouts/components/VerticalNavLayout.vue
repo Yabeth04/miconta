@@ -76,11 +76,19 @@ export default defineComponent({
   // TODO(v2): Check why we need height in vertical nav & min-height in horizontal nav
   block-size: 100%;
 
+  // Evita arrastrar la página horizontalmente en móvil (nav off-canvas + márgenes)
+  &.layout-overlay-nav {
+    overflow-x: clip;
+    max-inline-size: 100%;
+  }
+
   .layout-content-wrapper {
     display: flex;
     flex-direction: column;
     flex-grow: 1;
     min-block-size: 100dvh;
+    max-inline-size: 100%;
+    overflow-x: clip;
     transition: padding-inline-start 0.2s ease-in-out;
     will-change: padding-inline-start;
 
