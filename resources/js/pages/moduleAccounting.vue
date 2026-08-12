@@ -201,7 +201,10 @@
                 @load="showAccounting"
               >
                 <template #empty>
-                  <div class="text-body-2 text-medium-emphasis text-center py-4">
+                  <div
+                    v-if="accounting.length"
+                    class="text-body-2 text-medium-emphasis text-center py-4"
+                  >
                     No hay más movimientos.
                   </div>
                 </template>
@@ -273,6 +276,16 @@
             No hay movimientos todavía.
           </p>
         </div>
+
+        <!-- Solo si ya hay items y se acabó la paginación (evita el "No more" por defecto) -->
+        <template #empty>
+          <div
+            v-if="accounting.length"
+            class="text-body-2 text-medium-emphasis text-center py-4"
+          >
+            No hay más movimientos.
+          </div>
+        </template>
       </VInfiniteScroll>
 
       <VDivider />
