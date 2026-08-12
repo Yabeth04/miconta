@@ -1,5 +1,6 @@
 <template>
-  <VForm>
+  <!-- Escritorio: formulario inline (por defecto) -->
+  <VForm v-if="mdAndUp">
     <VContainer>
       <!-- Inputs -->
       <VRow
@@ -78,7 +79,7 @@
         >
           <VTextField
             v-model="v$.amount.$model"
-            :class="mdAndUp ? 'monto-with-action' : undefined"
+            class="monto-with-action"
             type="number"
             label="Monto"
             variant="outlined"
@@ -90,7 +91,6 @@
           >
             <template #append-inner>
               <VBtn
-                v-if="mdAndUp"
                 color="primary"
                 variant="flat"
                 class="monto-with-action__btn rounded-s-0 rounded-e-lg"
@@ -107,25 +107,18 @@
           </VTextField>
         </VCol>
       </VRow>
-
-      <!-- Móvil / tablet: botón completo -->
-      <div
-        v-if="mdAndDown"
-        class="d-flex justify-end mt-4"
-      >
-        <VBtn
-          color="primary"
-          rounded="lg"
-          block
-          @click="storeAccounting"
-        >
-          Contabilizar
-        </VBtn>
-      </div>
     </VContainer>
   </VForm>
 
-  <VContainer class="pa-0 mt-6">
+  <!-- Móvil: formulario en bottom sheet -->
+  <AccountingMobileFormSheet
+    v-if="mdAndDown"
+    :movement-types="movementTypes"
+    :payment-types="paymentTypes"
+    @saved="refreshAccounting"
+  />
+
+  <VContainer :class="mdAndDown ? 'pa-0 mt-4' : 'pa-0 mt-6'">
     <VCard
       variant="outlined"
       rounded="lg"
@@ -255,7 +248,7 @@
                     <span class="text-medium-emphasis text-caption d-block mb-1">Debe</span>
                     <span
                       class="accounting-table__num font-weight-medium"
-                      style="color: green;"
+                      style="color: red;"
                     >
                       {{ item.movement_type === 'debe' ? $formatAmount(item.amount) : '—' }}
                     </span>
@@ -264,7 +257,7 @@
                     <span class="text-medium-emphasis text-caption d-block mb-1">Haber</span>
                     <span
                       class="accounting-table__num font-weight-medium"
-                      style="color: red;"
+                      style="color: green;"
                     >
                       {{ item.movement_type === 'haber' ? $formatAmount(item.amount) : '—' }}
                     </span>
@@ -368,6 +361,7 @@
 
 <script>
 import submittedVuelidateForm from '@/mixins/submittedVuelidateForm'
+import AccountingMobileFormSheet from '@/views/pages/accounting/AccountingMobileFormSheet.vue'
 import { useVuelidate } from '@vuelidate/core'
 import { decimal, helpers, required } from '@vuelidate/validators'
 import axios from 'axios'
@@ -375,6 +369,9 @@ import { useDisplay } from 'vuetify'
 
 export default {
   name: 'ModuleAccounting',
+  components: {
+    AccountingMobileFormSheet,
+  },
   mixins: [submittedVuelidateForm],
 
   setup() {
@@ -383,7 +380,7 @@ export default {
     return {
       v$: useVuelidate(),
       mdAndUp, // para usar en el campo monto (pantallas md y superiores)
-      mdAndDown, // para usar en el botón completo (pantallas md y menores)
+      mdAndDown, // para usar en el formulario móvil (pantallas md y menores)
     }
   },
 
@@ -454,7 +451,7 @@ export default {
             closeOnClick: true,
             // pauseOnHover: true, hace que se pause el hover
             // draggable: true, hace que se pueda arrastrar el toast
-            // maxToasts: 3, hace que se pueda mostrar un maximo de 3 toasts
+            // maxToasts: 3, limita que se pueda mostrar un maximo de 3 toasts
             // newestOnTop: true, hace que se muestre el toast mas nuevo al principio
           })
         })
@@ -570,7 +567,7 @@ export default {
 }
 
 .accounting-mobile-list {
-  max-height: min(400px, 55vh);
+  max-height: min(520px, 65vh);
 }
 
 .accounting-totals {

@@ -1,0 +1,248 @@
+<template>
+  <div>
+    <!-- CTA para abrir el bottom sheet -->
+    <VContainer class="pb-0">
+      <VBtn
+        color="primary"
+        rounded="lg"
+        block
+        prepend-icon="ri-add-line"
+        @click="openFormSheet"
+      >
+        Registrar movimiento
+      </VBtn>
+    </VContainer>
+
+    <!-- Formulario en bottom sheet -->
+    <VBottomSheet
+      v-model="formSheet"
+      :scrim="true"
+    >
+      <VCard
+        rounded="t-lg"
+        class="accounting-form-sheet"
+      >
+        <div class="d-flex align-center justify-space-between px-4 pt-4 pb-2">
+          <span class="text-h6">
+            Registrar movimiento
+          </span>
+          <VBtn
+            icon
+            variant="text"
+            aria-label="Cerrar"
+            @click="closeFormSheet"
+          >
+            <VIcon icon="ri-close-line" />
+          </VBtn>
+        </div>
+
+        <VDivider />
+
+        <VForm class="pa-4">
+          <VRow
+            align="start"
+            dense
+          >
+            <!-- Fecha -->
+            <VCol cols="12">
+              <VDateInput
+                v-model="date"
+                label="Fecha"
+                variant="outlined"
+                rounded="lg"
+                prepend-icon=""
+                append-inner-icon="ri-calendar-line"
+                :error-messages="errors(v$.date)"
+                hide-details="auto"
+                show-adjacent-months
+              />
+            </VCol>
+
+            <!-- Descripción -->
+            <VCol cols="12">
+              <VTextField
+                v-model="description"
+                type="text"
+                label="Descripción"
+                variant="outlined"
+                rounded="lg"
+                hide-details="auto"
+              />
+            </VCol>
+
+            <!-- Tipo de movimiento -->
+            <VCol cols="12">
+              <VSelect
+                v-model="selectedMovementType"
+                label="Tipo de movimiento"
+                :items="movementTypes"
+                variant="outlined"
+                rounded="lg"
+                :error-messages="errors(v$.selectedMovementType)"
+                hide-details="auto"
+              />
+            </VCol>
+
+            <!-- Tipo de pago -->
+            <VCol cols="12">
+              <VSelect
+                v-model="selectedPaymentType"
+                label="Tipo de pago"
+                :items="paymentTypes"
+                variant="outlined"
+                rounded="lg"
+                :error-messages="errors(v$.selectedPaymentType)"
+                hide-details="auto"
+              />
+            </VCol>
+
+            <!-- Monto -->
+            <VCol cols="12">
+              <VTextField
+                v-model="v$.amount.$model"
+                type="number"
+                label="Monto"
+                variant="outlined"
+                rounded="lg"
+                hide-spin-buttons
+                hide-details="auto"
+                :error-messages="errors(v$.amount)"
+                @keyup.enter="storeAccounting"
+              />
+            </VCol>
+          </VRow>
+
+          <VBtn
+            class="mt-4"
+            color="primary"
+            rounded="lg"
+            block
+            @click="storeAccounting"
+          >
+            Contabilizar
+          </VBtn>
+        </VForm>
+      </VCard>
+    </VBottomSheet>
+  </div>
+</template>
+
+<script>
+import submittedVuelidateForm from '@/mixins/submittedVuelidateForm'
+import { useVuelidate } from '@vuelidate/core'
+import { decimal, helpers, required } from '@vuelidate/validators'
+import axios from 'axios'
+
+export default {
+  name: 'AccountingMobileFormSheet',
+  mixins: [submittedVuelidateForm],
+
+  props: {
+    movementTypes: {
+      type: Array,
+      required: true,
+    },
+    paymentTypes: {
+      type: Array,
+      required: true,
+    },
+  },
+
+  emits: ['saved'],
+
+  setup() {
+    return {
+      v$: useVuelidate(),
+    }
+  },
+
+  data() {
+    return {
+      formSheet: false,
+      date: new Date(),
+      selectedPaymentType: null,
+      selectedMovementType: null,
+      amount: '',
+      description: '',
+    }
+  },
+
+  validations() {
+    return {
+      date: {
+        required: helpers.withMessage('Fecha requerida', required),
+      },
+      selectedMovementType: {
+        required: helpers.withMessage('Tipo de movimiento requerido', required),
+      },
+      amount: {
+        required: helpers.withMessage('Monto requerido', required),
+        decimal: helpers.withMessage('Ingresa un monto válido', decimal),
+      },
+      selectedPaymentType: {
+        required: helpers.withMessage('Tipo de pago requerido', required),
+      },
+    }
+  },
+
+  methods: {
+    openFormSheet() {
+      this.resetForm()
+      this.formSheet = true
+    },
+    closeFormSheet() {
+      this.formSheet = false
+      this.resetForm()
+    },
+    async storeAccounting() {
+      this.submitted = true
+      const isValid = await this.v$.$validate()
+
+      if (!isValid) {
+        return
+      }
+
+      axios
+        .post('/api/accounting', {
+          date: this.$formatDate(this.date),
+          'movement_type': this.selectedMovementType,
+          'payment_type': this.selectedPaymentType,
+          amount: this.amount,
+          description: this.description,
+        })
+        .then(() => {
+          this.resetForm()
+          this.formSheet = false
+          this.$emit('saved')
+          this.$toast.success('Guardado correctamente', {
+            timeout: 2000,
+            closeOnClick: true,
+            // pauseOnHover: true, hace que se pause el hover
+            // draggable: true, hace que se pueda arrastrar el toast
+            // maxToasts: 3, limita que se pueda mostrar un maximo de 3 toasts
+            // newestOnTop: true, hace que se muestre el toast mas nuevo al principio
+          })
+        })
+        .catch(error => {
+          console.log(error)
+        })
+    },
+    resetForm() {
+      this.date = new Date()
+      this.selectedMovementType = null
+      this.selectedPaymentType = null
+      this.amount = ''
+      this.description = ''
+      this.submitted = false
+      this.v$.$reset()
+    },
+  },
+}
+</script>
+
+<style scoped>
+.accounting-form-sheet {
+  max-height: min(90vh, 720px);
+  overflow-y: auto;
+}
+</style>
