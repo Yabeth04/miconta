@@ -203,6 +203,7 @@
           <tr>
             <td colspan="5">
               <VInfiniteScroll
+                :key="scrollKey"
                 side="end"
                 @load="showAccounting"
               >
@@ -220,6 +221,7 @@
       <!-- Móvil / tablet estrecha: lista de tarjetas + scroll infinito -->
       <VInfiniteScroll
         v-if="mdAndDown"
+        :key="scrollKey"
         side="end"
         class="accounting-mobile-list"
         @load="showAccounting"
@@ -406,6 +408,8 @@ export default {
       accounting: [],
       page: 1,
       hasMore: true,
+      loading: false,
+      scrollKey: 0,
     }
   },
   validations() {
@@ -424,9 +428,6 @@ export default {
         required: helpers.withMessage('Tipo de pago requerido', required),
       },
     }
-  },
-  mounted() {
-    this.showAccounting()
   },
   methods: {
     async storeAccounting() {
@@ -447,10 +448,7 @@ export default {
         })
         .then(() => {
           this.resetForm()
-          this.page = 1
-          this.accounting = []
-          this.hasMore = true
-          this.showAccounting()
+          this.refreshAccounting()
           this.$toast.success('Guardado correctamente', {
             timeout: 2000,
             closeOnClick: true,
@@ -464,18 +462,34 @@ export default {
           console.log(error)
         })
     },
+    refreshAccounting() {
+      this.page = 1
+      this.accounting = []
+      this.hasMore = true
+      this.loading = false
+      this.scrollKey += 1
+    },
     async showAccounting({ done } = {}) {
-      if (!this.hasMore && done) {
-        done('empty')
+      if (this.loading) {
+        if (done)
+          done('ok')
 
         return
       }
 
+      if (!this.hasMore) {
+        if (done)
+          done('empty')
+
+        return
+      }
+
+      this.loading = true
+      const page = this.page
+
       try {
         const response = await axios.get('/api/accounting', {
-          params: {
-            page: this.page,
-          },
+          params: { page },
         })
 
         const rows = response.data.data ?? []
@@ -485,18 +499,21 @@ export default {
         const next = response.data.next_page_url
 
         if (next) {
-          this.page += 1
+          this.page = page + 1
           this.hasMore = true
+          if (done)
+            done('ok')
         } else {
           this.hasMore = false
+          if (done)
+            done('empty')
         }
-
-        if (done)
-          done(next ? 'ok' : 'empty')
       } catch (error) {
         console.log(error)
         if (done)
           done('error')
+      } finally {
+        this.loading = false
       }
     },
     resetForm() {
