@@ -202,7 +202,7 @@
                 <template #empty>
                   <div
                     v-if="accounting.length"
-                    class="text-body-2 text-medium-emphasis text-center py-4"
+                    class="text-body-2 text-medium-emphasis text-center py-1"
                   >
                     No hay más movimientos.
                   </div>
@@ -280,7 +280,7 @@
         <template #empty>
           <div
             v-if="accounting.length"
-            class="text-body-2 text-medium-emphasis text-center py-4"
+            class="text-body-2 text-medium-emphasis text-center py-1"
           >
             No hay más movimientos.
           </div>
