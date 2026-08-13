@@ -370,10 +370,16 @@
       </div>
     </VCard>
   </VContainer>
+
+  <AccountingImportDialog
+    v-model="importDialogOpen"
+    @imported="refreshAccounting"
+  />
 </template>
 
 <script>
 import submittedVuelidateForm from '@/mixins/submittedVuelidateForm'
+import AccountingImportDialog from '@/views/pages/accounting/AccountingImportDialog.vue'
 import AccountingMobileFormSheet from '@/views/pages/accounting/AccountingMobileFormSheet.vue'
 import { useVuelidate } from '@vuelidate/core'
 import { helpers, required } from '@vuelidate/validators'
@@ -383,6 +389,7 @@ import { useDisplay } from 'vuetify'
 export default {
   name: 'ModuleAccounting',
   components: {
+    AccountingImportDialog,
     AccountingMobileFormSheet,
   },
   mixins: [submittedVuelidateForm],
@@ -422,7 +429,14 @@ export default {
       scrollKey: 0,
       totalDebe: 0,
       totalHaber: 0,
+      importDialogOpen: false,
     }
+  },
+  mounted() {
+    window.addEventListener('accounting:open-import', this.openImportDialog)
+  },
+  beforeUnmount() {
+    window.removeEventListener('accounting:open-import', this.openImportDialog)
   },
   validations() {
     return {
@@ -446,6 +460,9 @@ export default {
     }
   },
   methods: {
+    openImportDialog() {
+      this.importDialogOpen = true
+    },
     async storeAccounting() {
       this.submitted = true
       const isValid = await this.v$.$validate()

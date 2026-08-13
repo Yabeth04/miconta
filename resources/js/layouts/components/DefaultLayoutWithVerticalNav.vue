@@ -3,10 +3,18 @@ import AppFooter from '@/layouts/components/AppFooter.vue'
 import NavItems from '@/layouts/components/NavItems.vue'
 import logo from '@images/logo.svg?raw'
 import VerticalNavLayout from '@layouts/components/VerticalNavLayout.vue'
+import { useRoute } from 'vue-router'
 
 // Components
 import NavbarThemeSwitcher from '@/layouts/components/NavbarThemeSwitcher.vue'
 import UserProfile from '@/layouts/components/UserProfile.vue'
+
+const route = useRoute()
+const isAccounting = computed(() => route.path.includes('contabilidad'))
+
+const openAccountingImport = () => {
+  window.dispatchEvent(new CustomEvent('accounting:open-import'))
+}
 </script>
 
 <template>
@@ -39,6 +47,23 @@ import UserProfile from '@/layouts/components/UserProfile.vue'
         </div>
 
         <VSpacer />
+
+        <!-- Importar Excel (solo en contabilidad) -->
+        <IconBtn
+          v-if="isAccounting"
+          class="me-1"
+          aria-label="Importar Excel"
+          @click="openAccountingImport"
+        >
+          <VIcon icon="ri-file-excel-2-line" />
+          <VTooltip
+            activator="parent"
+            open-delay="400"
+            location="bottom"
+          >
+            Importar Excel
+          </VTooltip>
+        </IconBtn>
 
         <IconBtn>
           <VIcon icon="ri-notification-line" />

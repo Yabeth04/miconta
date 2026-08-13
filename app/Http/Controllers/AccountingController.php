@@ -1,9 +1,12 @@
 <?php
 namespace App\Http\Controllers;
 
+use App\Jobs\ImportAccountingExcelJob;
 use App\Models\Accounting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class AccountingController extends Controller
 {
@@ -45,6 +48,56 @@ class AccountingController extends Controller
             ]));
 
         return response()->json($accounting, 201);
+    }
+
+    /**
+     * Sube el Excel y encola un job de importación en segundo plano.
+     */
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:10240'],
+        ]);
+
+        $importId  = (string) Str::uuid();
+        $extension = $request->file('file')->getClientOriginalExtension() ?: 'xlsx';
+        $path      = $request->file('file')->storeAs(
+            'imports/accounting',
+            "{$importId}.{$extension}",
+            'local'
+        );
+
+        Cache::put("accounting-import:{$importId}", [
+            'id'       => $importId,
+            'status'   => 'queued',
+            'progress' => 0,
+            'total'    => 0,
+            'imported' => 0,
+            'message'  => 'En cola...',
+            'errors'   => [],
+        ], now()->addHours(2));
+
+        ImportAccountingExcelJob::dispatch($importId, 'local', $path);
+
+        return response()->json([
+            'import_id' => $importId,
+        ], 202);
+    }
+
+    /**
+     * Estado / progreso del job de importación.
+     */
+    public function importStatus(string $importId)
+    {
+        $status = Cache::get("accounting-import:{$importId}");
+
+        if (! $status) {
+            return response()->json([
+                'message' => 'Importación no encontrada.',
+            ], 404);
+        }
+
+        return response()->json($status, 200);
     }
 
     public function show(Accounting $accounting)
