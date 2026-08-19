@@ -71,7 +71,6 @@
     <VForm
       v-if="mdAndUp"
       class="mb-4"
-      @submit.prevent="storeAccounting"
     >
       <VCard
         variant="outlined"
@@ -134,7 +133,7 @@
             hide-details="auto"
             :error-messages="errors(v$.amount)"
             @blur="normalizeAmount"
-            @keyup.enter="storeAccounting"
+            @keydown.enter.prevent="storeAccounting"
           >
             <template #append-inner>
               <VBtn
@@ -142,9 +141,9 @@
                 variant="flat"
                 class="monto-with-action__btn rounded-s-0 rounded-e-lg"
                 aria-label="Contabilizar"
-                type="submit"
+                type="button"
                 tabindex="-1"
-                @click.stop="storeAccounting"
+                @click="storeAccounting"
               >
                 <VIcon
                   icon="ri-arrow-right-line"
@@ -577,6 +576,7 @@ export default {
       page: 1,
       hasMore: true,
       loading: false,
+      saving: false,
       scrollKey: 0,
       totalDebe: 0,
       totalHaber: 0,
@@ -673,6 +673,9 @@ export default {
   },
   methods: {
     async storeAccounting() {
+      if (this.saving)
+        return
+
       this.submitted = true
       const isValid = await this.v$.$validate()
 
@@ -680,29 +683,28 @@ export default {
         return
       }
 
-      axios
-        .post('/api/accounting', {
+      this.saving = true
+
+      try {
+        await axios.post('/api/accounting', {
           date: this.$formatDate(this.date),
           'movement_type': this.selectedMovementType,
           'payment_type': this.selectedPaymentType,
           amount: this.$parseAmount(this.amount),
           description: this.description,
         })
-        .then(() => {
-          this.resetForm()
-          this.refreshAccounting()
-          this.$toast.success('Guardado correctamente', {
-            timeout: 2000,
-            closeOnClick: true,
-            // pauseOnHover: true, hace que se pause el hover
-            // draggable: true, hace que se pueda arrastrar el toast
-            // maxToasts: 3, limita que se pueda mostrar un maximo de 3 toasts
-            // newestOnTop: true, hace que se muestre el toast mas nuevo al principio
-          })
+
+        this.resetForm()
+        this.refreshAccounting()
+        this.$toast.success('Guardado correctamente', {
+          timeout: 2000,
+          closeOnClick: true,
         })
-        .catch(error => {
-          console.log(error)
-        })
+      } catch (error) {
+        console.log(error)
+      } finally {
+        this.saving = false
+      }
     },
     refreshAccounting() {
       this.page = 1
