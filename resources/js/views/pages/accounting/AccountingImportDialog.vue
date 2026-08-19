@@ -2,7 +2,7 @@
   <VDialog
     :model-value="modelValue"
     max-width="480"
-    :persistent="busy"
+    :persistent="importing"
     @update:model-value="$emit('update:modelValue', $event)"
   >
     <VCard rounded="lg">
@@ -11,7 +11,7 @@
         <VBtn
           icon
           variant="text"
-          :disabled="busy"
+          :disabled="importing"
           aria-label="Cerrar"
           @click="close"
         >
@@ -29,7 +29,6 @@
           <strong>Débito / Salida</strong>,
           <strong>Crédito / Entrada</strong>,
           <strong>Método pago</strong>.
-          La importación corre en segundo plano.
         </p>
 
         <VFileInput
@@ -41,51 +40,22 @@
           variant="outlined"
           rounded="lg"
           show-size
-          :disabled="busy"
+          :disabled="importing"
           :error-messages="fileError"
           hide-details="auto"
         />
 
         <div
-          v-if="importId"
-          class="mt-5"
+          v-if="importing"
+          class="d-flex align-center justify-center gap-3 mt-6"
         >
-          <div class="d-flex justify-space-between align-center mb-2">
-            <span class="text-body-2">{{ statusMessage }}</span>
-            <span class="text-caption text-medium-emphasis">{{ progress }}%</span>
-          </div>
-
-          <VProgressLinear
-            :model-value="progress"
+          <VProgressCircular
+            indeterminate
             color="primary"
-            height="8"
-            rounded
-            :indeterminate="status === 'queued'"
+            size="28"
+            width="3"
           />
-
-          <p
-            v-if="importedCount > 0"
-            class="text-caption text-medium-emphasis mt-2 mb-0"
-          >
-            Insertados: {{ importedCount }}
-          </p>
-
-          <VAlert
-            v-if="statusErrors.length"
-            class="mt-4"
-            type="warning"
-            variant="tonal"
-            density="comfortable"
-          >
-            <ul class="ps-4 mb-0 text-caption">
-              <li
-                v-for="(err, i) in statusErrors.slice(0, 6)"
-                :key="i"
-              >
-                {{ err }}
-              </li>
-            </ul>
-          </VAlert>
+          <span class="text-body-2">Importando...</span>
         </div>
       </VCardText>
 
@@ -96,17 +66,16 @@
         <VBtn
           variant="text"
           rounded="lg"
-          :disabled="busy"
+          :disabled="importing"
           @click="close"
         >
-          {{ isDone ? 'Cerrar' : 'Cancelar' }}
+          Cancelar
         </VBtn>
         <VBtn
-          v-if="!isDone"
           color="primary"
           rounded="lg"
-          :loading="uploading"
-          :disabled="!hasFile || busy"
+          :loading="importing"
+          :disabled="!hasFile || importing"
           @click="startImport"
         >
           Importar
@@ -117,7 +86,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import axios from 'axios'
 
 export default {
   name: 'AccountingImportDialog',
@@ -135,14 +104,7 @@ export default {
     return {
       file: null,
       fileError: '',
-      uploading: false,
-      importId: null,
-      status: '',
-      progress: 0,
-      importedCount: 0,
-      statusMessage: '',
-      statusErrors: [],
-      pollTimer: null,
+      importing: false,
     }
   },
 
@@ -151,12 +113,6 @@ export default {
       const selected = Array.isArray(this.file) ? this.file[0] : this.file
 
       return Boolean(selected)
-    },
-    busy() {
-      return this.uploading || ['queued', 'processing'].includes(this.status)
-    },
-    isDone() {
-      return ['completed', 'failed'].includes(this.status)
     },
   },
 
@@ -167,47 +123,26 @@ export default {
     },
   },
 
-  beforeUnmount() {
-    this.stopPolling()
-  },
-
   methods: {
     reset() {
-      this.stopPolling()
       this.file = null
       this.fileError = ''
-      this.uploading = false
-      this.importId = null
-      this.status = ''
-      this.progress = 0
-      this.importedCount = 0
-      this.statusMessage = ''
-      this.statusErrors = []
+      this.importing = false
     },
     close() {
-      if (this.busy)
+      if (this.importing)
         return
 
       this.$emit('update:modelValue', false)
     },
-    stopPolling() {
-      if (this.pollTimer) {
-        clearInterval(this.pollTimer)
-        this.pollTimer = null
-      }
-    },
     async startImport() {
       const selected = Array.isArray(this.file) ? this.file[0] : this.file
 
-      if (!selected || this.busy)
+      if (!selected || this.importing)
         return
 
       this.fileError = ''
-      this.uploading = true
-      this.status = 'queued'
-      this.progress = 0
-      this.statusMessage = 'Subiendo archivo...'
-      this.statusErrors = []
+      this.importing = true
 
       try {
         const formData = new FormData()
@@ -218,60 +153,23 @@ export default {
           headers: { 'Content-Type': 'multipart/form-data' },
         })
 
-        this.importId = data.import_id
-        this.statusMessage = 'En cola...'
-        this.startPolling()
+        this.$toast.success(`Importados ${data.imported} movimiento(s)`, {
+          timeout: 2500,
+          closeOnClick: true,
+        })
+        this.$emit('imported', data.imported)
+        this.$emit('update:modelValue', false)
       }
       catch (error) {
         console.log(error)
-        this.status = 'failed'
-        this.fileError = error?.response?.data?.message || 'No se pudo subir el archivo.'
-        this.$toast.error('No se pudo iniciar la importación', {
+        this.fileError = error?.response?.data?.message || 'No se pudo importar el archivo.'
+        this.$toast.error(this.fileError, {
           timeout: 3000,
           closeOnClick: true,
         })
       }
       finally {
-        this.uploading = false
-      }
-    },
-    startPolling() {
-      this.stopPolling()
-      this.pollStatus()
-      this.pollTimer = setInterval(() => this.pollStatus(), 1000)
-    },
-    async pollStatus() {
-      if (!this.importId)
-        return
-
-      try {
-        const { data } = await axios.get(`/api/accounting/import/${this.importId}`)
-
-        this.status = data.status
-        this.progress = data.progress ?? 0
-        this.importedCount = data.imported ?? 0
-        this.statusMessage = data.message || ''
-        this.statusErrors = data.errors || []
-
-        if (data.status === 'completed') {
-          this.stopPolling()
-          this.$toast.success(data.message || 'Importación completada', {
-            timeout: 2500,
-            closeOnClick: true,
-          })
-          this.$emit('imported', data.imported)
-        }
-
-        if (data.status === 'failed') {
-          this.stopPolling()
-          this.$toast.error(data.message || 'Falló la importación', {
-            timeout: 3000,
-            closeOnClick: true,
-          })
-        }
-      }
-      catch (error) {
-        console.log(error)
+        this.importing = false
       }
     },
   },

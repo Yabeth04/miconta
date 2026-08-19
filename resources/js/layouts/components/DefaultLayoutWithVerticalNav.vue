@@ -3,17 +3,22 @@ import AppFooter from '@/layouts/components/AppFooter.vue'
 import NavItems from '@/layouts/components/NavItems.vue'
 import logo from '@images/logo.svg?raw'
 import VerticalNavLayout from '@layouts/components/VerticalNavLayout.vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 // Components
 import NavbarThemeSwitcher from '@/layouts/components/NavbarThemeSwitcher.vue'
 import UserProfile from '@/layouts/components/UserProfile.vue'
+import AccountingImportDialog from '@/views/pages/accounting/AccountingImportDialog.vue'
 
 const route = useRoute()
-const isAccounting = computed(() => route.path.includes('contabilidad'))
+const router = useRouter()
+const importDialogOpen = ref(false)
 
-const openAccountingImport = () => {
-  window.dispatchEvent(new CustomEvent('accounting:open-import'))
+const onImported = () => {
+  window.dispatchEvent(new CustomEvent('accounting:imported'))
+
+  if (!route.path.includes('contabilidad'))
+    router.push('/contabilidad')
 }
 </script>
 
@@ -48,12 +53,10 @@ const openAccountingImport = () => {
 
         <VSpacer />
 
-        <!-- Importar Excel (solo en contabilidad) -->
         <IconBtn
-          v-if="isAccounting"
           class="me-1"
           aria-label="Importar Excel"
-          @click="openAccountingImport"
+          @click="importDialogOpen = true"
         >
           <VIcon icon="ri-file-excel-2-line" />
           <VTooltip
@@ -106,6 +109,11 @@ const openAccountingImport = () => {
 
     <!-- 👉 Pages -->
     <slot />
+
+    <AccountingImportDialog
+      v-model="importDialogOpen"
+      @imported="onImported"
+    />
 
     <!-- 👉 Footer -->
     <template #footer>

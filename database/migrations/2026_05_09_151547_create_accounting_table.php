@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('accounting', function (Blueprint $table) {
+        Schema::create('accounting_movements', function (Blueprint $table) {
             $table->id();
             $table->date('date');
             $table->enum('movement_type', ['haber', 'debe']);
@@ -27,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('accounting');
+        Schema::dropIfExists('accounting_movements');
     }
 };

@@ -5,6 +5,7 @@ namespace App\Imports;
 use Carbon\Carbon;
 use DateTimeInterface;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
@@ -23,15 +24,15 @@ use Throwable;
  * Sin fecha real (X/...): se inserta al final.
  * Sin método de pago: se guarda como "otros".
  */
-class AccountingMovementsImport implements ToCollection, WithHeadingRow
+class AccountingMovementsSheetImport implements ToCollection, WithHeadingRow
 {
-    public int $imported = 0;
-
-    /** @var string[] */
-    public array $errors = [];
+    // moved
+{
+    public function __construct(private readonly string $importId) {}
 
     public function collection(Collection $rows): void
     {
+        $total = max($rows->count(), 1);
         $imported = 0;
         $skipped = 0;
         $errors = [];
@@ -39,6 +40,15 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
         $deferred = [];
         $lastKnownDate = null;
         $now = now();
+
+        $this->updateProgress([
+            'status' => 'processing',
+            'progress' => 0,
+            'total' => $total,
+            'imported' => 0,
+            'message' => 'Procesando filas...',
+            'errors' => [],
+        ]);
 
         foreach ($rows as $index => $row) {
             $excelRow = $index + 2;
@@ -109,6 +119,16 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
             } catch (Throwable $e) {
                 $errors[] = "Fila {$excelRow}: ".$e->getMessage();
             }
+
+            $done = $index + 1;
+            $this->updateProgress([
+                'status' => 'processing',
+                'progress' => (int) round(($done / $total) * 100),
+                'total' => $total,
+                'imported' => $imported + count($batch),
+                'message' => "Procesando fila {$done} de {$total}...",
+                'errors' => array_slice($errors, 0, 20),
+            ]);
         }
 
         if ($batch !== []) {
@@ -133,8 +153,16 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
             $errors[] = 'No se detectaron filas con fecha en la columna A (DD/MM/YYYY o X/XX/XXXX).';
         }
 
-        $this->imported = $imported;
-        $this->errors = array_slice($errors, 0, 20);
+        $this->updateProgress([
+            'status' => $imported > 0 ? 'completed' : 'failed',
+            'progress' => 100,
+            'total' => $total,
+            'imported' => $imported,
+            'message' => $imported > 0
+                ? "Importación terminada: {$imported} movimiento(s)."
+                : 'No se importó ningún movimiento.',
+            'errors' => array_slice($errors, 0, 20),
+        ]);
     }
 
     /**
@@ -167,6 +195,18 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
         }
 
         return 'none';
+    }
+
+    private function updateProgress(array $data): void
+    {
+        Cache::put($this->cacheKey(), array_merge([
+            'id' => $this->importId,
+        ], $data), now()->addHours(2));
+    }
+
+    private function cacheKey(): string
+    {
+        return "accounting-import:{$this->importId}";
     }
 
     private function rowIsEmpty(Collection $row): bool

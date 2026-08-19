@@ -1,19 +1,23 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Jobs\ImportAccountingExcelJob;
+use App\Imports\AccountingMovementsImport;
+use App\Imports\AccountingWorkbookImport;
 use App\Models\Accounting;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use RuntimeException;
 
 class AccountingController extends Controller
 {
     public function index()
     {
         // para listar los movimientos contables
-        $accounting = DB::table('accounting')
+        $accounting = DB::table('accounting_movements')
             ->orderByDesc('date')
             ->orderByDesc('id')
             ->paginate(10);
@@ -22,7 +26,7 @@ class AccountingController extends Controller
 
         // totales globales (SUM en BD; no carga todas las filas)
         if ($accounting->currentPage() === 1) {
-            $totals = DB::table('accounting')
+            $totals = DB::table('accounting_movements')
                 ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'debe' THEN amount ELSE 0 END), 0) as total_debe")
                 ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'haber' THEN amount ELSE 0 END), 0) as total_haber")
                 ->first();
@@ -41,7 +45,7 @@ class AccountingController extends Controller
         // para crear un movimiento contable
         $validated = $this->validateAccounting($request);
 
-        $accounting = DB::table('accounting')
+        $accounting = DB::table('accounting_movements')
             ->insert(array_merge($validated, [
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -51,7 +55,7 @@ class AccountingController extends Controller
     }
 
     /**
-     * Sube el Excel y encola un job de importación en segundo plano.
+     * Importa la hoja Principal del Excel y responde al terminar.
      */
     public function import(Request $request)
     {
@@ -59,51 +63,46 @@ class AccountingController extends Controller
             'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:10240'],
         ]);
 
-        $importId  = (string) Str::uuid();
+        $importId = (string) Str::uuid();
         $extension = $request->file('file')->getClientOriginalExtension() ?: 'xlsx';
-        $path      = $request->file('file')->storeAs(
+        $path = $request->file('file')->storeAs(
             'imports/accounting',
             "{$importId}.{$extension}",
             'local'
         );
 
-        Cache::put("accounting-import:{$importId}", [
-            'id'       => $importId,
-            'status'   => 'queued',
-            'progress' => 0,
-            'total'    => 0,
-            'imported' => 0,
-            'message'  => 'En cola...',
-            'errors'   => [],
-        ], now()->addHours(2));
+        try {
+            $fullPath = Storage::disk('local')->path($path);
+            $sheetName = $this->resolvePrincipalSheetName($fullPath);
+            $movementsImport = new AccountingMovementsImport;
 
-        ImportAccountingExcelJob::dispatch($importId, 'local', $path);
+            Excel::import(
+                new AccountingWorkbookImport($sheetName, $movementsImport),
+                $path,
+                'local'
+            );
 
-        return response()->json([
-            'import_id' => $importId,
-        ], 202);
-    }
+            if ($movementsImport->imported === 0) {
+                return response()->json([
+                    'imported' => 0,
+                    'errors' => $movementsImport->errors,
+                    'message' => 'No se importó ningún movimiento.',
+                ], 422);
+            }
 
-    /**
-     * Estado / progreso del job de importación.
-     */
-    public function importStatus(string $importId)
-    {
-        $status = Cache::get("accounting-import:{$importId}");
-
-        if (! $status) {
             return response()->json([
-                'message' => 'Importación no encontrada.',
-            ], 404);
+                'imported' => $movementsImport->imported,
+                'errors' => $movementsImport->errors,
+            ], 201);
+        } finally {
+            Storage::disk('local')->delete($path);
         }
-
-        return response()->json($status, 200);
     }
 
     public function show(Accounting $accounting)
     {
         // para mostrar un movimiento contable
-        $accounting = DB::table('accounting')
+        $accounting = DB::table('accounting_movements')
             ->where('id', $accounting->id)
             ->first();
 
@@ -115,7 +114,7 @@ class AccountingController extends Controller
         // para actualizar un movimiento contable
         $validated = $this->validateAccounting($request);
 
-        $accounting = DB::table('accounting')
+        $accounting = DB::table('accounting_movements')
             ->where('id', $accounting->id)
             ->update($validated);
 
@@ -125,7 +124,7 @@ class AccountingController extends Controller
     public function destroy(Accounting $accounting)
     {
         // para eliminar un movimiento contable
-        $accounting = DB::table('accounting')
+        $accounting = DB::table('accounting_movements')
             ->where('id', $accounting->id)
             ->delete();
 
@@ -141,5 +140,21 @@ class AccountingController extends Controller
             'amount'        => ['required', 'numeric', 'min:0'],
             'description'   => ['nullable', 'string', 'max:255'],
         ]);
+    }
+
+    private function resolvePrincipalSheetName(string $fullPath): string
+    {
+        $reader = IOFactory::createReaderForFile($fullPath);
+        $names = $reader->listWorksheetNames($fullPath);
+
+        foreach ($names as $name) {
+            if (mb_strtolower(trim($name)) === 'principal') {
+                return $name;
+            }
+        }
+
+        throw new RuntimeException(
+            'No se encontró la hoja "Principal". Hojas: '.implode(', ', $names)
+        );
     }
 }
