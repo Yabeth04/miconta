@@ -29,11 +29,13 @@ class AccountingController extends Controller
             $totals = DB::table('accounting_movements')
                 ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'debe' THEN amount ELSE 0 END), 0) as total_debe")
                 ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'haber' THEN amount ELSE 0 END), 0) as total_haber")
+                ->selectRaw('COUNT(*) as count_total')
                 ->first();
 
             $payload['totals'] = [
                 'debe'  => (float) $totals->total_debe,
                 'haber' => (float) $totals->total_haber,
+                'count' => (int) $totals->count_total,
             ];
         }
 

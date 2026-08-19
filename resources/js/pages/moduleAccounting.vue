@@ -310,7 +310,7 @@
               Totales
             </span>
             <span class="text-caption text-medium-emphasis">
-              Todos los movimientos
+              {{ totalCount ? `${totalCount} movimientos` : 'Sin movimientos' }}
             </span>
           </div>
           <div class="accounting-totals__desktop-metric text-end">
@@ -344,9 +344,14 @@
         v-if="mdAndDown"
         class="accounting-totals accounting-totals--mobile pa-4"
       >
-        <p class="accounting-totals__mobile-title text-body-2 font-weight-semibold mb-3">
-          Totales
-        </p>
+        <div class="d-flex justify-space-between align-baseline gap-3 mb-3">
+          <p class="accounting-totals__mobile-title text-body-2 font-weight-semibold mb-0">
+            Totales
+          </p>
+          <span class="text-caption text-medium-emphasis">
+            {{ totalCount ? `${totalCount} movimientos` : 'Sin movimientos' }}
+          </span>
+        </div>
         <div class="d-flex justify-space-between align-center gap-4">
           <div>
             <span class="text-medium-emphasis text-caption d-block mb-1">Debe / Gasto</span>
@@ -423,6 +428,7 @@ export default {
       scrollKey: 0,
       totalDebe: 0,
       totalHaber: 0,
+      totalCount: 0,
     }
   },
   mounted() {
@@ -523,6 +529,7 @@ export default {
         if (response.data.totals) {
           this.totalDebe = response.data.totals.debe ?? 0
           this.totalHaber = response.data.totals.haber ?? 0
+          this.totalCount = response.data.totals.count ?? 0
         }
 
         const next = response.data.next_page_url
