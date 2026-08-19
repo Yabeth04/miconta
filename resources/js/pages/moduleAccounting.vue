@@ -153,6 +153,7 @@
         </VBadge>
       </div>
 
+      <!-- Buscador móvil -->
       <VTextField
         v-model="filterDescription"
         class="mt-3"
@@ -167,6 +168,7 @@
       />
     </VContainer>
 
+    <!-- Filtros móvil -->
     <AccountingMobileFiltersSheet
       v-model="filterSheet"
       v-model:date-range="filterDateRange"
@@ -178,6 +180,7 @@
     />
   </template>
 
+  <!-- Tabla -->
   <VContainer :class="mdAndDown ? 'pa-0 mt-4' : 'pa-0 mt-6'">
     <VCard
       variant="outlined"
