@@ -113,13 +113,70 @@
     </VContainer>
   </VForm>
 
-  <!-- Móvil: formulario en bottom sheet -->
-  <AccountingMobileFormSheet
-    v-if="mdAndDown"
-    :movement-types="movementTypes"
-    :payment-types="paymentTypes"
-    @saved="refreshAccounting"
-  />
+  <!-- Móvil: registrar + filtros + buscador -->
+  <template v-if="mdAndDown">
+    <AccountingMobileFormSheet
+      ref="mobileForm"
+      :movement-types="movementTypes"
+      :payment-types="paymentTypes"
+      @saved="refreshAccounting"
+    />
+
+    <VContainer class="pb-0">
+      <div class="d-flex align-center gap-2">
+        <VBtn
+          color="primary"
+          rounded="lg"
+          class="flex-grow-1"
+          prepend-icon="ri-add-line"
+          @click="openMobileForm"
+        >
+          Registrar movimiento
+        </VBtn>
+        <VBadge
+          :model-value="hasSheetFilters"
+          color="primary"
+          dot
+          location="top end"
+          offset-x="4"
+          offset-y="4"
+        >
+          <VBtn
+            variant="tonal"
+            rounded="lg"
+            class="px-4"
+            aria-label="Filtros"
+            @click="filterSheet = true"
+          >
+            Filtros
+          </VBtn>
+        </VBadge>
+      </div>
+
+      <VTextField
+        v-model="filterDescription"
+        class="mt-3"
+        type="search"
+        label="Buscar descripción"
+        variant="outlined"
+        rounded="lg"
+        prepend-inner-icon="ri-search-line"
+        hide-details="auto"
+        clearable
+        @update:model-value="onFilterDescriptionInput"
+      />
+    </VContainer>
+
+    <AccountingMobileFiltersSheet
+      v-model="filterSheet"
+      v-model:date-range="filterDateRange"
+      v-model:selected-movement-types="filterMovementTypes"
+      v-model:selected-payment-types="filterPaymentTypes"
+      :movement-types="movementTypes"
+      :payment-types="paymentTypes"
+      @clear="clearSheetFilters"
+    />
+  </template>
 
   <VContainer :class="mdAndDown ? 'pa-0 mt-4' : 'pa-0 mt-6'">
     <VCard
@@ -127,7 +184,105 @@
       rounded="lg"
       class="accounting-table-card overflow-hidden"
     >
-      <VDivider />
+      <div
+        v-if="mdAndUp"
+        class="px-4 py-3"
+      >
+        <VRow
+          align="start"
+          dense
+        >
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <VDateInput
+              v-model="filterDateRange"
+              label="Rango de fechas"
+              placeholder="Desde — hasta"
+              multiple="range"
+              variant="outlined"
+              rounded="lg"
+              prepend-icon=""
+              append-inner-icon="ri-calendar-line"
+              hide-details="auto"
+              clearable
+              show-adjacent-months
+            />
+          </VCol>
+
+          <VCol
+            cols="12"
+            sm="6"
+            md="2"
+          >
+            <VSelect
+              v-model="filterMovementTypes"
+              label="Tipo de movimiento"
+              :items="movementTypes"
+              variant="outlined"
+              rounded="lg"
+              multiple
+              clearable
+              hide-details="auto"
+            />
+          </VCol>
+
+          <VCol
+            cols="12"
+            sm="6"
+            md="2"
+          >
+            <VSelect
+              v-model="filterPaymentTypes"
+              label="Tipo de pago"
+              :items="paymentTypes"
+              variant="outlined"
+              rounded="lg"
+              multiple
+              clearable
+              hide-details="auto"
+            />
+          </VCol>
+
+          <VCol
+            cols="12"
+            md="5"
+          >
+            <div class="d-flex align-center gap-2">
+              <VTextField
+                v-model="filterDescription"
+                class="flex-grow-1"
+                type="search"
+                label="Buscar descripción"
+                variant="outlined"
+                rounded="lg"
+                prepend-inner-icon="ri-search-line"
+                hide-details="auto"
+                clearable
+                @update:model-value="onFilterDescriptionInput"
+              />
+              <VBtn
+                v-if="hasActiveFilters"
+                variant="text"
+                color="default"
+                rounded="lg"
+                class="flex-shrink-0 px-2"
+                aria-label="Limpiar filtros"
+                @click="clearFilters"
+              >
+                <VIcon
+                  icon="ri-filter-off-line"
+                  class="me-1"
+                />
+                Limpiar
+              </VBtn>
+            </div>
+          </VCol>
+        </VRow>
+      </div>
+
+      <VDivider v-if="mdAndUp" />
 
       <!-- Escritorio / tablet ancha: tabla -->
       <VTable
@@ -191,6 +346,15 @@
               >
                 {{ paymentTypeLabel(item.payment_type) }}
               </VChip>
+            </td>
+          </tr>
+
+          <tr v-if="!accounting.length && !hasMore && !loading">
+            <td
+              colspan="5"
+              class="text-body-2 text-medium-emphasis text-center py-8"
+            >
+              {{ emptyListMessage }}
             </td>
           </tr>
 
@@ -275,7 +439,7 @@
             v-else
             class="text-body-2 text-medium-emphasis text-center py-8"
           >
-            No hay movimientos todavía.
+            {{ emptyListMessage }}
           </p>
         </div>
 
@@ -380,6 +544,7 @@
 
 <script>
 import submittedVuelidateForm from '@/mixins/submittedVuelidateForm'
+import AccountingMobileFiltersSheet from '@/views/pages/accounting/AccountingMobileFiltersSheet.vue'
 import AccountingMobileFormSheet from '@/views/pages/accounting/AccountingMobileFormSheet.vue'
 import { useVuelidate } from '@vuelidate/core'
 import { helpers, required } from '@vuelidate/validators'
@@ -389,6 +554,7 @@ import { useDisplay } from 'vuetify'
 export default {
   name: 'ModuleAccounting',
   components: {
+    AccountingMobileFiltersSheet,
     AccountingMobileFormSheet,
   },
   mixins: [submittedVuelidateForm],
@@ -429,12 +595,72 @@ export default {
       totalDebe: 0,
       totalHaber: 0,
       totalCount: 0,
+      filterDateRange: null,
+      filterMovementTypes: [],
+      filterPaymentTypes: [],
+      filterDescription: '',
+      descriptionFilterTimer: null,
+      skipFilterRefresh: false,
+      filterSheet: false,
     }
+  },
+  computed: {
+    hasSheetFilters() {
+      const range = this.filterDateRange
+
+      return Boolean(
+        (Array.isArray(range) && range.length)
+        || this.filterMovementTypes.length
+        || this.filterPaymentTypes.length,
+      )
+    },
+    hasActiveFilters() {
+      const range = this.filterDateRange
+
+      return Boolean(
+        (Array.isArray(range) && range.length)
+        || this.filterMovementTypes.length
+        || this.filterPaymentTypes.length
+        || String(this.filterDescription).trim(),
+      )
+    },
+    emptyListMessage() {
+      return this.hasActiveFilters
+        ? 'Ningún movimiento coincide con los filtros.'
+        : 'No hay movimientos todavía.'
+    },
+  },
+  watch: {
+    filterDateRange() {
+      if (this.skipFilterRefresh)
+        return
+
+      const range = this.filterDateRange
+      if (Array.isArray(range) && range.length === 1)
+        return
+
+      this.refreshAccounting()
+    },
+    filterMovementTypes: {
+      deep: true,
+      handler() {
+        if (!this.skipFilterRefresh)
+          this.refreshAccounting()
+      },
+    },
+    filterPaymentTypes: {
+      deep: true,
+      handler() {
+        if (!this.skipFilterRefresh)
+          this.refreshAccounting()
+      },
+    },
   },
   mounted() {
     window.addEventListener('accounting:imported', this.refreshAccounting)
   },
   beforeUnmount() {
+    clearTimeout(this.descriptionFilterTimer)
     window.removeEventListener('accounting:imported', this.refreshAccounting)
   },
   validations() {
@@ -518,7 +744,10 @@ export default {
 
       try {
         const response = await axios.get('/api/accounting', {
-          params: { page },
+          params: {
+            page,
+            ...this.listFilterParams(),
+          },
         })
 
         const rows = response.data.data ?? []
@@ -570,6 +799,57 @@ export default {
       const found = this.paymentTypes.find(p => p.value === value)
 
       return found ? found.title : value
+    },
+    listFilterParams() {
+      const params = {}
+      const range = Array.isArray(this.filterDateRange) ? this.filterDateRange.filter(Boolean) : []
+
+      if (range.length >= 1) {
+        const start = range[0]
+        const end = range[1] ?? range[0]
+
+        params.date_from = this.$formatDate(start)
+        params.date_to = this.$formatDate(end)
+      }
+
+      if (this.filterMovementTypes.length)
+        params.movement_type = this.filterMovementTypes
+
+      if (this.filterPaymentTypes.length)
+        params.payment_type = this.filterPaymentTypes
+
+      const description = String(this.filterDescription).trim()
+      if (description)
+        params.description = description
+
+      return params
+    },
+    onFilterDescriptionInput() {
+      clearTimeout(this.descriptionFilterTimer)
+      this.descriptionFilterTimer = setTimeout(() => {
+        this.refreshAccounting()
+      }, 400)
+    },
+    openMobileForm() {
+      this.$refs.mobileForm?.openFormSheet()
+    },
+    clearSheetFilters() {
+      this.skipFilterRefresh = true
+      this.filterDateRange = null
+      this.filterMovementTypes = []
+      this.filterPaymentTypes = []
+      this.skipFilterRefresh = false
+      this.refreshAccounting()
+    },
+    clearFilters() {
+      clearTimeout(this.descriptionFilterTimer)
+      this.skipFilterRefresh = true
+      this.filterDateRange = null
+      this.filterMovementTypes = []
+      this.filterPaymentTypes = []
+      this.filterDescription = ''
+      this.skipFilterRefresh = false
+      this.refreshAccounting()
     },
   },
 }

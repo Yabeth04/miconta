@@ -14,19 +14,25 @@ use RuntimeException;
 
 class AccountingController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        // para listar los movimientos contables
-        $accounting = DB::table('accounting_movements')
+        $request->validate([
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+            'description' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $filtered = $this->filteredMovements($request);
+
+        $accounting = (clone $filtered)
             ->orderByDesc('date')
             ->orderByDesc('id')
             ->paginate(10);
 
         $payload = $accounting->toArray();
 
-        // totales globales (SUM en BD; no carga todas las filas)
         if ($accounting->currentPage() === 1) {
-            $totals = DB::table('accounting_movements')
+            $totals = (clone $filtered)
                 ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'debe' THEN amount ELSE 0 END), 0) as total_debe")
                 ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'haber' THEN amount ELSE 0 END), 0) as total_haber")
                 ->selectRaw('COUNT(*) as count_total')
@@ -131,6 +137,53 @@ class AccountingController extends Controller
             ->delete();
 
         return response()->json($accounting, 200);
+    }
+
+    private function filteredMovements(Request $request)
+    {
+        $query = DB::table('accounting_movements');
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('date', '>=', $request->date('date_from')->toDateString());
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('date', '<=', $request->date('date_to')->toDateString());
+        }
+
+        $movementTypes = $this->listParam($request, 'movement_type', ['haber', 'debe']);
+        if ($movementTypes !== []) {
+            $query->whereIn('movement_type', $movementTypes);
+        }
+
+        $paymentTypes = $this->listParam($request, 'payment_type', ['sinpe', 'efectivo', 'transferencia', 'tarjeta', 'otros']);
+        if ($paymentTypes !== []) {
+            $query->whereIn('payment_type', $paymentTypes);
+        }
+
+        if ($request->filled('description')) {
+            $term = addcslashes(trim((string) $request->input('description')), '%_\\');
+            $query->where('description', 'like', "%{$term}%");
+        }
+
+        return $query;
+    }
+
+    /**
+     * @param  list<string>  $allowed
+     * @return list<string>
+     */
+    private function listParam(Request $request, string $key, array $allowed): array
+    {
+        $value = $request->input($key);
+
+        if ($value === null || $value === '') {
+            return [];
+        }
+
+        $items = is_array($value) ? $value : explode(',', (string) $value);
+
+        return array_values(array_intersect($allowed, array_map('strval', $items)));
     }
 
     private function validateAccounting(Request $request)

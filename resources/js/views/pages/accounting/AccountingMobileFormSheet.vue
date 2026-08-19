@@ -1,19 +1,5 @@
 <template>
   <div>
-    <!-- CTA para abrir el bottom sheet -->
-    <VContainer class="pb-0">
-      <VBtn
-        color="primary"
-        rounded="lg"
-        block
-        prepend-icon="ri-add-line"
-        @click="openFormSheet"
-      >
-        Registrar movimiento
-      </VBtn>
-    </VContainer>
-
-    <!-- Formulario en bottom sheet -->
     <VBottomSheet
       v-model="formSheet"
       :scrim="true"
