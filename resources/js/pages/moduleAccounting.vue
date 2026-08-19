@@ -1,118 +1,4 @@
 <template>
-  <!-- Escritorio: formulario inline (por defecto) -->
-  <VForm v-if="mdAndUp">
-    <VContainer>
-      <!-- Inputs -->
-      <VRow
-        align="start"
-        dense
-      >
-        <!-- Fecha -->
-        <VCol
-          cols="12"
-          md="4"
-        >
-          <VDateInput
-            v-model="date"
-            label="Fecha"
-            variant="outlined"
-            rounded="lg"
-            prepend-icon=""
-            append-inner-icon="ri-calendar-line"
-            :error-messages="errors(v$.date)"
-            hide-details="auto"
-            show-adjacent-months
-          />
-        </VCol>
-
-        <!-- Descripción -->
-        <VCol
-          cols="12"
-          md="4"
-        >
-          <VTextField
-            v-model="description"
-            type="text"
-            label="Descripción"
-            variant="outlined"
-            rounded="lg"
-            hide-details="auto"
-          />
-        </VCol>
-
-        <!-- Tipo de movimiento -->
-        <VCol
-          cols="12"
-          md="4"
-        >
-          <VSelect
-            v-model="selectedMovementType"
-            label="Tipo de movimiento"
-            :items="movementTypes"
-            variant="outlined"
-            rounded="lg"
-            :error-messages="errors(v$.selectedMovementType)"
-            hide-details="auto"
-          />
-        </VCol>
-
-        <!-- Tipo de pago -->
-        <VCol
-          cols="12"
-          md="4"
-        >
-          <VSelect
-            v-model="selectedPaymentType"
-            label="Tipo de pago"
-            :items="paymentTypes"
-            variant="outlined"
-            rounded="lg"
-            :error-messages="errors(v$.selectedPaymentType)"
-            hide-details="auto"
-          />
-        </VCol>
-
-        <!-- Monto -->
-        <VCol
-          cols="12"
-          md="4"
-        >
-          <VTextField
-            v-currency-live
-            v-model="v$.amount.$model"
-            class="monto-with-action"
-            type="text"
-            inputmode="decimal"
-            autocomplete="off"
-            label="Monto"
-            variant="outlined"
-            rounded="lg"
-            hide-details="auto"
-            :error-messages="errors(v$.amount)"
-            @blur="normalizeAmount"
-            @keyup.enter="storeAccounting"
-          >
-            <template #append-inner>
-              <VBtn
-                color="primary"
-                variant="flat"
-                class="monto-with-action__btn rounded-s-0 rounded-e-lg"
-                aria-label="Contabilizar"
-                tabindex="-1"
-                @click.stop="storeAccounting"
-              >
-                <VIcon
-                  icon="ri-arrow-right-line"
-                  size="22"
-                />
-              </VBtn>
-            </template>
-          </VTextField>
-        </VCol>
-      </VRow>
-    </VContainer>
-  </VForm>
-
   <!-- Móvil: registrar + filtros + buscador -->
   <template v-if="mdAndDown">
     <AccountingMobileFormSheet
@@ -180,8 +66,97 @@
     />
   </template>
 
-  <!-- Tabla -->
-  <VContainer :class="mdAndDown ? 'pa-0 mt-4' : 'pa-0 mt-6'">
+  <VContainer :class="mdAndDown ? 'pa-0 mt-4' : ''">
+    <!-- Escritorio: alta en una sola fila -->
+    <VForm
+      v-if="mdAndUp"
+      class="mb-4"
+      @submit.prevent="storeAccounting"
+    >
+      <VCard
+        variant="outlined"
+        rounded="lg"
+        class="accounting-form-card"
+      >
+        <div class="px-4 pt-3 pb-1">
+          <span class="text-body-2 font-weight-semibold">
+            Nuevo movimiento
+          </span>
+        </div>
+        <div class="px-4 pb-3 accounting-form-grid">
+          <VDateInput
+            v-model="date"
+            label="Fecha"
+            variant="outlined"
+            rounded="lg"
+            prepend-icon=""
+            append-inner-icon="ri-calendar-line"
+            :error-messages="errors(v$.date)"
+            hide-details="auto"
+            show-adjacent-months
+          />
+          <VTextField
+            v-model="description"
+            type="text"
+            label="Descripción"
+            variant="outlined"
+            rounded="lg"
+            hide-details="auto"
+          />
+          <VSelect
+            v-model="selectedMovementType"
+            label="Tipo"
+            :items="movementTypes"
+            variant="outlined"
+            rounded="lg"
+            :error-messages="errors(v$.selectedMovementType)"
+            hide-details="auto"
+          />
+          <VSelect
+            v-model="selectedPaymentType"
+            label="Pago"
+            :items="paymentTypes"
+            variant="outlined"
+            rounded="lg"
+            :error-messages="errors(v$.selectedPaymentType)"
+            hide-details="auto"
+          />
+          <VTextField
+            v-currency-live
+            v-model="v$.amount.$model"
+            class="monto-with-action"
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
+            label="Monto"
+            variant="outlined"
+            rounded="lg"
+            hide-details="auto"
+            :error-messages="errors(v$.amount)"
+            @blur="normalizeAmount"
+            @keyup.enter="storeAccounting"
+          >
+            <template #append-inner>
+              <VBtn
+                color="primary"
+                variant="flat"
+                class="monto-with-action__btn rounded-s-0 rounded-e-lg"
+                aria-label="Contabilizar"
+                type="submit"
+                tabindex="-1"
+                @click.stop="storeAccounting"
+              >
+                <VIcon
+                  icon="ri-arrow-right-line"
+                  size="22"
+                />
+              </VBtn>
+            </template>
+          </VTextField>
+        </div>
+      </VCard>
+    </VForm>
+
     <VCard
       variant="outlined"
       rounded="lg"
@@ -191,98 +166,106 @@
         v-if="mdAndUp"
         class="px-4 py-3"
       >
-        <VRow
-          align="start"
-          dense
-        >
-          <VCol
-            cols="12"
-            md="3"
+        <div class="d-flex align-center gap-2">
+          <span class="text-body-2 font-weight-semibold flex-shrink-0 me-1">
+            Movimientos
+          </span>
+          <VTextField
+            v-model="filterDescription"
+            class="flex-grow-1"
+            type="search"
+            label="Buscar por descripción"
+            variant="outlined"
+            rounded="lg"
+            density="compact"
+            prepend-inner-icon="ri-search-line"
+            hide-details="auto"
+            clearable
+            @update:model-value="onFilterDescriptionInput"
+          />
+          <VBadge
+            :model-value="hasSheetFilters"
+            color="primary"
+            dot
+            location="top end"
+            offset-x="4"
+            offset-y="4"
+          >
+            <VBtn
+              :variant="filtersExpanded ? 'flat' : 'tonal'"
+              :color="filtersExpanded ? 'primary' : 'default'"
+              rounded="lg"
+              class="px-3"
+              aria-label="Filtros"
+              @click="filtersExpanded = !filtersExpanded"
+            >
+              Filtros
+              <VIcon
+                :icon="filtersExpanded ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'"
+                size="18"
+                class="ms-1"
+              />
+            </VBtn>
+          </VBadge>
+          <VBtn
+            v-if="hasActiveFilters"
+            variant="text"
+            color="default"
+            rounded="lg"
+            class="px-2 flex-shrink-0"
+            aria-label="Limpiar filtros"
+            @click="clearFilters"
+          >
+            <VIcon
+              icon="ri-filter-off-line"
+              size="18"
+            />
+          </VBtn>
+        </div>
+
+        <VExpandTransition>
+          <div
+            v-show="filtersExpanded"
+            class="accounting-filters-grid mt-3"
           >
             <VDateInput
               v-model="filterDateRange"
-              label="Rango de fechas"
+              label="Fechas"
               placeholder="Desde — hasta"
               multiple="range"
               variant="outlined"
               rounded="lg"
+              density="compact"
               prepend-icon=""
               append-inner-icon="ri-calendar-line"
               hide-details="auto"
               clearable
               show-adjacent-months
             />
-          </VCol>
-
-          <VCol
-            cols="12"
-            sm="6"
-            md="2"
-          >
             <VSelect
               v-model="filterMovementTypes"
-              label="Tipo de movimiento"
+              label="Tipo"
               :items="movementTypes"
               variant="outlined"
               rounded="lg"
+              density="compact"
               multiple
               clearable
               hide-details="auto"
             />
-          </VCol>
-
-          <VCol
-            cols="12"
-            sm="6"
-            md="2"
-          >
             <VSelect
               v-model="filterPaymentTypes"
-              label="Tipo de pago"
+              label="Pago"
               :items="paymentTypes"
               variant="outlined"
               rounded="lg"
+              density="compact"
               multiple
               clearable
               hide-details="auto"
             />
-          </VCol>
-
-          <VCol
-            cols="12"
-            md="5"
-          >
-            <div class="d-flex align-center gap-2">
-              <VTextField
-                v-model="filterDescription"
-                class="flex-grow-1"
-                type="search"
-                label="Buscar descripción"
-                variant="outlined"
-                rounded="lg"
-                prepend-inner-icon="ri-search-line"
-                hide-details="auto"
-                clearable
-                @update:model-value="onFilterDescriptionInput"
-              />
-              <VBtn
-                v-if="hasActiveFilters"
-                variant="text"
-                color="default"
-                rounded="lg"
-                class="flex-shrink-0 px-2"
-                aria-label="Limpiar filtros"
-                @click="clearFilters"
-              >
-                <VIcon
-                  icon="ri-filter-off-line"
-                  class="me-1"
-                />
-                Limpiar
-              </VBtn>
-            </div>
-          </VCol>
-        </VRow>
+          </div>
+        </VExpandTransition>
       </div>
 
       <VDivider v-if="mdAndUp" />
@@ -605,6 +588,7 @@ export default {
       descriptionFilterTimer: null,
       skipFilterRefresh: false,
       filterSheet: false,
+      filtersExpanded: false,
     }
   },
   computed: {
@@ -859,8 +843,23 @@ export default {
 </script>
 
 <style scoped>
+.accounting-form-card,
 .accounting-table-card {
   border-color: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.accounting-form-grid {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.9fr) minmax(180px, 1.4fr) minmax(120px, 0.9fr) minmax(120px, 0.9fr) minmax(160px, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.accounting-filters-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) minmax(140px, 1fr) minmax(140px, 1fr);
+  gap: 0.75rem;
+  align-items: start;
 }
 
 /* Crece con el contenido; solo hace scroll al llegar al tope (evita el hueco vacío) */
