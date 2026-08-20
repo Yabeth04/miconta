@@ -13,8 +13,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('accounting/settings', [AccountingController::class, 'updateSettings']);
     Route::apiResource('accounting', AccountingController::class);
 
-    Route::get('study-plan', [StudyPlanController::class, 'index']);
-    Route::post('study-plan/subjects', [StudyPlanController::class, 'storeSubject']);
-    Route::put('study-plan/subjects/{subject}', [StudyPlanController::class, 'updateSubject']);
-    Route::delete('study-plan/subjects/{subject}', [StudyPlanController::class, 'destroySubject']);
+    Route::middleware('sysadmin')->group(function () {
+        Route::get('study-plan', [StudyPlanController::class, 'index']);
+        Route::post('study-plan/subjects', [StudyPlanController::class, 'storeSubject']);
+        Route::put('study-plan/subjects/{subject}', [StudyPlanController::class, 'updateSubject']);
+        Route::delete('study-plan/subjects/{subject}', [StudyPlanController::class, 'destroySubject']);
+    });
 });

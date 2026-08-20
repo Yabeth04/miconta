@@ -26,6 +26,11 @@ router.beforeEach(async to => {
     return { path: '/dashboard' }
   }
 
+  const requiredRole = to.matched.map(record => record.meta.role).find(Boolean)
+  if (requiredRole && auth.roleName !== requiredRole) {
+    return { path: '/dashboard' }
+  }
+
   return true
 })
 

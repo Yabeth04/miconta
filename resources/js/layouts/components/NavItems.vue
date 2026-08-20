@@ -1,5 +1,10 @@
 <script setup>
-import VerticalNavLink from '@layouts/components/VerticalNavLink.vue';
+import VerticalNavLink from '@layouts/components/VerticalNavLink.vue'
+import { storeToRefs } from 'pinia'
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
+const { isSysAdmin } = storeToRefs(auth)
 </script>
 
 <template>
@@ -18,6 +23,7 @@ import VerticalNavLink from '@layouts/components/VerticalNavLink.vue';
     }"
   />
   <VerticalNavLink
+    v-if="isSysAdmin"
     :item="{
       title: 'Plan de estudios',
       icon: 'ri-book-open-line',

@@ -23,7 +23,7 @@ export const routes = [
       {
         path: 'plan-estudios',
         component: () => import('@/pages/moduleStudyPlan.vue'),
-        meta: { auth: true },
+        meta: { auth: true, role: 'sysAdmin' },
       },
     ],
   },
