@@ -62,7 +62,9 @@ export const formatAmount = value => {
 }
 
 /**
- * Convierte texto con formato es (1.234,56) a número, o '' si vacío/inválido.
+ * Convierte monto a número.
+ * - UI es: "2.000" / "2.000,50" / "10.000,00"
+ * - API/JSON: "2000.00" / 2000 (punto = decimal, no miles)
  *
  * @param {string|number|null|undefined} value
  * @returns {number|''}
@@ -74,16 +76,34 @@ export const parseAmount = value => {
   if (typeof value === 'number')
     return Number.isNaN(value) ? '' : value
 
-  const normalized = String(value)
-    .trim()
-    .replace(/\./g, '')
-    .replace(',', '.')
-    .replace(/[^\d.-]/g, '')
+  let s = String(value).trim().replace(/[^\d.,-]/g, '')
 
-  if (!normalized || normalized === '-' || normalized === '.')
+  if (!s || s === '-' || s === '.' || s === ',')
     return ''
 
-  const n = Number(normalized)
+  if (s.includes(',')) {
+    // Formato CR/ES: miles con punto, decimal con coma
+    s = s.replace(/\./g, '').replace(',', '.')
+  }
+  else {
+    const dots = s.match(/\./g) || []
+
+    if (dots.length > 1) {
+      // Solo miles: 1.234.567
+      s = s.replace(/\./g, '')
+    }
+    else if (dots.length === 1) {
+      const decPart = s.split('.')[1] ?? ''
+
+      // "2000.00" / "2000.5" → decimal API; "2.000" → miles UI
+      if (decPart.length !== 3)
+        s = s // dejar el punto decimal
+      else
+        s = s.replace(/\./g, '')
+    }
+  }
+
+  const n = Number(s)
 
   return Number.isNaN(n) ? '' : n
 }

@@ -972,7 +972,7 @@ export default {
 
 /* Crece con el contenido; solo hace scroll al llegar al tope (evita el hueco vacío) */
 .accounting-table :deep(.v-table__wrapper) {
-  max-height: min(400px, 55vh);
+  max-height: min(570px, 55vh);
   overflow-y: auto;
 }
 
@@ -1003,6 +1003,7 @@ export default {
 .accounting-table__amount {
   width: 1%;
   white-space: nowrap;
+  font-size: 14px;
   padding-inline: 0.75rem !important;
 }
 
