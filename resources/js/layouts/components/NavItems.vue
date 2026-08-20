@@ -17,11 +17,4 @@ import VerticalNavLink from '@layouts/components/VerticalNavLink.vue';
       to: '/contabilidad',
     }"
   />
-  <VerticalNavLink
-    :item="{
-      title: 'Configuración',
-      icon: 'ri-user-settings-line',
-      to: '/account-settings',
-    }"
-  />
 </template>
