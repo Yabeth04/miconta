@@ -29,7 +29,6 @@
             align="start"
             dense
           >
-            <!-- Fecha -->
             <VCol cols="12">
               <VDateInput
                 v-model="date"
@@ -44,19 +43,25 @@
               />
             </VCol>
 
-            <!-- Descripción -->
+            <VCol cols="12">
+              <AccountingConceptCombobox
+                v-model="concept"
+                :concepts="concepts"
+              />
+            </VCol>
+
             <VCol cols="12">
               <VTextField
-                v-model="description"
+                v-model="detail"
                 type="text"
-                label="Descripción"
+                label="Detalle"
+                placeholder="Opcional, ej. 10 litros"
                 variant="outlined"
                 rounded="lg"
                 hide-details="auto"
               />
             </VCol>
 
-            <!-- Tipo de movimiento -->
             <VCol cols="12">
               <VSelect
                 v-model="selectedMovementType"
@@ -69,7 +74,6 @@
               />
             </VCol>
 
-            <!-- Tipo de pago -->
             <VCol cols="12">
               <VSelect
                 v-model="selectedPaymentType"
@@ -82,7 +86,6 @@
               />
             </VCol>
 
-            <!-- Monto -->
             <VCol cols="12">
               <VTextField
                 v-currency-live
@@ -122,9 +125,13 @@ import { parseAmount } from '@core/utils/formatters'
 import { useVuelidate } from '@vuelidate/core'
 import { helpers, required } from '@vuelidate/validators'
 import { axios } from '@/plugins/axios'
+import AccountingConceptCombobox from '@/views/pages/accounting/AccountingConceptCombobox.vue'
 
 export default {
   name: 'AccountingMobileFormSheet',
+  components: {
+    AccountingConceptCombobox,
+  },
   mixins: [submittedVuelidateForm],
 
   props: {
@@ -135,6 +142,10 @@ export default {
     paymentTypes: {
       type: Array,
       required: true,
+    },
+    concepts: {
+      type: Array,
+      default: () => [],
     },
   },
 
@@ -153,7 +164,8 @@ export default {
       selectedPaymentType: null,
       selectedMovementType: null,
       amount: '',
-      description: '',
+      concept: '',
+      detail: '',
     }
   },
 
@@ -202,7 +214,8 @@ export default {
           'movement_type': this.selectedMovementType,
           'payment_type': this.selectedPaymentType,
           amount: this.$parseAmount(this.amount),
-          description: this.description,
+          concept: this.concept,
+          detail: this.detail,
         })
         .then(() => {
           this.resetForm()
@@ -211,10 +224,6 @@ export default {
           this.$toast.success('Guardado correctamente', {
             timeout: 2000,
             closeOnClick: true,
-            // pauseOnHover: true, hace que se pause el hover
-            // draggable: true, hace que se pueda arrastrar el toast
-            // maxToasts: 3, limita que se pueda mostrar un maximo de 3 toasts
-            // newestOnTop: true, hace que se muestre el toast mas nuevo al principio
           })
         })
         .catch(error => {
@@ -226,7 +235,8 @@ export default {
       this.selectedMovementType = null
       this.selectedPaymentType = null
       this.amount = ''
-      this.description = ''
+      this.concept = ''
+      this.detail = ''
       this.submitted = false
       this.v$.$reset()
     },

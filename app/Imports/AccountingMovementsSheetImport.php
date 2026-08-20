@@ -68,7 +68,7 @@ class AccountingMovementsSheetImport implements ToCollection, WithHeadingRow
                     continue;
                 }
 
-                $description = $this->stringOrNull($this->valueAt($row, ['descripcion', 'descripción'], 1));
+                $concept = $this->stringOrNull($this->valueAt($row, ['concepto', 'concept', 'descripcion', 'descripción'], 1));
                 $debit = $this->parseAmount($this->valueAt($row, [
                     'debito_salida', 'debito', 'débito_salida', 'debe', 'gasto', 'salida',
                 ], 2));
@@ -89,12 +89,13 @@ class AccountingMovementsSheetImport implements ToCollection, WithHeadingRow
                 }
 
                 $payload = [
-                    'description' => $description,
+                    'concept'       => $concept,
+                    'detail'        => null,
                     'movement_type' => $hasDebit ? 'debe' : 'haber',
-                    'amount' => $hasDebit ? $debit : $credit,
-                    'payment_type' => $paymentType,
-                    'created_at' => $now,
-                    'updated_at' => $now,
+                    'amount'        => $hasDebit ? $debit : $credit,
+                    'payment_type'  => $paymentType,
+                    'created_at'    => $now,
+                    'updated_at'    => $now,
                 ];
 
                 if ($fechaKind === 'known') {

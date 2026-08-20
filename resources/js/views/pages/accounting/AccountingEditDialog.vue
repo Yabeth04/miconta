@@ -47,10 +47,20 @@
             cols="12"
             class="pb-1"
           >
+            <AccountingConceptCombobox
+              v-model="concept"
+              :concepts="concepts"
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            class="pb-1"
+          >
             <VTextField
-              v-model="description"
+              v-model="detail"
               type="text"
-              label="Descripción"
+              label="Detalle"
+              placeholder="Opcional, ej. 10 litros"
               variant="outlined"
               rounded="lg"
               hide-details="auto"
@@ -135,9 +145,14 @@ import { parseAmount } from '@core/utils/formatters'
 import { useVuelidate } from '@vuelidate/core'
 import { helpers, required } from '@vuelidate/validators'
 import { axios } from '@/plugins/axios'
+import AccountingConceptCombobox from '@/views/pages/accounting/AccountingConceptCombobox.vue'
 
 export default {
   name: 'AccountingEditDialog',
+
+  components: {
+    AccountingConceptCombobox,
+  },
 
   mixins: [submittedVuelidateForm],
 
@@ -158,6 +173,10 @@ export default {
       type: Array,
       required: true,
     },
+    concepts: {
+      type: Array,
+      default: () => [],
+    },
   },
 
   emits: ['update:modelValue', 'saved'],
@@ -174,7 +193,8 @@ export default {
       selectedPaymentType: null,
       selectedMovementType: null,
       amount: '',
-      description: '',
+      concept: '',
+      detail: '',
       saving: false,
     }
   },
@@ -220,7 +240,8 @@ export default {
   methods: {
     loadMovement(item) {
       this.date = this.parseMovementDate(item.date)
-      this.description = item.description ?? ''
+      this.concept = item.concept ?? ''
+      this.detail = item.detail ?? ''
       this.selectedMovementType = item.movement_type
       this.selectedPaymentType = item.payment_type
       this.amount = this.$formatAmountValue(item.amount)
@@ -259,7 +280,8 @@ export default {
           'movement_type': this.selectedMovementType,
           'payment_type': this.selectedPaymentType,
           amount: this.$parseAmount(this.amount),
-          description: this.description,
+          concept: this.concept,
+          detail: this.detail,
         })
 
         this.close()

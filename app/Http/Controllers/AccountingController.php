@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use App\Imports\AccountingMovementsImport;
 use App\Imports\AccountingWorkbookImport;
 use App\Models\Accounting;
+use App\Models\AccountingConcept;
 use App\Models\AccountingSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,9 +19,10 @@ class AccountingController extends Controller
     public function index(Request $request)
     {
         $request->validate([
-            'date_from'   => ['nullable', 'date'],
-            'date_to'     => ['nullable', 'date'],
-            'description' => ['nullable', 'string', 'max:255'],
+            'date_from' => ['nullable', 'date'],
+            'date_to'   => ['nullable', 'date'],
+            'concept'   => ['nullable', 'string', 'max:255'],
+            'q'         => ['nullable', 'string', 'max:255'],
         ]);
 
         $filtered = $this->filteredMovements($request);
@@ -88,7 +90,7 @@ class AccountingController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $this->validateAccounting($request);
+        $validated = $this->resolveConcept($request, $this->validateAccounting($request));
 
         DB::table('accounting_movements')->insert(array_merge($validated, [
             'user_id'    => $request->user()->id,
@@ -151,7 +153,7 @@ class AccountingController extends Controller
     public function update(Request $request, Accounting $accounting)
     {
         $this->authorizeMovement($request, $accounting);
-        $validated = $this->validateAccounting($request);
+        $validated = $this->resolveConcept($request, $this->validateAccounting($request));
 
         $accounting->update($validated);
 
@@ -197,9 +199,17 @@ class AccountingController extends Controller
             $query->whereIn('payment_type', $paymentTypes);
         }
 
-        if ($request->filled('description')) {
-            $term = addcslashes(trim((string) $request->input('description')), '%_\\');
-            $query->where('description', 'like', "%{$term}%");
+        if ($request->filled('concept')) {
+            $term = addcslashes(trim((string) $request->input('concept')), '%_\\');
+            $query->where('concept', 'like', "%{$term}%");
+        }
+
+        if ($request->filled('q')) {
+            $term = addcslashes(trim((string) $request->input('q')), '%_\\');
+            $query->where(function ($q) use ($term) {
+                $q->where('concept', 'like', "%{$term}%")
+                    ->orWhere('detail', 'like', "%{$term}%");
+            });
         }
 
         return $query;
@@ -229,8 +239,43 @@ class AccountingController extends Controller
             'movement_type' => ['required', 'in:haber,debe'],
             'payment_type'  => ['required', 'in:sinpe,efectivo,transferencia,tarjeta,otros'],
             'amount'        => ['required', 'numeric', 'min:0'],
-            'description'   => ['nullable', 'string', 'max:255'],
+            'concept'       => ['nullable', 'string', 'max:255'],
+            'detail'        => ['nullable', 'string', 'max:255'],
         ]);
+    }
+
+    /**
+     * Si el concepto coincide con uno fijo del usuario, lo asocia.
+     * Si no, guarda el texto libre sin relación.
+     */
+    private function resolveConcept(Request $request, array $validated): array
+    {
+        $rawConcept = isset($validated['concept']) ? trim((string) $validated['concept']) : '';
+        $rawDetail  = isset($validated['detail']) ? trim((string) $validated['detail']) : '';
+
+        $validated['detail'] = $rawDetail === '' ? null : $rawDetail;
+
+        if ($rawConcept === '') {
+            $validated['concept'] = null;
+            $validated['accounting_concept_id'] = null;
+
+            return $validated;
+        }
+
+        $match = AccountingConcept::query()
+            ->where('user_id', $request->user()->id)
+            ->whereRaw('LOWER(name) = ?', [mb_strtolower($rawConcept)])
+            ->first();
+
+        if ($match) {
+            $validated['concept'] = $match->name;
+            $validated['accounting_concept_id'] = $match->id;
+        } else {
+            $validated['concept'] = $rawConcept;
+            $validated['accounting_concept_id'] = null;
+        }
+
+        return $validated;
     }
 
     private function authorizeMovement(Request $request, Accounting $accounting): void

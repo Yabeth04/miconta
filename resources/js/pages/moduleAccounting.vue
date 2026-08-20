@@ -1,14 +1,24 @@
 <template>
   <div
     v-if="mdAndUp"
-    class="mb-4"
+    class="d-flex flex-wrap align-center justify-space-between gap-3 mb-4"
   >
-    <h1 class="text-h4 font-weight-medium mb-1">
-      Contabilidad
-    </h1>
-    <p class="text-body-2 text-medium-emphasis mb-0">
-      Registrá y consultá tus movimientos
-    </p>
+    <div>
+      <h1 class="text-h4 font-weight-medium mb-1">
+        Contabilidad
+      </h1>
+      <p class="text-body-2 text-medium-emphasis mb-0">
+        Registrá y consultá tus movimientos
+      </p>
+    </div>
+    <VBtn
+      variant="tonal"
+      rounded="lg"
+      prepend-icon="ri-price-tag-3-line"
+      to="/contabilidad/conceptos"
+    >
+      Conceptos
+    </VBtn>
   </div>
 
   <!-- Móvil: registrar + filtros + buscador -->
@@ -17,6 +27,7 @@
       ref="mobileForm"
       :movement-types="movementTypes"
       :payment-types="paymentTypes"
+      :concepts="fixedConcepts"
       @saved="refreshAccounting"
     />
 
@@ -53,16 +64,16 @@
 
       <!-- Buscador móvil -->
       <VTextField
-        v-model="filterDescription"
+        v-model="filterQuery"
         class="mt-3"
         type="search"
-        label="Buscar descripción"
+        label="Buscar concepto o detalle"
         variant="outlined"
         rounded="lg"
         prepend-inner-icon="ri-search-line"
         hide-details="auto"
         clearable
-        @update:model-value="onFilterDescriptionInput"
+        @update:model-value="onFilterQueryInput"
       />
     </VContainer>
 
@@ -80,6 +91,7 @@
       ref="mobileEdit"
       :movement-types="movementTypes"
       :payment-types="paymentTypes"
+      :concepts="fixedConcepts"
       @saved="refreshAccounting"
     />
   </template>
@@ -91,6 +103,7 @@
     :movement="editMovement"
     :movement-types="movementTypes"
     :payment-types="paymentTypes"
+    :concepts="fixedConcepts"
     @saved="refreshAccounting"
   />
 
@@ -161,13 +174,9 @@
             hide-details="auto"
             show-adjacent-months
           />
-          <VTextField
-            v-model="description"
-            type="text"
-            label="Descripción"
-            variant="outlined"
-            rounded="lg"
-            hide-details="auto"
+          <AccountingConceptCombobox
+            v-model="concept"
+            :concepts="fixedConcepts"
           />
           <VSelect
             v-model="selectedMovementType"
@@ -220,6 +229,17 @@
             </template>
           </VTextField>
         </div>
+        <div class="px-4 pb-3">
+          <VTextField
+            v-model="detail"
+            type="text"
+            label="Detalle"
+            placeholder="Opcional, ej. 10 litros"
+            variant="outlined"
+            rounded="lg"
+            hide-details="auto"
+          />
+        </div>
       </VCard>
     </VForm>
 
@@ -237,17 +257,17 @@
             Movimientos
           </span>
           <VTextField
-            v-model="filterDescription"
+            v-model="filterQuery"
             class="flex-grow-1"
             type="search"
-            label="Buscar por descripción"
+            label="Buscar concepto o detalle"
             variant="outlined"
             rounded="lg"
             density="compact"
             prepend-inner-icon="ri-search-line"
             hide-details="auto"
             clearable
-            @update:model-value="onFilterDescriptionInput"
+            @update:model-value="onFilterQueryInput"
           />
           <VBadge
             :model-value="hasSheetFilters"
@@ -353,7 +373,7 @@
               Fecha
             </th>
             <th class="accounting-table__th text-start">
-              Descripción
+              Concepto
             </th>
             <th class="accounting-table__th text-end accounting-table__th--amount">
               Debe / Gasto
@@ -377,7 +397,13 @@
               {{ item.date }}
             </td>
             <td class="text-body-2">
-              {{ item.description || '—' }}
+              <div>{{ item.concept || '—' }}</div>
+              <div
+                v-if="item.detail"
+                class="text-caption text-medium-emphasis"
+              >
+                {{ item.detail }}
+              </div>
             </td>
             <td
               class="text-end accounting-table__num accounting-table__amount"
@@ -475,9 +501,15 @@
                     />
                   </div>
                 </div>
-                <p class="text-body-2 mb-3">
-                  {{ item.description || '—' }}
-                </p>
+                <div class="text-body-2 mb-3">
+                  <div>{{ item.concept || '—' }}</div>
+                  <div
+                    v-if="item.detail"
+                    class="text-caption text-medium-emphasis"
+                  >
+                    {{ item.detail }}
+                  </div>
+                </div>
                 <div class="d-flex justify-space-between gap-4 text-body-2">
                   <div>
                     <span class="text-medium-emphasis text-caption d-block mb-1">Debe</span>
@@ -649,6 +681,7 @@
 <script>
 import submittedVuelidateForm from '@/mixins/submittedVuelidateForm'
 import { axios } from '@/plugins/axios'
+import AccountingConceptCombobox from '@/views/pages/accounting/AccountingConceptCombobox.vue'
 import AccountingEditDialog from '@/views/pages/accounting/AccountingEditDialog.vue'
 import AccountingMobileEditSheet from '@/views/pages/accounting/AccountingMobileEditSheet.vue'
 import AccountingMobileFiltersSheet from '@/views/pages/accounting/AccountingMobileFiltersSheet.vue'
@@ -663,6 +696,7 @@ import { useDisplay } from 'vuetify'
 export default {
   name: 'ModuleAccounting',
   components: {
+    AccountingConceptCombobox,
     AccountingEditDialog,
     AccountingMobileEditSheet,
     AccountingMobileFiltersSheet,
@@ -699,7 +733,9 @@ export default {
       selectedPaymentType: null,
       selectedMovementType: null,
       amount: '',
-      description: '',
+      concept: '',
+      detail: '',
+      fixedConcepts: [],
       accounting: [],
       page: 1,
       hasMore: true,
@@ -715,8 +751,8 @@ export default {
       filterDateRange: null,
       filterMovementTypes: [],
       filterPaymentTypes: [],
-      filterDescription: '',
-      descriptionFilterTimer: null,
+      filterQuery: '',
+      filterQueryTimer: null,
       skipFilterRefresh: false,
       filterSheet: false,
       filtersExpanded: false,
@@ -744,7 +780,7 @@ export default {
         (Array.isArray(range) && range.length)
         || this.filterMovementTypes.length
         || this.filterPaymentTypes.length
-        || String(this.filterDescription).trim(),
+        || String(this.filterQuery).trim(),
       )
     },
     emptyListMessage() {
@@ -780,10 +816,14 @@ export default {
     },
   },
   mounted() {
+    this.loadFixedConcepts()
     window.addEventListener('accounting:imported', this.refreshAccounting)
   },
+  activated() {
+    this.loadFixedConcepts()
+  },
   beforeUnmount() {
-    clearTimeout(this.descriptionFilterTimer)
+    clearTimeout(this.filterQueryTimer)
     window.removeEventListener('accounting:imported', this.refreshAccounting)
   },
   validations() {
@@ -808,6 +848,16 @@ export default {
     }
   },
   methods: {
+    loadFixedConcepts() {
+      axios
+        .get('/api/accounting/concepts')
+        .then(response => {
+          this.fixedConcepts = response.data.data || []
+        })
+        .catch(() => {
+          this.fixedConcepts = []
+        })
+    },
     async storeAccounting() {
       if (this.saving)
         return
@@ -827,7 +877,8 @@ export default {
           'movement_type': this.selectedMovementType,
           'payment_type': this.selectedPaymentType,
           amount: this.$parseAmount(this.amount),
-          description: this.description,
+          concept: this.concept,
+          detail: this.detail,
         })
 
         this.resetForm()
@@ -913,7 +964,8 @@ export default {
       this.selectedMovementType = null
       this.selectedPaymentType = null
       this.amount = ''
-      this.description = ''
+      this.concept = ''
+      this.detail = ''
       this.submitted = false
       this.v$.$reset()
     },
@@ -945,15 +997,15 @@ export default {
       if (this.filterPaymentTypes.length)
         params.payment_type = this.filterPaymentTypes
 
-      const description = String(this.filterDescription).trim()
-      if (description)
-        params.description = description
+      const q = String(this.filterQuery).trim()
+      if (q)
+        params.q = q
 
       return params
     },
-    onFilterDescriptionInput() {
-      clearTimeout(this.descriptionFilterTimer)
-      this.descriptionFilterTimer = setTimeout(() => {
+    onFilterQueryInput() {
+      clearTimeout(this.filterQueryTimer)
+      this.filterQueryTimer = setTimeout(() => {
         this.refreshAccounting()
       }, 400)
     },
@@ -969,12 +1021,12 @@ export default {
       this.refreshAccounting()
     },
     clearFilters() {
-      clearTimeout(this.descriptionFilterTimer)
+      clearTimeout(this.filterQueryTimer)
       this.skipFilterRefresh = true
       this.filterDateRange = null
       this.filterMovementTypes = []
       this.filterPaymentTypes = []
-      this.filterDescription = ''
+      this.filterQuery = ''
       this.skipFilterRefresh = false
       this.refreshAccounting()
     },

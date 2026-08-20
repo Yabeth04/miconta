@@ -21,6 +21,11 @@ export const routes = [
         meta: { auth: true },
       },
       {
+        path: 'contabilidad/conceptos',
+        component: () => import('@/pages/moduleAccountingConcepts.vue'),
+        meta: { auth: true },
+      },
+      {
         path: 'plan-estudios',
         component: () => import('@/pages/moduleStudyPlan.vue'),
         meta: { auth: true, role: 'sysAdmin' },

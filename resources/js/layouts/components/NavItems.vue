@@ -23,6 +23,13 @@ const { isSysAdmin } = storeToRefs(auth)
     }"
   />
   <VerticalNavLink
+    :item="{
+      title: 'Conceptos',
+      icon: 'ri-price-tag-3-line',
+      to: '/contabilidad/conceptos',
+    }"
+  />
+  <VerticalNavLink
     v-if="isSysAdmin"
     :item="{
       title: 'Plan de estudios',

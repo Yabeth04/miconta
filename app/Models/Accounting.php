@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -12,7 +13,9 @@ class Accounting extends Model
         'user_id',
         'date',
         'movement_type',
-        'description',
+        'concept',
+        'detail',
+        'accounting_concept_id',
         'payment_type',
         'amount',
     ];
@@ -28,5 +31,10 @@ class Accounting extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function fixedConcept(): BelongsTo
+    {
+        return $this->belongsTo(AccountingConcept::class, 'accounting_concept_id');
     }
 }

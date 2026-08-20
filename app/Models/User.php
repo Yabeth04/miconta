@@ -50,6 +50,11 @@ class User extends Authenticatable
         return $this->hasOne(AccountingSetting::class);
     }
 
+    public function accountingConcepts(): HasMany
+    {
+        return $this->hasMany(AccountingConcept::class);
+    }
+
     public function isSysAdmin(): bool
     {
         return $this->role?->name === Role::SYS_ADMIN;

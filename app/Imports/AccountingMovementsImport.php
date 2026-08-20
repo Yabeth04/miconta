@@ -61,7 +61,7 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
                     continue;
                 }
 
-                $description = $this->stringOrNull($this->valueAt($row, ['descripcion', 'descripción'], 1));
+                $concept = $this->stringOrNull($this->valueAt($row, ['concepto', 'concept', 'descripcion', 'descripción'], 1));
                 $debit       = $this->parseAmount($this->valueAt($row, [
                     'debito_salida', 'debito', 'débito_salida', 'debe', 'gasto', 'salida',
                 ], 2));
@@ -83,7 +83,8 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
 
                 $payload = [
                     'user_id'       => $this->userId,
-                    'description'   => $description,
+                    'concept'       => $concept,
+                    'detail'        => null,
                     'movement_type' => $hasDebit ? 'debe' : 'haber',
                     'amount'        => $hasDebit ? $debit : $credit,
                     'payment_type'  => $paymentType,

@@ -16,7 +16,8 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->date('date');
             $table->enum('movement_type', ['haber', 'debe']);
-            $table->string('description')->nullable();
+            $table->string('concept')->nullable();
+            $table->string('detail')->nullable();
             $table->enum('payment_type', ['sinpe', 'efectivo', 'transferencia', 'tarjeta', 'otros']);
             $table->decimal('amount', 10, 2);
             $table->timestamps();
