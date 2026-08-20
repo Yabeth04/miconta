@@ -17,7 +17,6 @@ return new class extends Migration
             $table->string('status', 32)->nullable();
             $table->string('note', 255)->nullable();
             $table->string('selected_elective_key', 80)->nullable();
-            $table->json('elective_preferences')->nullable();
             $table->timestamps();
 
             $table->index('term_number');

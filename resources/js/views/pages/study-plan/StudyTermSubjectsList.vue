@@ -1,21 +1,36 @@
 <template>
   <VList
     class="py-1"
-    :density="dense ? 'comfortable' : 'default'"
+    :density="dense ? 'compact' : 'default'"
   >
     <template
       v-for="(subject, index) in term.subjects"
       :key="subject.id"
     >
-      <VListItem class="px-4 subject-item">
+      <VListItem
+        class="px-4 subject-item"
+        :class="{ 'subject-item--dense': dense }"
+      >
         <VListItemTitle class="text-wrap text-body-2 pe-2">
-          {{ subject.name }}
+          <span class="d-inline">{{ subject.name }}</span>
           <span
             v-if="subject.is_elective_slot && selectedElectiveName(subject)"
             class="text-medium-emphasis"
           >
             — {{ selectedElectiveName(subject) }}
           </span>
+
+          <VChip
+            v-if="subject.status && dense"
+            size="x-small"
+            variant="tonal"
+            :color="statusColor(subject.status)"
+            :prepend-icon="statusIcon(subject.status)"
+            class="ms-2 text-uppercase"
+            style="font-size: 0.65rem; letter-spacing: 0.02em; vertical-align: middle"
+          >
+            {{ statusLabel(subject.status) }}
+          </VChip>
         </VListItemTitle>
 
         <VListItemSubtitle
@@ -42,17 +57,6 @@
               </template>
               <span>{{ statusLabel(subject.status) }}</span>
             </VTooltip>
-
-            <VChip
-              v-else-if="subject.status"
-              size="small"
-              variant="tonal"
-              :color="statusColor(subject.status)"
-              class="text-uppercase"
-              style="font-size: 0.65rem; letter-spacing: 0.02em"
-            >
-              {{ statusLabel(subject.status) }}
-            </VChip>
 
             <VMenu>
               <template #activator="{ props: menuProps }">
@@ -89,44 +93,34 @@
 
       <div
         v-if="subject.is_elective_slot && (subject.elective_options || []).length"
-        class="px-4 pb-3"
+        class="px-4"
+        :class="dense ? 'pb-2' : 'pb-3'"
       >
-        <div
-          class="elective-options rounded-lg pa-3"
-          role="button"
-          tabindex="0"
-          @click="$emit('edit-preferences', subject)"
-          @keydown.enter.prevent="$emit('edit-preferences', subject)"
-        >
-          <div class="d-flex align-center justify-space-between mb-2">
-            <span class="text-caption text-medium-emphasis">
-              Tocá aquí para cambiar preferencias
-            </span>
-            <VIcon
-              icon="ri-pencil-line"
-              size="14"
-              class="text-medium-emphasis"
-            />
+        <div class="elective-options rounded-lg pa-3">
+          <div class="text-caption font-weight-medium text-primary mb-2">
+            Opciones de electiva
           </div>
           <div
             v-for="opt in subject.elective_options"
             :key="opt.key"
-            class="d-flex align-center justify-space-between gap-2 py-1"
+            class="elective-option-row d-flex align-center gap-2 py-1"
+            role="button"
+            tabindex="0"
+            @click="$emit('select-elective', subject, opt.key)"
+            @keydown.enter.prevent="$emit('select-elective', subject, opt.key)"
           >
+            <VIcon
+              :icon="opt.key === subject.selected_elective_key ? 'ri-checkbox-circle-fill' : 'ri-checkbox-blank-circle-line'"
+              :color="opt.key === subject.selected_elective_key ? 'primary' : undefined"
+              size="18"
+              :class="{ 'text-disabled': opt.key !== subject.selected_elective_key }"
+            />
             <span
               class="text-body-2"
               :class="{ 'font-weight-medium': opt.key === subject.selected_elective_key }"
             >
               {{ opt.name }}
             </span>
-            <VChip
-              v-if="opt.preference_note"
-              size="x-small"
-              variant="tonal"
-              :color="priorityColor(opt.preference_note)"
-            >
-              {{ priorityLabel(opt.preference_note) }}
-            </VChip>
           </div>
         </div>
       </div>
@@ -157,7 +151,7 @@ export default {
     statusMap: { type: Object, required: true },
   },
 
-  emits: ['edit-progress', 'edit-preferences', 'delete-subject'],
+  emits: ['edit-progress', 'delete-subject', 'select-elective'],
 
   methods: {
     statusLabel(status) {
@@ -178,30 +172,6 @@ export default {
 
       return (subject.elective_options || []).find(o => o.key === subject.selected_elective_key)?.name || null
     },
-
-    priorityLabel(value) {
-      const v = String(value || '').toLowerCase()
-      if (v === 'alto' || v.includes('1') || v.includes('definitiva'))
-        return 'Alto'
-      if (v === 'medio' || v.includes('2'))
-        return 'Medio'
-      if (v === 'bajo' || v.includes('3'))
-        return 'Bajo'
-
-      return value
-    },
-
-    priorityColor(value) {
-      const v = String(value || '').toLowerCase()
-      if (v === 'alto' || v.includes('1') || v.includes('definitiva'))
-        return 'error'
-      if (v === 'medio' || v.includes('2'))
-        return 'warning'
-      if (v === 'bajo' || v.includes('3'))
-        return 'info'
-
-      return 'primary'
-    },
   },
 }
 </script>
@@ -210,11 +180,19 @@ export default {
 .subject-item {
   min-height: 52px;
 }
-.elective-options {
-  background: rgba(var(--v-theme-on-surface), 0.04);
-  cursor: pointer;
+.subject-item--dense {
+  min-height: 40px;
 }
-.elective-options:hover {
-  background: rgba(var(--v-theme-primary), 0.08);
+.elective-options {
+  border: 1px solid rgba(var(--v-theme-primary), 0.28);
+  background: rgba(var(--v-theme-primary), 0.06);
+}
+.elective-option-row {
+  cursor: pointer;
+  border-radius: 8px;
+  padding-inline: 4px;
+}
+.elective-option-row:hover {
+  background: rgba(var(--v-theme-primary), 0.1);
 }
 </style>

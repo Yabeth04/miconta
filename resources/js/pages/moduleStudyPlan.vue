@@ -7,12 +7,6 @@
       @saved="refreshPlan"
     />
 
-    <StudyElectivePreferencesDialog
-      v-model="preferencesDialog"
-      :subject="activeSubject"
-      @saved="refreshPlan"
-    />
-
     <StudySubjectDialog
       v-model="subjectDialog"
       :terms="terms"
@@ -48,6 +42,46 @@
             @click="confirmDelete"
           >
             Eliminar
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
+
+    <VDialog
+      v-model="electiveConfirmDialog"
+      max-width="400"
+    >
+      <VCard rounded="lg">
+        <VCardTitle class="text-h6">
+          Cambiar electiva
+        </VCardTitle>
+        <VCardText class="text-body-2">
+          <template v-if="electiveConfirm.fromName">
+            Vas a cambiar de <strong>{{ electiveConfirm.fromName }}</strong>
+            a <strong>{{ electiveConfirm.toName }}</strong>.
+          </template>
+          <template v-else>
+            Vas a seleccionar <strong>{{ electiveConfirm.toName }}</strong>.
+          </template>
+          ¿Confirmás?
+        </VCardText>
+        <VCardActions class="px-4 pb-4">
+          <VSpacer />
+          <VBtn
+            variant="text"
+            rounded="lg"
+            @click="electiveConfirmDialog = false"
+          >
+            Cancelar
+          </VBtn>
+          <VBtn
+            color="primary"
+            variant="flat"
+            rounded="lg"
+            :loading="electiveSaving"
+            @click="confirmElectiveChange"
+          >
+            Confirmar
           </VBtn>
         </VCardActions>
       </VCard>
@@ -119,8 +153,8 @@
               :status-map="statusMap"
               show-status-icon
               @edit-progress="openProgress"
-              @edit-preferences="openPreferences"
               @delete-subject="askDeleteSubject"
+              @select-elective="requestElectiveChange"
             />
           </VExpansionPanelText>
         </VExpansionPanel>
@@ -136,6 +170,7 @@
           :key="term.number"
           cols="12"
           md="6"
+          lg="4"
         >
           <VCard
             rounded="lg"
@@ -155,8 +190,8 @@
               :status-map="statusMap"
               dense
               @edit-progress="openProgress"
-              @edit-preferences="openPreferences"
               @delete-subject="askDeleteSubject"
+              @select-elective="requestElectiveChange"
             />
           </VCard>
         </VCol>
@@ -167,7 +202,6 @@
 
 <script>
 import { axios } from '@/plugins/axios'
-import StudyElectivePreferencesDialog from '@/views/pages/study-plan/StudyElectivePreferencesDialog.vue'
 import StudySubjectDialog from '@/views/pages/study-plan/StudySubjectDialog.vue'
 import StudySubjectProgressDialog from '@/views/pages/study-plan/StudySubjectProgressDialog.vue'
 import StudyTermSubjectsList from '@/views/pages/study-plan/StudyTermSubjectsList.vue'
@@ -177,7 +211,6 @@ export default {
   name: 'ModuleStudyPlan',
 
   components: {
-    StudyElectivePreferencesDialog,
     StudySubjectDialog,
     StudySubjectProgressDialog,
     StudyTermSubjectsList,
@@ -197,13 +230,20 @@ export default {
       loading: true,
       error: '',
       progressDialog: false,
-      preferencesDialog: false,
       activeSubject: null,
       subjectDialog: false,
       defaultTermNumber: null,
       deleteDialog: false,
       deleteSubject: null,
       deleting: false,
+      electiveConfirmDialog: false,
+      electiveSaving: false,
+      electiveConfirm: {
+        subject: null,
+        nextKey: null,
+        fromName: null,
+        toName: null,
+      },
       statusMap: {
         matriculado: { label: 'Matriculado', color: 'info', icon: 'ri-bookmark-fill' },
         en_curso: { label: 'En curso', color: 'warning', icon: 'ri-play-circle-fill' },
@@ -239,9 +279,40 @@ export default {
       this.progressDialog = true
     },
 
-    openPreferences(subject) {
-      this.activeSubject = subject
-      this.preferencesDialog = true
+    requestElectiveChange(subject, nextKey) {
+      if (!subject || !nextKey || subject.selected_elective_key === nextKey)
+        return
+
+      const fromName = (subject.elective_options || []).find(o => o.key === subject.selected_elective_key)?.name || null
+      const toName = (subject.elective_options || []).find(o => o.key === nextKey)?.name || nextKey
+
+      this.electiveConfirm = {
+        subject,
+        nextKey,
+        fromName,
+        toName,
+      }
+      this.electiveConfirmDialog = true
+    },
+
+    confirmElectiveChange() {
+      const { subject, nextKey } = this.electiveConfirm
+      if (!subject || !nextKey)
+        return
+
+      this.electiveSaving = true
+
+      axios.put(`/api/study-plan/subjects/${subject.id}`, {
+        selected_elective_key: nextKey,
+      })
+        .then(() => {
+          this.electiveConfirmDialog = false
+
+          return this.refreshPlan()
+        })
+        .finally(() => {
+          this.electiveSaving = false
+        })
     },
 
     openNewSubject(termNumber = null) {

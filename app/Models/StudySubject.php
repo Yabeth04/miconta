@@ -20,16 +20,14 @@ class StudySubject extends Model
         'status',
         'note',
         'selected_elective_key',
-        'elective_preferences',
     ];
 
     protected function casts(): array
     {
         return [
-            'term_number'          => 'integer',
-            'is_elective_slot'     => 'boolean',
-            'elective_group'       => 'integer',
-            'elective_preferences' => 'array',
+            'term_number'      => 'integer',
+            'is_elective_slot' => 'boolean',
+            'elective_group'   => 'integer',
         ];
     }
 }

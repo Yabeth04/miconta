@@ -17,5 +17,4 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('study-plan/subjects', [StudyPlanController::class, 'storeSubject']);
     Route::put('study-plan/subjects/{subject}', [StudyPlanController::class, 'updateSubject']);
     Route::delete('study-plan/subjects/{subject}', [StudyPlanController::class, 'destroySubject']);
-    Route::put('study-plan/subjects/{subject}/progress', [StudyPlanController::class, 'upsertProgress']);
 });

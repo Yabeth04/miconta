@@ -49,13 +49,10 @@ class StudyPlanSeeder extends Seeder
                 ['name' => 'Análisis y Modelado de Requerimientos'],
                 ['name' => 'Gobernanza y Gestión de Tecnologías de Información y Comunicaciones'],
                 [
-                    'name' => 'Electiva 1',
-                    'is_elective_slot' => true,
-                    'elective_group' => 1,
-                    'elective_preferences' => [
-                        'base-datos-nosql' => 'alto',
-                        'arquitectura-videojuegos' => 'medio',
-                    ],
+                    'name'                  => 'Electiva 1',
+                    'is_elective_slot'      => true,
+                    'elective_group'        => 1,
+                    'selected_elective_key' => 'base-datos-nosql',
                 ],
             ],
             7 => [
@@ -64,13 +61,10 @@ class StudyPlanSeeder extends Seeder
                 ['name' => 'Programación para Dispositivos Móviles (Laboratorio)'],
                 ['name' => 'Auditoría de Sistemas'],
                 [
-                    'name' => 'Electiva 2',
-                    'is_elective_slot' => true,
-                    'elective_group' => 2,
-                    'elective_preferences' => [
-                        'diseno-videojuegos' => 'medio',
-                        'administracion-servidores' => 'alto',
-                    ],
+                    'name'                  => 'Electiva 2',
+                    'is_elective_slot'      => true,
+                    'elective_group'        => 2,
+                    'selected_elective_key' => 'administracion-servidores',
                 ],
             ],
             8 => [
@@ -78,13 +72,10 @@ class StudyPlanSeeder extends Seeder
                 ['name' => 'Computación y Sociedad'],
                 ['name' => 'Implantación de Sistemas'],
                 [
-                    'name' => 'Electiva 3',
-                    'is_elective_slot' => true,
-                    'elective_group' => 3,
+                    'name'                  => 'Electiva 3',
+                    'is_elective_slot'      => true,
+                    'elective_group'        => 3,
                     'selected_elective_key' => 'seguridad-informatica',
-                    'elective_preferences' => [
-                        'seguridad-informatica' => 'alto',
-                    ],
                 ],
             ],
         ];
@@ -102,7 +93,6 @@ class StudyPlanSeeder extends Seeder
                         'status'                => $data['status'] ?? null,
                         'note'                  => $data['note'] ?? null,
                         'selected_elective_key' => $data['selected_elective_key'] ?? null,
-                        'elective_preferences'  => $data['elective_preferences'] ?? null,
                     ]
                 );
             }

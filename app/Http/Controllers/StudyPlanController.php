@@ -10,7 +10,7 @@ class StudyPlanController extends Controller
     public function index()
     {
         $termsConfig = config('study_plan.terms');
-        $electives = config('study_plan.electives');
+        $electives   = config('study_plan.electives');
 
         $subjects = StudySubject::query()
             ->orderBy('term_number')
@@ -23,12 +23,10 @@ class StudyPlanController extends Controller
                 $options = [];
 
                 if ($subject->is_elective_slot && $subject->elective_group) {
-                    $prefs = $subject->elective_preferences ?? [];
                     $options = collect($electives[$subject->elective_group] ?? [])
-                        ->map(fn (array $opt) => [
-                            'key'             => $opt['key'],
-                            'name'            => $opt['name'],
-                            'preference_note' => $prefs[$opt['key']] ?? null,
+                        ->map(fn(array $opt) => [
+                            'key'  => $opt['key'],
+                            'name' => $opt['name'],
                         ])
                         ->values();
                 }
@@ -86,16 +84,14 @@ class StudyPlanController extends Controller
             ->all();
 
         $validated = $request->validate([
-            'term_number'            => ['sometimes', 'integer', Rule::in(array_keys(config('study_plan.terms')))],
-            'name'                   => ['sometimes', 'required', 'string', 'max:255'],
-            'status'                 => ['nullable', Rule::in(StudySubject::STATUSES)],
-            'note'                   => ['nullable', 'string', 'max:255'],
-            'selected_elective_key'  => ['nullable', 'string', Rule::in($electiveKeys)],
-            'elective_preferences'   => ['nullable', 'array'],
-            'elective_preferences.*' => ['nullable', 'string', Rule::in(['alto', 'medio', 'bajo'])],
+            'term_number'           => ['sometimes', 'integer', Rule::in(array_keys(config('study_plan.terms')))],
+            'name'                  => ['sometimes', 'required', 'string', 'max:255'],
+            'status'                => ['nullable', Rule::in(StudySubject::STATUSES)],
+            'note'                  => ['nullable', 'string', 'max:255'],
+            'selected_elective_key' => ['nullable', 'string', Rule::in($electiveKeys)],
         ]);
 
-        if (! empty($validated['selected_elective_key'])) {
+        if (array_key_exists('selected_elective_key', $validated) && $validated['selected_elective_key']) {
             abort_unless($subject->is_elective_slot, 422, 'Solo las electivas pueden tener opción seleccionada.');
 
             $allowed = collect(config('study_plan.electives')[$subject->elective_group] ?? [])
@@ -107,14 +103,6 @@ class StudyPlanController extends Controller
                 422,
                 'La opción no pertenece a este grupo de electiva.'
             );
-        }
-
-        if (array_key_exists('elective_preferences', $validated) && $subject->is_elective_slot) {
-            $validated['elective_preferences'] = collect($validated['elective_preferences'] ?? [])
-                ->filter(fn ($v) => $v !== null && $v !== '')
-                ->all() ?: null;
-        } else {
-            unset($validated['elective_preferences']);
         }
 
         $subject->update($validated);
@@ -127,51 +115,5 @@ class StudyPlanController extends Controller
         $subject->delete();
 
         return response()->json(['message' => 'Materia eliminada.']);
-    }
-
-    public function upsertProgress(Request $request, StudySubject $subject)
-    {
-        $electiveKeys = collect(config('study_plan.electives'))
-            ->flatten(1)
-            ->pluck('key')
-            ->all();
-
-        $validated = $request->validate([
-            'status'                 => ['nullable', Rule::in(StudySubject::STATUSES)],
-            'note'                   => ['nullable', 'string', 'max:255'],
-            'selected_elective_key'  => ['nullable', 'string', Rule::in($electiveKeys)],
-            'elective_preferences'   => ['nullable', 'array'],
-            'elective_preferences.*' => ['nullable', 'string', Rule::in(['alto', 'medio', 'bajo'])],
-        ]);
-
-        if (! empty($validated['selected_elective_key'])) {
-            abort_unless($subject->is_elective_slot, 422, 'Solo las electivas pueden tener opción seleccionada.');
-
-            $allowed = collect(config('study_plan.electives')[$subject->elective_group] ?? [])
-                ->pluck('key')
-                ->all();
-
-            abort_unless(
-                in_array($validated['selected_elective_key'], $allowed, true),
-                422,
-                'La opción no pertenece a este grupo de electiva.'
-            );
-        }
-
-        $preferences = null;
-        if ($subject->is_elective_slot) {
-            $preferences = collect($validated['elective_preferences'] ?? [])
-                ->filter(fn ($v) => $v !== null && $v !== '')
-                ->all();
-        }
-
-        $subject->update([
-            'status'                => $validated['status'] ?? null,
-            'note'                  => $validated['note'] ?? null,
-            'selected_elective_key' => $validated['selected_elective_key'] ?? null,
-            'elective_preferences'  => $preferences ?: null,
-        ]);
-
-        return response()->json($subject->fresh());
     }
 }

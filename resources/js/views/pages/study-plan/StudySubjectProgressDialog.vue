@@ -1,7 +1,7 @@
 <template>
   <VDialog
     :model-value="modelValue"
-    max-width="480"
+    max-width="520"
     @update:model-value="$emit('update:modelValue', $event)"
   >
     <VCard rounded="lg">
@@ -88,18 +88,28 @@
           maxlength="255"
         />
 
-        <VSelect
-          v-if="subject?.is_elective_slot"
-          v-model="selectedKey"
-          :items="optionItems"
-          item-title="title"
-          item-value="value"
-          label="Electiva elegida"
-          variant="outlined"
-          rounded="lg"
-          clearable
-          hide-details="auto"
-        />
+        <div v-if="subject?.is_elective_slot">
+          <div class="text-body-2 font-weight-medium mb-2">
+            Electiva elegida
+          </div>
+          <div class="d-flex flex-column gap-1">
+            <button
+              v-for="opt in subject.elective_options || []"
+              :key="opt.key"
+              type="button"
+              class="elective-option-btn d-flex align-center gap-2 text-left pa-2 rounded-lg"
+              :class="{ 'elective-option-btn--selected': selectedKey === opt.key }"
+              @click="selectedKey = opt.key"
+            >
+              <VIcon
+                :icon="selectedKey === opt.key ? 'ri-checkbox-circle-fill' : 'ri-checkbox-blank-circle-line'"
+                :color="selectedKey === opt.key ? 'primary' : undefined"
+                size="20"
+              />
+              <span class="text-body-2">{{ opt.name }}</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="d-flex justify-end gap-2 px-5 pb-5">
@@ -115,11 +125,51 @@
           rounded="lg"
           :loading="saving"
           :disabled="!canSave"
-          @click="save"
+          @click="requestSave"
         >
           Guardar
         </VBtn>
       </div>
+    </VCard>
+  </VDialog>
+
+  <VDialog
+    v-model="confirmDialog"
+    max-width="400"
+  >
+    <VCard rounded="lg">
+      <VCardTitle class="text-h6">
+        Cambiar electiva
+      </VCardTitle>
+      <VCardText class="text-body-2">
+        Vas a cambiar la electiva seleccionada
+        <template v-if="previousElectiveName">
+          de <strong>{{ previousElectiveName }}</strong>
+        </template>
+        <template v-if="nextElectiveName">
+          a <strong>{{ nextElectiveName }}</strong>
+        </template>.
+        ¿Confirmás el cambio?
+      </VCardText>
+      <VCardActions class="px-4 pb-4">
+        <VSpacer />
+        <VBtn
+          variant="text"
+          rounded="lg"
+          @click="confirmDialog = false"
+        >
+          Cancelar
+        </VBtn>
+        <VBtn
+          color="primary"
+          variant="flat"
+          rounded="lg"
+          :loading="saving"
+          @click="confirmAndSave"
+        >
+          Confirmar
+        </VBtn>
+      </VCardActions>
     </VCard>
   </VDialog>
 </template>
@@ -151,7 +201,9 @@ export default {
       status: null,
       note: '',
       selectedKey: null,
+      originalSelectedKey: null,
       saving: false,
+      confirmDialog: false,
     }
   },
 
@@ -159,14 +211,17 @@ export default {
     termItems() {
       return this.terms.map(t => ({ title: t.name, value: t.number }))
     },
-    optionItems() {
-      return (this.subject?.elective_options || []).map(o => ({
-        title: o.name,
-        value: o.key,
-      }))
-    },
     canSave() {
       return this.termNumber && this.name.trim()
+    },
+    electiveChanged() {
+      return (this.selectedKey || null) !== (this.originalSelectedKey || null)
+    },
+    previousElectiveName() {
+      return this.optionName(this.originalSelectedKey)
+    },
+    nextElectiveName() {
+      return this.optionName(this.selectedKey)
     },
   },
 
@@ -189,16 +244,44 @@ export default {
   },
 
   methods: {
+    optionName(key) {
+      if (!key)
+        return null
+
+      return (this.subject?.elective_options || []).find(o => o.key === key)?.name || null
+    },
+
     hydrate() {
       this.name = this.subject.name ?? ''
       this.termNumber = this.subject.term_number ?? null
       this.status = this.subject.status ?? null
       this.note = this.subject.note ?? ''
       this.selectedKey = this.subject.selected_elective_key ?? null
+      this.originalSelectedKey = this.subject.selected_elective_key ?? null
+      this.confirmDialog = false
     },
 
     close() {
+      this.confirmDialog = false
       this.$emit('update:modelValue', false)
+    },
+
+    requestSave() {
+      if (!this.subject || !this.canSave)
+        return
+
+      if (this.subject.is_elective_slot && this.electiveChanged) {
+        this.confirmDialog = true
+
+        return
+      }
+
+      this.save()
+    },
+
+    confirmAndSave() {
+      this.confirmDialog = false
+      this.save()
     },
 
     save() {
@@ -207,24 +290,13 @@ export default {
 
       this.saving = true
 
-      const prefs = {}
-      for (const opt of this.subject.elective_options || []) {
-        if (opt.preference_note)
-          prefs[opt.key] = opt.preference_note
-      }
-
-      const payload = {
+      axios.put(`/api/study-plan/subjects/${this.subject.id}`, {
         name: this.name.trim(),
         term_number: this.termNumber,
         status: this.status || null,
         note: this.note?.trim() || null,
         selected_elective_key: this.selectedKey || null,
-      }
-
-      if (this.subject.is_elective_slot)
-        payload.elective_preferences = prefs
-
-      axios.put(`/api/study-plan/subjects/${this.subject.id}`, payload)
+      })
         .then(() => {
           this.$emit('saved')
           this.close()
@@ -236,3 +308,19 @@ export default {
   },
 }
 </script>
+
+<style scoped>
+.elective-option-btn {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  background: transparent;
+  cursor: pointer;
+  width: 100%;
+}
+.elective-option-btn:hover {
+  background: rgba(var(--v-theme-primary), 0.06);
+}
+.elective-option-btn--selected {
+  border-color: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-primary), 0.08);
+}
+</style>
