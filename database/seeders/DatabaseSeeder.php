@@ -30,5 +30,6 @@ class DatabaseSeeder extends Seeder
         );
 
         $this->call(StudyPlanSeeder::class);
+        $this->call(AccountingConceptSeeder::class);
     }
 }
