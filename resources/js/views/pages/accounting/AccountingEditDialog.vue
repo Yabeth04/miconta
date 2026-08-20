@@ -93,7 +93,7 @@
           >
             <VTextField
               v-currency-live
-              v-model="v$.amount.$model"
+              v-model="amount"
               type="text"
               inputmode="decimal"
               autocomplete="off"
@@ -182,12 +182,17 @@ export default {
   watch: {
     modelValue(open) {
       if (open && this.movement)
-        this.loadMovement(this.movement)
+        this.$nextTick(() => this.loadMovement(this.movement))
     },
     movement(item) {
       if (this.modelValue && item)
-        this.loadMovement(item)
+        this.$nextTick(() => this.loadMovement(item))
     },
+  },
+
+  mounted() {
+    if (this.modelValue && this.movement)
+      this.$nextTick(() => this.loadMovement(this.movement))
   },
 
   validations() {
@@ -220,7 +225,6 @@ export default {
       this.selectedPaymentType = item.payment_type
       this.amount = this.$formatAmountValue(item.amount)
       this.submitted = false
-      this.v$.$reset()
     },
     parseMovementDate(value) {
       if (!value)

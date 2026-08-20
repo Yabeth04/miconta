@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use App\Imports\AccountingMovementsImport;
 use App\Imports\AccountingWorkbookImport;
 use App\Models\Accounting;
+use App\Models\AccountingSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -38,14 +39,50 @@ class AccountingController extends Controller
                 ->selectRaw('COUNT(*) as count_total')
                 ->first();
 
+            $opening = (float) $this->settings()->opening_balance_main;
+
+            // Saldo de la cuenta: siempre con todos los movimientos (no filtrados)
+            $global = DB::table('accounting_movements')
+                ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'debe' THEN amount ELSE 0 END), 0) as total_debe")
+                ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'haber' THEN amount ELSE 0 END), 0) as total_haber")
+                ->first();
+
             $payload['totals'] = [
-                'debe'  => (float) $totals->total_debe,
+                'debe' => (float) $totals->total_debe,
                 'haber' => (float) $totals->total_haber,
                 'count' => (int) $totals->count_total,
+                'opening_balance' => $opening,
+                'account_balance' => $opening
+                    + (float) $global->total_haber
+                    - (float) $global->total_debe,
             ];
         }
 
         return response()->json($payload, 200);
+    }
+
+    public function showSettings()
+    {
+        $settings = $this->settings();
+
+        return response()->json([
+            'opening_balance_main' => (float) $settings->opening_balance_main,
+        ], 200);
+    }
+
+    public function updateSettings(Request $request)
+    {
+        $validated = $request->validate([
+            'opening_balance_main' => ['required', 'numeric'],
+        ]);
+
+        $settings = $this->settings();
+        $settings->opening_balance_main = $validated['opening_balance_main'];
+        $settings->save();
+
+        return response()->json([
+            'opening_balance_main' => (float) $settings->opening_balance_main,
+        ], 200);
     }
 
     public function store(Request $request)
@@ -139,6 +176,19 @@ class AccountingController extends Controller
             ->delete();
 
         return response()->json($accounting, 200);
+    }
+
+    private function settings(): AccountingSetting
+    {
+        $settings = AccountingSetting::query()->first();
+
+        if ($settings) {
+            return $settings;
+        }
+
+        return AccountingSetting::query()->create([
+            'opening_balance_main' => 0,
+        ]);
     }
 
     private function filteredMovements(Request $request)

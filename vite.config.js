@@ -66,6 +66,15 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 5000,
   },
+  // Acceso desde celular en la misma WiFi (http://TU_IP:puerto)
+  server: {
+    host: true,
+    port: 5173,
+    strictPort: true,
+    hmr: {
+      host: process.env.VITE_HMR_HOST || '192.168.1.64',
+    },
+  },
   optimizeDeps: {
     exclude: ['vuetify'],
     entries: [

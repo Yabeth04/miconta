@@ -82,6 +82,12 @@
     @saved="refreshAccounting"
   />
 
+  <AccountingOpeningBalanceDialog
+    v-model="openingBalanceDialog"
+    :opening-balance="openingBalance"
+    @saved="refreshAccounting"
+  />
+
   <VDialog
     v-model="deleteDialog"
     max-width="400"
@@ -547,7 +553,29 @@
               {{ $formatAmount(totalHaber) }}
             </span>
           </div>
-          <div class="accounting-totals__desktop-tail d-flex align-center text-medium-emphasis text-caption" />
+          <div class="accounting-totals__desktop-metric accounting-totals__desktop-metric--balance text-end">
+            <div class="d-flex align-center justify-end gap-1 mb-1">
+              <span class="accounting-totals__col-label accounting-totals__col-label--tight mb-0">
+                Monto en cuenta
+              </span>
+              <VBtn
+                icon
+                variant="text"
+                size="x-small"
+                aria-label="Editar saldo inicial"
+                title="Editar saldo inicial"
+                @click="openingBalanceDialog = true"
+              >
+                <VIcon
+                  icon="ri-settings-3-line"
+                  size="14"
+                />
+              </VBtn>
+            </div>
+            <span class="accounting-totals__desktop-value accounting-table__num text-body-1 font-weight-semibold text-primary">
+              {{ $formatAmount(accountBalance) }}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -564,7 +592,7 @@
             {{ totalCount ? `${totalCount} movimientos` : 'Sin movimientos' }}
           </span>
         </div>
-        <div class="d-flex justify-space-between align-center gap-4">
+        <div class="d-flex justify-space-between align-center gap-4 mb-4">
           <div>
             <span class="text-medium-emphasis text-caption d-block mb-1">Debe / Gasto</span>
             <span
@@ -584,6 +612,22 @@
             </span>
           </div>
         </div>
+        <div class="accounting-totals__mobile-balance d-flex justify-space-between align-center">
+          <div>
+            <span class="text-medium-emphasis text-caption d-block mb-1">Monto en cuenta</span>
+            <span class="accounting-table__num text-body-1 font-weight-semibold text-primary">
+              {{ $formatAmount(accountBalance) }}
+            </span>
+          </div>
+          <VBtn
+            icon
+            variant="text"
+            aria-label="Editar saldo inicial"
+            @click="openingBalanceDialog = true"
+          >
+            <VIcon icon="ri-settings-3-line" />
+          </VBtn>
+        </div>
       </div>
     </VCard>
   </VContainer>
@@ -597,6 +641,7 @@ import AccountingMobileEditSheet from '@/views/pages/accounting/AccountingMobile
 import AccountingMobileFiltersSheet from '@/views/pages/accounting/AccountingMobileFiltersSheet.vue'
 import AccountingMobileFormSheet from '@/views/pages/accounting/AccountingMobileFormSheet.vue'
 import AccountingMovementMenu from '@/views/pages/accounting/AccountingMovementMenu.vue'
+import AccountingOpeningBalanceDialog from '@/views/pages/accounting/AccountingOpeningBalanceDialog.vue'
 import { parseAmount } from '@core/utils/formatters'
 import { useVuelidate } from '@vuelidate/core'
 import { helpers, required } from '@vuelidate/validators'
@@ -611,6 +656,7 @@ export default {
     AccountingMobileFiltersSheet,
     AccountingMobileFormSheet,
     AccountingMovementMenu,
+    AccountingOpeningBalanceDialog,
   },
   mixins: [submittedVuelidateForm],
 
@@ -651,6 +697,9 @@ export default {
       totalDebe: 0,
       totalHaber: 0,
       totalCount: 0,
+      openingBalance: 0,
+      accountBalance: 0,
+      openingBalanceDialog: false,
       filterDateRange: null,
       filterMovementTypes: [],
       filterPaymentTypes: [],
@@ -823,6 +872,8 @@ export default {
           this.totalDebe = response.data.totals.debe ?? 0
           this.totalHaber = response.data.totals.haber ?? 0
           this.totalCount = response.data.totals.count ?? 0
+          this.openingBalance = response.data.totals.opening_balance ?? 0
+          this.accountBalance = response.data.totals.account_balance ?? 0
         }
 
         const next = response.data.next_page_url
@@ -1086,6 +1137,18 @@ export default {
   border-radius: 6px;
   background: rgba(var(--v-theme-on-surface), 0.025);
   border: thin solid rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.accounting-totals__desktop-metric--balance {
+  background: rgba(var(--v-theme-primary), 0.06);
+  border-color: rgba(var(--v-theme-primary), 0.18);
+}
+
+.accounting-totals__mobile-balance {
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: rgba(var(--v-theme-primary), 0.06);
+  border: thin solid rgba(var(--v-theme-primary), 0.18);
 }
 
 .accounting-totals__desktop-value {
