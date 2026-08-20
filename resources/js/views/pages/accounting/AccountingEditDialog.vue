@@ -1,0 +1,275 @@
+<template>
+  <VDialog
+    :model-value="modelValue"
+    max-width="560"
+    @update:model-value="$emit('update:modelValue', $event)"
+  >
+    <VCard
+      rounded="lg"
+      class="accounting-edit-dialog"
+    >
+      <div class="d-flex align-center justify-space-between px-5 pt-5 pb-3">
+        <span class="text-h6">
+          Editar movimiento
+        </span>
+        <VBtn
+          icon
+          variant="text"
+          aria-label="Cerrar"
+          @click="close"
+        >
+          <VIcon icon="ri-close-line" />
+        </VBtn>
+      </div>
+
+      <VDivider />
+
+      <VForm class="pa-5">
+        <VRow
+          align="start"
+          dense
+        >
+          <VCol
+            cols="12"
+            sm="5"
+          >
+            <VDateInput
+              v-model="date"
+              label="Fecha"
+              variant="outlined"
+              rounded="lg"
+              prepend-icon=""
+              append-inner-icon="ri-calendar-line"
+              :error-messages="errors(v$.date)"
+              hide-details="auto"
+              show-adjacent-months
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            sm="7"
+          >
+            <VTextField
+              v-model="description"
+              type="text"
+              label="Descripción"
+              variant="outlined"
+              rounded="lg"
+              hide-details="auto"
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            sm="4"
+          >
+            <VSelect
+              v-model="selectedMovementType"
+              label="Tipo de movimiento"
+              :items="movementTypes"
+              variant="outlined"
+              rounded="lg"
+              :error-messages="errors(v$.selectedMovementType)"
+              hide-details="auto"
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            sm="4"
+          >
+            <VSelect
+              v-model="selectedPaymentType"
+              label="Tipo de pago"
+              :items="paymentTypes"
+              variant="outlined"
+              rounded="lg"
+              :error-messages="errors(v$.selectedPaymentType)"
+              hide-details="auto"
+            />
+          </VCol>
+          <VCol
+            cols="12"
+            sm="4"
+          >
+            <VTextField
+              v-currency-live
+              v-model="v$.amount.$model"
+              type="text"
+              inputmode="decimal"
+              autocomplete="off"
+              label="Monto"
+              variant="outlined"
+              rounded="lg"
+              hide-details="auto"
+              :error-messages="errors(v$.amount)"
+              @blur="normalizeAmount"
+            />
+          </VCol>
+        </VRow>
+
+        <div class="d-flex justify-end gap-2 mt-6">
+          <VBtn
+            variant="text"
+            rounded="lg"
+            @click="close"
+          >
+            Cancelar
+          </VBtn>
+          <VBtn
+            color="primary"
+            rounded="lg"
+            :loading="saving"
+            @click="save"
+          >
+            Guardar cambios
+          </VBtn>
+        </div>
+      </VForm>
+    </VCard>
+  </VDialog>
+</template>
+
+<script>
+import submittedVuelidateForm from '@/mixins/submittedVuelidateForm'
+import { useVuelidate } from '@vuelidate/core'
+import { helpers, required } from '@vuelidate/validators'
+import axios from 'axios'
+
+export default {
+  name: 'AccountingEditDialog',
+
+  mixins: [submittedVuelidateForm],
+
+  props: {
+    modelValue: {
+      type: Boolean,
+      default: false,
+    },
+    movement: {
+      type: Object,
+      default: null,
+    },
+    movementTypes: {
+      type: Array,
+      required: true,
+    },
+    paymentTypes: {
+      type: Array,
+      required: true,
+    },
+  },
+
+  emits: ['update:modelValue', 'saved'],
+
+  setup() {
+    return {
+      v$: useVuelidate(),
+    }
+  },
+
+  data() {
+    return {
+      date: new Date(),
+      selectedPaymentType: null,
+      selectedMovementType: null,
+      amount: '',
+      description: '',
+      saving: false,
+    }
+  },
+
+  watch: {
+    modelValue(open) {
+      if (open && this.movement)
+        this.loadMovement(this.movement)
+    },
+    movement(item) {
+      if (this.modelValue && item)
+        this.loadMovement(item)
+    },
+  },
+
+  validations() {
+    return {
+      date: {
+        required: helpers.withMessage('Fecha requerida', required),
+      },
+      selectedMovementType: {
+        required: helpers.withMessage('Tipo de movimiento requerido', required),
+      },
+      amount: {
+        required: helpers.withMessage('Monto requerido', v => this.$parseAmount(v) !== ''),
+        valid: helpers.withMessage('Ingresa un monto válido', v => {
+          const n = this.$parseAmount(v)
+
+          return n !== '' && n >= 0
+        }),
+      },
+      selectedPaymentType: {
+        required: helpers.withMessage('Tipo de pago requerido', required),
+      },
+    }
+  },
+
+  methods: {
+    loadMovement(item) {
+      this.date = this.parseMovementDate(item.date)
+      this.description = item.description ?? ''
+      this.selectedMovementType = item.movement_type
+      this.selectedPaymentType = item.payment_type
+      this.amount = this.$formatAmountValue(item.amount)
+      this.submitted = false
+      this.v$.$reset()
+    },
+    parseMovementDate(value) {
+      if (!value)
+        return new Date()
+
+      const parts = String(value).slice(0, 10).split('-').map(Number)
+      if (parts.length === 3 && parts.every(n => !Number.isNaN(n)))
+        return new Date(parts[0], parts[1] - 1, parts[2])
+
+      const parsed = new Date(value)
+
+      return Number.isNaN(parsed.getTime()) ? new Date() : parsed
+    },
+    close() {
+      this.$emit('update:modelValue', false)
+    },
+    async save() {
+      if (this.saving || !this.movement?.id)
+        return
+
+      this.submitted = true
+      const isValid = await this.v$.$validate()
+
+      if (!isValid)
+        return
+
+      this.saving = true
+
+      try {
+        await axios.put(`/api/accounting/${this.movement.id}`, {
+          date: this.$formatDate(this.date),
+          'movement_type': this.selectedMovementType,
+          'payment_type': this.selectedPaymentType,
+          amount: this.$parseAmount(this.amount),
+          description: this.description,
+        })
+
+        this.close()
+        this.$emit('saved')
+        this.$toast.success('Movimiento actualizado', { timeout: 2000, closeOnClick: true })
+      } catch (error) {
+        console.log(error)
+      } finally {
+        this.saving = false
+      }
+    },
+    normalizeAmount() {
+      const n = this.$parseAmount(this.amount)
+
+      this.amount = n === '' ? '' : this.$formatAmountValue(n)
+    },
+  },
+}
+</script>

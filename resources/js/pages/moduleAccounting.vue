@@ -64,7 +64,55 @@
       :payment-types="paymentTypes"
       @clear="clearSheetFilters"
     />
+    <AccountingMobileEditSheet
+      ref="mobileEdit"
+      :movement-types="movementTypes"
+      :payment-types="paymentTypes"
+      @saved="refreshAccounting"
+    />
   </template>
+
+  <AccountingEditDialog
+    v-if="mdAndUp"
+    v-model="editDialog"
+    :movement="editMovement"
+    :movement-types="movementTypes"
+    :payment-types="paymentTypes"
+    @saved="refreshAccounting"
+  />
+
+  <VDialog
+    v-model="deleteDialog"
+    max-width="400"
+  >
+    <VCard rounded="lg">
+      <VCardTitle class="text-h6">
+        Eliminar movimiento
+      </VCardTitle>
+      <VCardText class="text-body-2">
+        ¿Eliminar este movimiento? No se puede deshacer.
+      </VCardText>
+      <VCardActions class="px-4 pb-4">
+        <VSpacer />
+        <VBtn
+          variant="text"
+          rounded="lg"
+          @click="deleteDialog = false"
+        >
+          Cancelar
+        </VBtn>
+        <VBtn
+          color="error"
+          variant="flat"
+          rounded="lg"
+          :loading="deleting"
+          @click="confirmDelete"
+        >
+          Eliminar
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
 
   <VContainer :class="mdAndDown ? 'pa-0 mt-4' : ''">
     <!-- Escritorio: alta en una sola fila -->
@@ -297,12 +345,14 @@
             <th class="accounting-table__th text-start accounting-table__th--narrow">
               Tipo de pago
             </th>
+            <th class="accounting-table__th accounting-table__th--actions" />
           </tr>
         </thead>
         <tbody>
           <tr
             v-for="item in accounting"
             :key="item.id"
+            class="accounting-table__row"
           >
             <td class="text-body-2 text-medium-emphasis">
               {{ item.date }}
@@ -332,11 +382,17 @@
                 {{ paymentTypeLabel(item.payment_type) }}
               </VChip>
             </td>
+            <td class="accounting-table__actions text-end">
+              <AccountingMovementMenu
+                @edit="openEdit(item)"
+                @delete="openDelete(item)"
+              />
+            </td>
           </tr>
 
           <tr v-if="!accounting.length && !hasMore && !loading">
             <td
-              colspan="5"
+              colspan="6"
               class="text-body-2 text-medium-emphasis text-center py-8"
             >
               {{ emptyListMessage }}
@@ -345,7 +401,7 @@
 
           <!-- Carga más movimientos -->
           <tr>
-            <td colspan="5">
+            <td colspan="6">
               <VInfiniteScroll
                 :key="scrollKey"
                 side="end"
@@ -383,16 +439,22 @@
               class="accounting-mobile-card mb-3"
             >
               <VCardText class="pa-4">
-                <div class="d-flex justify-space-between align-center flex-wrap gap-2 mb-2">
+                <div class="d-flex justify-space-between align-start gap-2 mb-2">
                   <span class="text-caption text-medium-emphasis">{{ item.date }}</span>
-                  <VChip
-                    size="small"
-                    variant="tonal"
-                    color="primary"
-                    class="text-caption font-weight-medium"
-                  >
-                    {{ paymentTypeLabel(item.payment_type) }}
-                  </VChip>
+                  <div class="d-flex align-center gap-1 flex-shrink-0">
+                    <VChip
+                      size="small"
+                      variant="tonal"
+                      color="primary"
+                      class="text-caption font-weight-medium"
+                    >
+                      {{ paymentTypeLabel(item.payment_type) }}
+                    </VChip>
+                    <AccountingMovementMenu
+                      @edit="openEdit(item)"
+                      @delete="openDelete(item)"
+                    />
+                  </div>
                 </div>
                 <p class="text-body-2 mb-3">
                   {{ item.description || '—' }}
@@ -529,8 +591,11 @@
 
 <script>
 import submittedVuelidateForm from '@/mixins/submittedVuelidateForm'
+import AccountingEditDialog from '@/views/pages/accounting/AccountingEditDialog.vue'
+import AccountingMobileEditSheet from '@/views/pages/accounting/AccountingMobileEditSheet.vue'
 import AccountingMobileFiltersSheet from '@/views/pages/accounting/AccountingMobileFiltersSheet.vue'
 import AccountingMobileFormSheet from '@/views/pages/accounting/AccountingMobileFormSheet.vue'
+import AccountingMovementMenu from '@/views/pages/accounting/AccountingMovementMenu.vue'
 import { useVuelidate } from '@vuelidate/core'
 import { helpers, required } from '@vuelidate/validators'
 import axios from 'axios'
@@ -539,8 +604,11 @@ import { useDisplay } from 'vuetify'
 export default {
   name: 'ModuleAccounting',
   components: {
+    AccountingEditDialog,
+    AccountingMobileEditSheet,
     AccountingMobileFiltersSheet,
     AccountingMobileFormSheet,
+    AccountingMovementMenu,
   },
   mixins: [submittedVuelidateForm],
 
@@ -589,6 +657,11 @@ export default {
       skipFilterRefresh: false,
       filterSheet: false,
       filtersExpanded: false,
+      editDialog: false,
+      editMovement: null,
+      deleteDialog: false,
+      deleteTarget: null,
+      deleting: false,
     }
   },
   computed: {
@@ -840,6 +913,37 @@ export default {
       this.skipFilterRefresh = false
       this.refreshAccounting()
     },
+    openEdit(item) {
+      if (this.mdAndUp) {
+        this.editMovement = item
+        this.editDialog = true
+      } else {
+        this.$refs.mobileEdit?.open(item)
+      }
+    },
+    openDelete(item) {
+      this.deleteTarget = item
+      this.deleteDialog = true
+    },
+    async confirmDelete() {
+      if (this.deleting || !this.deleteTarget?.id)
+        return
+
+      this.deleting = true
+
+      try {
+        await axios.delete(`/api/accounting/${this.deleteTarget.id}`)
+        this.deleteDialog = false
+        this.deleteTarget = null
+        this.editMovement = null
+        this.refreshAccounting()
+        this.$toast.success('Movimiento eliminado', { timeout: 2000, closeOnClick: true })
+      } catch (error) {
+        console.log(error)
+      } finally {
+        this.deleting = false
+      }
+    },
   },
 }
 </script>
@@ -907,6 +1011,17 @@ export default {
 
 .accounting-table :deep(tbody tr:nth-child(even)) {
   background: rgba(var(--v-theme-on-surface), 0.02);
+}
+
+.accounting-table__row:hover {
+  background: rgba(var(--v-theme-on-surface), 0.04);
+}
+
+.accounting-table__th--actions,
+.accounting-table__actions {
+  width: 1%;
+  white-space: nowrap;
+  padding-inline: 0.25rem !important;
 }
 
 .accounting-table__num {

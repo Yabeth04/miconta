@@ -122,9 +122,11 @@ class AccountingController extends Controller
         // para actualizar un movimiento contable
         $validated = $this->validateAccounting($request);
 
-        $accounting = DB::table('accounting_movements')
+        DB::table('accounting_movements')
             ->where('id', $accounting->id)
-            ->update($validated);
+            ->update(array_merge($validated, [
+                'updated_at' => now(),
+            ]));
 
         return response()->json($accounting, 200);
     }

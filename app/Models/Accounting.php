@@ -5,7 +5,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Accounting extends Model
 {
-    protected $table = 'accounting';
+    protected $table = 'accounting_movements';
 
     protected $fillable = [
         'date',
