@@ -372,8 +372,11 @@
             >
               Fecha
             </th>
-            <th class="accounting-table__th text-start">
+            <th class="accounting-table__th text-start accounting-table__th--concept">
               Concepto
+            </th>
+            <th class="accounting-table__th text-start accounting-table__th--detail">
+              Detalle
             </th>
             <th class="accounting-table__th text-end accounting-table__th--amount">
               Debe / Gasto
@@ -396,14 +399,14 @@
             <td class="text-body-2 text-medium-emphasis">
               {{ item.date }}
             </td>
-            <td class="text-body-2">
-              <div>{{ item.concept || '—' }}</div>
-              <div
-                v-if="item.detail"
-                class="text-caption text-medium-emphasis"
-              >
-                {{ item.detail }}
-              </div>
+            <td class="text-body-2 accounting-table__concept">
+              {{ item.concept || '—' }}
+            </td>
+            <td
+              class="text-body-2 text-medium-emphasis accounting-table__detail"
+              :title="item.detail || undefined"
+            >
+              {{ item.detail || '—' }}
             </td>
             <td
               class="text-end accounting-table__num accounting-table__amount"
@@ -437,7 +440,7 @@
 
           <tr v-if="!accounting.length && !hasMore && !loading">
             <td
-              colspan="6"
+              colspan="7"
               class="text-body-2 text-medium-emphasis text-center py-8"
             >
               {{ emptyListMessage }}
@@ -446,7 +449,7 @@
 
           <!-- Carga más movimientos -->
           <tr>
-            <td colspan="6">
+            <td colspan="7">
               <VInfiniteScroll
                 :key="scrollKey"
                 side="end"
@@ -505,7 +508,8 @@
                   <div>{{ item.concept || '—' }}</div>
                   <div
                     v-if="item.detail"
-                    class="text-caption text-medium-emphasis"
+                    class="text-caption text-medium-emphasis text-truncate"
+                    :title="item.detail"
                   >
                     {{ item.detail }}
                   </div>
@@ -1078,6 +1082,22 @@ export default {
   align-items: start;
 }
 
+.accounting-table__th--concept,
+.accounting-table__concept {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.accounting-table__th--detail,
+.accounting-table__detail {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .accounting-filters-grid {
   display: grid;
   grid-template-columns: minmax(180px, 1.4fr) minmax(140px, 1fr) minmax(140px, 1fr);
@@ -1087,7 +1107,7 @@ export default {
 
 /* Crece con el contenido; solo hace scroll al llegar al tope (evita el hueco vacío) */
 .accounting-table :deep(.v-table__wrapper) {
-  max-height: min(570px, 55vh);
+  max-height: min(410px, 55vh);
   overflow-y: auto;
 }
 
