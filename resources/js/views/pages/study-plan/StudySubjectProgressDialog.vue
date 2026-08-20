@@ -7,7 +7,7 @@
     <VCard rounded="lg">
       <div class="d-flex align-center justify-space-between px-5 pt-5 pb-3">
         <span class="text-h6">
-          {{ subject?.name || 'Materia' }}
+          Editar materia
         </span>
         <VBtn
           icon
@@ -22,6 +22,25 @@
       <VDivider />
 
       <div class="pa-5 d-flex flex-column gap-4">
+        <VTextField
+          v-model="name"
+          label="Nombre"
+          variant="outlined"
+          rounded="lg"
+          hide-details="auto"
+        />
+
+        <VSelect
+          v-model="termNumber"
+          :items="termItems"
+          item-title="title"
+          item-value="value"
+          label="Cuatrimestre"
+          variant="outlined"
+          rounded="lg"
+          hide-details="auto"
+        />
+
         <VSelect
           v-model="status"
           :items="statusItems"
@@ -71,6 +90,7 @@
           color="primary"
           rounded="lg"
           :loading="saving"
+          :disabled="!canSave"
           @click="save"
         >
           Guardar
@@ -89,6 +109,7 @@ export default {
   props: {
     modelValue: { type: Boolean, required: true },
     subject: { type: Object, default: null },
+    terms: { type: Array, default: () => [] },
   },
 
   emits: ['update:modelValue', 'saved'],
@@ -101,6 +122,8 @@ export default {
         { title: 'Aprobado', value: 'aprobado' },
         { title: 'Reprobado', value: 'reprobado' },
       ],
+      name: '',
+      termNumber: null,
       status: null,
       note: '',
       selectedKey: null,
@@ -109,11 +132,17 @@ export default {
   },
 
   computed: {
+    termItems() {
+      return this.terms.map(t => ({ title: t.name, value: t.number }))
+    },
     optionItems() {
       return (this.subject?.elective_options || []).map(o => ({
         title: o.name,
         value: o.key,
       }))
+    },
+    canSave() {
+      return this.termNumber && this.name.trim()
     },
   },
 
@@ -137,6 +166,8 @@ export default {
 
   methods: {
     hydrate() {
+      this.name = this.subject.name ?? ''
+      this.termNumber = this.subject.term_number ?? null
       this.status = this.subject.status ?? null
       this.note = this.subject.note ?? ''
       this.selectedKey = this.subject.selected_elective_key ?? null
@@ -147,7 +178,7 @@ export default {
     },
 
     save() {
-      if (!this.subject)
+      if (!this.subject || !this.canSave)
         return
 
       this.saving = true
@@ -158,12 +189,18 @@ export default {
           prefs[opt.key] = opt.preference_note
       }
 
-      axios.put(`/api/study-plan/subjects/${this.subject.id}/progress`, {
+      const payload = {
+        name: this.name.trim(),
+        term_number: this.termNumber,
         status: this.status || null,
         note: this.note?.trim() || null,
         selected_elective_key: this.selectedKey || null,
-        elective_preferences: this.subject.is_elective_slot ? prefs : null,
-      })
+      }
+
+      if (this.subject.is_elective_slot)
+        payload.elective_preferences = prefs
+
+      axios.put(`/api/study-plan/subjects/${this.subject.id}`, payload)
         .then(() => {
           this.$emit('saved')
           this.close()

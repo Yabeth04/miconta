@@ -7,7 +7,7 @@
     <VCard rounded="lg">
       <div class="d-flex align-center justify-space-between px-5 pt-5 pb-3">
         <span class="text-h6">
-          {{ subject ? 'Editar materia' : 'Nueva materia' }}
+          Nueva materia
         </span>
         <VBtn
           icon
@@ -72,7 +72,6 @@ export default {
 
   props: {
     modelValue: { type: Boolean, required: true },
-    subject: { type: Object, default: null },
     terms: { type: Array, default: () => [] },
     defaultTermNumber: { type: [Number, String], default: null },
   },
@@ -103,22 +102,9 @@ export default {
         if (!open)
           return
 
-        this.termNumber = this.subject?.term_number
-          ?? this.defaultTermNumber
-          ?? this.terms[0]?.number
-          ?? null
-        this.name = this.subject?.name ?? ''
+        this.termNumber = this.defaultTermNumber ?? this.terms[0]?.number ?? null
+        this.name = ''
       },
-    },
-    subject() {
-      if (!this.modelValue)
-        return
-
-      this.termNumber = this.subject?.term_number
-        ?? this.defaultTermNumber
-        ?? this.terms[0]?.number
-        ?? null
-      this.name = this.subject?.name ?? ''
     },
   },
 
@@ -130,16 +116,10 @@ export default {
     save() {
       this.saving = true
 
-      const payload = {
+      axios.post('/api/study-plan/subjects', {
         term_number: this.termNumber,
         name: this.name.trim(),
-      }
-
-      const request = this.subject?.id
-        ? axios.put(`/api/study-plan/subjects/${this.subject.id}`, payload)
-        : axios.post('/api/study-plan/subjects', payload)
-
-      request
+      })
         .then(() => {
           this.$emit('saved')
           this.close()

@@ -80,10 +80,42 @@ class StudyPlanController extends Controller
 
     public function updateSubject(Request $request, StudySubject $subject)
     {
+        $electiveKeys = collect(config('study_plan.electives'))
+            ->flatten(1)
+            ->pluck('key')
+            ->all();
+
         $validated = $request->validate([
-            'term_number' => ['sometimes', 'integer', Rule::in(array_keys(config('study_plan.terms')))],
-            'name'        => ['sometimes', 'required', 'string', 'max:255'],
+            'term_number'            => ['sometimes', 'integer', Rule::in(array_keys(config('study_plan.terms')))],
+            'name'                   => ['sometimes', 'required', 'string', 'max:255'],
+            'status'                 => ['nullable', Rule::in(StudySubject::STATUSES)],
+            'note'                   => ['nullable', 'string', 'max:255'],
+            'selected_elective_key'  => ['nullable', 'string', Rule::in($electiveKeys)],
+            'elective_preferences'   => ['nullable', 'array'],
+            'elective_preferences.*' => ['nullable', 'string', Rule::in(['alto', 'medio', 'bajo'])],
         ]);
+
+        if (! empty($validated['selected_elective_key'])) {
+            abort_unless($subject->is_elective_slot, 422, 'Solo las electivas pueden tener opción seleccionada.');
+
+            $allowed = collect(config('study_plan.electives')[$subject->elective_group] ?? [])
+                ->pluck('key')
+                ->all();
+
+            abort_unless(
+                in_array($validated['selected_elective_key'], $allowed, true),
+                422,
+                'La opción no pertenece a este grupo de electiva.'
+            );
+        }
+
+        if (array_key_exists('elective_preferences', $validated) && $subject->is_elective_slot) {
+            $validated['elective_preferences'] = collect($validated['elective_preferences'] ?? [])
+                ->filter(fn ($v) => $v !== null && $v !== '')
+                ->all() ?: null;
+        } else {
+            unset($validated['elective_preferences']);
+        }
 
         $subject->update($validated);
 
