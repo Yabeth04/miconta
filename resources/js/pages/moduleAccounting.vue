@@ -1,5 +1,8 @@
 <template>
-  <div class="mb-4">
+  <div
+    v-if="mdAndUp"
+    class="mb-4"
+  >
     <h1 class="text-h4 font-weight-medium mb-1">
       Contabilidad
     </h1>
@@ -645,6 +648,7 @@
 
 <script>
 import submittedVuelidateForm from '@/mixins/submittedVuelidateForm'
+import { axios } from '@/plugins/axios'
 import AccountingEditDialog from '@/views/pages/accounting/AccountingEditDialog.vue'
 import AccountingMobileEditSheet from '@/views/pages/accounting/AccountingMobileEditSheet.vue'
 import AccountingMobileFiltersSheet from '@/views/pages/accounting/AccountingMobileFiltersSheet.vue'
@@ -654,7 +658,6 @@ import AccountingOpeningBalanceDialog from '@/views/pages/accounting/AccountingO
 import { parseAmount } from '@core/utils/formatters'
 import { useVuelidate } from '@vuelidate/core'
 import { helpers, required } from '@vuelidate/validators'
-import { axios } from '@/plugins/axios'
 import { useDisplay } from 'vuetify'
 
 export default {
