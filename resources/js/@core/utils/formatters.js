@@ -29,6 +29,21 @@ export const formatDate = value => {
 }
 
 /**
+ * Monto en formato CR/ES: miles con punto, decimales con coma (siempre agrupa desde 1.000).
+ * Ej: 2000 → "2.000,00" · 10000 → "10.000,00"
+ *
+ * @param {number} n
+ * @returns {string}
+ */
+const formatEsNumber = n => {
+  const sign = n < 0 ? '-' : ''
+  const [intPart, dec] = Math.abs(n).toFixed(2).split('.')
+  const withDots = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+
+  return `${sign}${withDots},${dec}`
+}
+
+/**
  * Monto para UI: separadores en español y 2 decimales; inválidos → '—'.
  *
  * @param {string|number|null|undefined} value
@@ -38,12 +53,12 @@ export const formatAmount = value => {
   if (value == null || value === '')
     return '—'
 
-  const n = Number(value)
+  const n = typeof value === 'number' ? value : parseAmount(value)
 
-  if (Number.isNaN(n))
+  if (n === '' || Number.isNaN(n))
     return '—'
 
-  return n.toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return formatEsNumber(n)
 }
 
 /**
@@ -111,10 +126,10 @@ export const formatAmountValue = value => {
   if (value === '' || value == null)
     return ''
 
-  const n = Number(value)
+  const n = typeof value === 'number' ? value : parseAmount(value)
 
-  if (Number.isNaN(n))
+  if (n === '' || Number.isNaN(n))
     return ''
 
-  return n.toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return formatEsNumber(n)
 }

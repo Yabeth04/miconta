@@ -72,8 +72,9 @@
     />
   </template>
 
+  <!-- Dialog de edición -->
   <AccountingEditDialog
-    v-if="mdAndUp"
+    v-if="mdAndUp && editDialog"
     v-model="editDialog"
     :movement="editMovement"
     :movement-types="movementTypes"
@@ -170,7 +171,7 @@
           />
           <VTextField
             v-currency-live
-            v-model="v$.amount.$model"
+            v-model="amount"
             class="monto-with-action"
             type="text"
             inputmode="decimal"
@@ -596,6 +597,7 @@ import AccountingMobileEditSheet from '@/views/pages/accounting/AccountingMobile
 import AccountingMobileFiltersSheet from '@/views/pages/accounting/AccountingMobileFiltersSheet.vue'
 import AccountingMobileFormSheet from '@/views/pages/accounting/AccountingMobileFormSheet.vue'
 import AccountingMovementMenu from '@/views/pages/accounting/AccountingMovementMenu.vue'
+import { parseAmount } from '@core/utils/formatters'
 import { useVuelidate } from '@vuelidate/core'
 import { helpers, required } from '@vuelidate/validators'
 import axios from 'axios'
@@ -732,9 +734,9 @@ export default {
         required: helpers.withMessage('Tipo de movimiento requerido', required),
       },
       amount: {
-        required: helpers.withMessage('Monto requerido', v => this.$parseAmount(v) !== ''),
+        required: helpers.withMessage('Monto requerido', v => parseAmount(v) !== ''),
         valid: helpers.withMessage('Ingresa un monto válido', v => {
-          const n = this.$parseAmount(v)
+          const n = parseAmount(v)
 
           return n !== '' && n >= 0
         }),

@@ -118,6 +118,7 @@
 
 <script>
 import submittedVuelidateForm from '@/mixins/submittedVuelidateForm'
+import { parseAmount } from '@core/utils/formatters'
 import { useVuelidate } from '@vuelidate/core'
 import { helpers, required } from '@vuelidate/validators'
 import axios from 'axios'
@@ -141,7 +142,7 @@ export default {
 
   setup() {
     return {
-      v$: useVuelidate(),
+      v$: useVuelidate({ $scope: false }),
     }
   },
 
@@ -165,9 +166,9 @@ export default {
         required: helpers.withMessage('Tipo de movimiento requerido', required),
       },
       amount: {
-        required: helpers.withMessage('Monto requerido', v => this.$parseAmount(v) !== ''),
+        required: helpers.withMessage('Monto requerido', v => parseAmount(v) !== ''),
         valid: helpers.withMessage('Ingresa un monto válido', v => {
-          const n = this.$parseAmount(v)
+          const n = parseAmount(v)
 
           return n !== '' && n >= 0
         }),

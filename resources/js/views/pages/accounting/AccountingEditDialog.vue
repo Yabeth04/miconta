@@ -1,7 +1,7 @@
 <template>
   <VDialog
     :model-value="modelValue"
-    max-width="560"
+    max-width="640"
     @update:model-value="$emit('update:modelValue', $event)"
   >
     <VCard
@@ -25,13 +25,11 @@
       <VDivider />
 
       <VForm class="pa-5">
-        <VRow
-          align="start"
-          dense
-        >
+        <VRow align="start">
           <VCol
             cols="12"
-            sm="5"
+            sm="4"
+            class="pb-1"
           >
             <VDateInput
               v-model="date"
@@ -47,7 +45,7 @@
           </VCol>
           <VCol
             cols="12"
-            sm="7"
+            class="pb-1"
           >
             <VTextField
               v-model="description"
@@ -61,6 +59,7 @@
           <VCol
             cols="12"
             sm="4"
+            class="pb-1"
           >
             <VSelect
               v-model="selectedMovementType"
@@ -75,6 +74,7 @@
           <VCol
             cols="12"
             sm="4"
+            class="pb-1"
           >
             <VSelect
               v-model="selectedPaymentType"
@@ -89,6 +89,7 @@
           <VCol
             cols="12"
             sm="4"
+            class="pb-1"
           >
             <VTextField
               v-currency-live
@@ -130,6 +131,7 @@
 
 <script>
 import submittedVuelidateForm from '@/mixins/submittedVuelidateForm'
+import { parseAmount } from '@core/utils/formatters'
 import { useVuelidate } from '@vuelidate/core'
 import { helpers, required } from '@vuelidate/validators'
 import axios from 'axios'
@@ -162,7 +164,7 @@ export default {
 
   setup() {
     return {
-      v$: useVuelidate(),
+      v$: useVuelidate({ $scope: false }),
     }
   },
 
@@ -197,9 +199,9 @@ export default {
         required: helpers.withMessage('Tipo de movimiento requerido', required),
       },
       amount: {
-        required: helpers.withMessage('Monto requerido', v => this.$parseAmount(v) !== ''),
+        required: helpers.withMessage('Monto requerido', v => parseAmount(v) !== ''),
         valid: helpers.withMessage('Ingresa un monto válido', v => {
-          const n = this.$parseAmount(v)
+          const n = parseAmount(v)
 
           return n !== '' && n >= 0
         }),
