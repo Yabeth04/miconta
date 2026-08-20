@@ -51,7 +51,31 @@
           rounded="lg"
           clearable
           hide-details="auto"
-        />
+        >
+          <template #selection="{ item }">
+            <div class="d-flex align-center gap-2">
+              <VIcon
+                :icon="item.raw.icon"
+                :color="item.raw.color"
+                size="20"
+              />
+              <span>{{ item.title }}</span>
+            </div>
+          </template>
+
+          <template #item="{ props: itemProps, item }">
+            <VListItem v-bind="itemProps">
+              <template #prepend>
+                <VIcon
+                  :icon="item.raw.icon"
+                  :color="item.raw.color"
+                  size="20"
+                  class="me-1"
+                />
+              </template>
+            </VListItem>
+          </template>
+        </VSelect>
 
         <VTextField
           v-model="note"
@@ -117,10 +141,10 @@ export default {
   data() {
     return {
       statusItems: [
-        { title: 'Matriculado', value: 'matriculado' },
-        { title: 'En curso', value: 'en_curso' },
-        { title: 'Aprobado', value: 'aprobado' },
-        { title: 'Reprobado', value: 'reprobado' },
+        { title: 'Matriculado', value: 'matriculado', icon: 'ri-bookmark-fill', color: 'info' },
+        { title: 'En curso', value: 'en_curso', icon: 'ri-play-circle-fill', color: 'warning' },
+        { title: 'Aprobado', value: 'aprobado', icon: 'ri-checkbox-circle-fill', color: 'success' },
+        { title: 'Reprobado', value: 'reprobado', icon: 'ri-close-circle-fill', color: 'error' },
       ],
       name: '',
       termNumber: null,
