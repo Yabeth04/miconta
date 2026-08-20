@@ -96,31 +96,48 @@
         class="px-4"
         :class="dense ? 'pb-2' : 'pb-3'"
       >
-        <div class="elective-options rounded-lg pa-3">
-          <div class="text-caption font-weight-medium text-primary mb-2">
-            Opciones de electiva
-          </div>
-          <div
-            v-for="opt in subject.elective_options"
-            :key="opt.key"
-            class="elective-option-row d-flex align-center gap-2 py-1"
-            role="button"
-            tabindex="0"
-            @click="$emit('select-elective', subject, opt.key)"
-            @keydown.enter.prevent="$emit('select-elective', subject, opt.key)"
+        <div class="elective-options rounded-lg">
+          <button
+            type="button"
+            class="elective-options-header d-flex align-center justify-space-between w-100 text-left pa-3"
+            @click="toggleElective(subject.id)"
           >
-            <VIcon
-              :icon="opt.key === subject.selected_elective_key ? 'ri-checkbox-circle-fill' : 'ri-checkbox-blank-circle-line'"
-              :color="opt.key === subject.selected_elective_key ? 'primary' : undefined"
-              size="18"
-              :class="{ 'text-disabled': opt.key !== subject.selected_elective_key }"
-            />
-            <span
-              class="text-body-2"
-              :class="{ 'font-weight-medium': opt.key === subject.selected_elective_key }"
-            >
-              {{ opt.name }}
+            <span class="text-caption font-weight-medium text-primary">
+              Opciones de electiva
             </span>
+            <VIcon
+              :icon="isElectiveOpen(subject.id) ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'"
+              size="18"
+              class="text-primary"
+            />
+          </button>
+
+          <div
+            v-show="isElectiveOpen(subject.id)"
+            class="px-3 pb-3"
+          >
+            <div
+              v-for="opt in subject.elective_options"
+              :key="opt.key"
+              class="elective-option-row d-flex align-center gap-2 py-1"
+              role="button"
+              tabindex="0"
+              @click="$emit('select-elective', subject, opt.key)"
+              @keydown.enter.prevent="$emit('select-elective', subject, opt.key)"
+            >
+              <VIcon
+                :icon="opt.key === subject.selected_elective_key ? 'ri-checkbox-circle-fill' : 'ri-checkbox-blank-circle-line'"
+                :color="opt.key === subject.selected_elective_key ? 'primary' : undefined"
+                size="18"
+                :class="{ 'text-disabled': opt.key !== subject.selected_elective_key }"
+              />
+              <span
+                class="text-body-2"
+                :class="{ 'font-weight-medium': opt.key === subject.selected_elective_key }"
+              >
+                {{ opt.name }}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -153,7 +170,25 @@ export default {
 
   emits: ['edit-progress', 'delete-subject', 'select-elective'],
 
+  data() {
+    return {
+      openedElectives: {},
+    }
+  },
+
   methods: {
+    isElectiveOpen(subjectId) {
+      return this.openedElectives[subjectId] === true
+    },
+
+    toggleElective(subjectId) {
+      const next = !this.isElectiveOpen(subjectId)
+      this.openedElectives = {
+        ...this.openedElectives,
+        [subjectId]: next,
+      }
+    },
+
     statusLabel(status) {
       return this.statusMap[status]?.label || status
     },
@@ -186,6 +221,15 @@ export default {
 .elective-options {
   border: 1px solid rgba(var(--v-theme-primary), 0.28);
   background: rgba(var(--v-theme-primary), 0.06);
+  overflow: hidden;
+}
+.elective-options-header {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.elective-options-header:hover {
+  background: rgba(var(--v-theme-primary), 0.08);
 }
 .elective-option-row {
   cursor: pointer;
