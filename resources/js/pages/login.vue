@@ -1,18 +1,23 @@
 <script setup>
-import AuthProvider from '@/views/pages/authentication/AuthProvider.vue'
+import { useAuthStore } from '@/stores/auth'
 import logo from '@images/logo.svg?raw'
 import authV1MaskDark from '@images/pages/auth-v1-mask-dark.png'
 import authV1MaskLight from '@images/pages/auth-v1-mask-light.png'
 import authV1Tree2 from '@images/pages/auth-v1-tree-2.png'
 import authV1Tree from '@images/pages/auth-v1-tree.png'
+import { useRoute, useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 
 const form = ref({
-  email: '',
+  login: '',
   password: '',
   remember: false,
 })
 
+const errorMessage = ref('')
+const auth = useAuthStore()
+const router = useRouter()
+const route = useRoute()
 const vuetifyTheme = useTheme()
 
 const authThemeMask = computed(() => {
@@ -20,11 +25,23 @@ const authThemeMask = computed(() => {
 })
 
 const isPasswordVisible = ref(false)
+
+const onSubmit = async () => {
+  errorMessage.value = ''
+
+  try {
+    await auth.login(form.value)
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    await router.replace(redirect || '/')
+  } catch (error) {
+    errorMessage.value = error.response?.data?.message
+      || error.response?.data?.errors?.login?.[0]
+      || 'No se pudo iniciar sesión.'
+  }
+}
 </script>
 
 <template>
-  <!-- eslint-disable vue/no-v-html -->
-
   <div class="auth-wrapper d-flex align-center justify-center pa-4">
     <VCard
       class="auth-card pa-4 pt-7"
@@ -32,10 +49,9 @@ const isPasswordVisible = ref(false)
     >
       <VCardItem class="justify-center">
         <RouterLink
-          to="/"
+          to="/login"
           class="d-flex align-center gap-3"
         >
-          <!-- eslint-disable vue/no-v-html -->
           <div
             class="d-flex"
             v-html="logo"
@@ -48,91 +64,62 @@ const isPasswordVisible = ref(false)
 
       <VCardText class="pt-2">
         <h4 class="text-h4 mb-1">
-          Welcome to MiConta! 👋🏻
+          Bienvenido a MiConta
         </h4>
         <p class="mb-0">
-          Please sign-in to your account and start the adventure
+          Ingresá con tu usuario o correo para continuar
         </p>
       </VCardText>
 
       <VCardText>
-        <VForm @submit.prevent="() => {}">
+        <VAlert
+          v-if="errorMessage"
+          type="error"
+          variant="tonal"
+          class="mb-4"
+        >
+          {{ errorMessage }}
+        </VAlert>
+
+        <VForm @submit.prevent="onSubmit">
           <VRow>
-            <!-- email -->
             <VCol cols="12">
               <VTextField
-                v-model="form.email"
-                label="Email"
-                type="email"
+                v-model="form.login"
+                label="Usuario o correo"
+                type="text"
+                autocomplete="username"
+                :disabled="auth.loading"
               />
             </VCol>
 
-            <!-- password -->
             <VCol cols="12">
               <VTextField
                 v-model="form.password"
-                label="Password"
+                label="Contraseña"
                 placeholder="············"
                 :type="isPasswordVisible ? 'text' : 'password'"
-                autocomplete="password"
+                autocomplete="current-password"
                 :append-inner-icon="isPasswordVisible ? 'ri-eye-off-line' : 'ri-eye-line'"
+                :disabled="auth.loading"
                 @click:append-inner="isPasswordVisible = !isPasswordVisible"
               />
 
-              <!-- remember me checkbox -->
               <div class="d-flex align-center justify-space-between flex-wrap my-6">
                 <VCheckbox
                   v-model="form.remember"
-                  label="Remember me"
+                  label="Recordarme"
+                  :disabled="auth.loading"
                 />
-
-                <a
-                  class="text-primary"
-                  href="javascript:void(0)"
-                >
-                  Forgot Password?
-                </a>
               </div>
 
-              <!-- login button -->
               <VBtn
                 block
                 type="submit"
-                to="/"
+                :loading="auth.loading"
               >
-                Login
+                Iniciar sesión
               </VBtn>
-            </VCol>
-
-            <!-- create account -->
-            <VCol
-              cols="12"
-              class="text-center text-base"
-            >
-              <span>New on our platform?</span>
-              <RouterLink
-                class="text-primary ms-2"
-                to="/register"
-              >
-                Create an account
-              </RouterLink>
-            </VCol>
-
-            <VCol
-              cols="12"
-              class="d-flex align-center"
-            >
-              <VDivider />
-              <span class="mx-4">or</span>
-              <VDivider />
-            </VCol>
-
-            <!-- auth providers -->
-            <VCol
-              cols="12"
-              class="text-center"
-            >
-              <AuthProvider />
             </VCol>
           </VRow>
         </VForm>
@@ -151,7 +138,6 @@ const isPasswordVisible = ref(false)
       :width="350"
     />
 
-    <!-- bg img -->
     <VImg
       class="auth-footer-mask d-none d-md-block"
       :src="authThemeMask"

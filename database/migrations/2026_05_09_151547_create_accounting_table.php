@@ -13,12 +13,15 @@ return new class extends Migration
     {
         Schema::create('accounting_movements', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->date('date');
             $table->enum('movement_type', ['haber', 'debe']);
             $table->string('description')->nullable();
             $table->enum('payment_type', ['sinpe', 'efectivo', 'transferencia', 'tarjeta', 'otros']);
             $table->decimal('amount', 10, 2);
             $table->timestamps();
+
+            $table->index(['user_id', 'date']);
         });
     }
 

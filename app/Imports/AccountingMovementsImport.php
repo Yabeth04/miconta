@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Imports;
 
 use Carbon\Carbon;
@@ -30,15 +29,19 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
     /** @var string[] */
     public array $errors = [];
 
+    public function __construct(
+        private readonly int $userId,
+    ) {}
+
     public function collection(Collection $rows): void
     {
-        $imported = 0;
-        $skipped = 0;
-        $errors = [];
-        $batch = [];
-        $deferred = [];
+        $imported      = 0;
+        $skipped       = 0;
+        $errors        = [];
+        $batch         = [];
+        $deferred      = [];
         $lastKnownDate = null;
-        $now = now();
+        $now           = now();
 
         foreach ($rows as $index => $row) {
             $excelRow = $index + 2;
@@ -50,7 +53,7 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
                 }
 
                 // Columna A–E (por header o por posición)
-                $fechaRaw = $this->valueAt($row, ['fecha'], 0);
+                $fechaRaw  = $this->valueAt($row, ['fecha'], 0);
                 $fechaKind = $this->classifyFecha($fechaRaw);
 
                 if ($fechaKind === 'none') {
@@ -59,7 +62,7 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
                 }
 
                 $description = $this->stringOrNull($this->valueAt($row, ['descripcion', 'descripción'], 1));
-                $debit = $this->parseAmount($this->valueAt($row, [
+                $debit       = $this->parseAmount($this->valueAt($row, [
                     'debito_salida', 'debito', 'débito_salida', 'debe', 'gasto', 'salida',
                 ], 2));
                 $credit = $this->parseAmount($this->valueAt($row, [
@@ -70,7 +73,7 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
                     'metodo_pago', 'método_pago', 'metodo', 'pago',
                 ], 4));
 
-                $hasDebit = $debit !== null && $debit > 0;
+                $hasDebit  = $debit !== null && $debit > 0;
                 $hasCredit = $credit !== null && $credit > 0;
 
                 if ($hasDebit === $hasCredit) {
@@ -79,12 +82,13 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
                 }
 
                 $payload = [
-                    'description' => $description,
+                    'user_id'       => $this->userId,
+                    'description'   => $description,
                     'movement_type' => $hasDebit ? 'debe' : 'haber',
-                    'amount' => $hasDebit ? $debit : $credit,
-                    'payment_type' => $paymentType,
-                    'created_at' => $now,
-                    'updated_at' => $now,
+                    'amount'        => $hasDebit ? $debit : $credit,
+                    'payment_type'  => $paymentType,
+                    'created_at'    => $now,
+                    'updated_at'    => $now,
                 ];
 
                 if ($fechaKind === 'known') {
@@ -96,18 +100,18 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
                     }
 
                     $lastKnownDate = $date;
-                    $batch[] = array_merge($payload, ['date' => $date]);
+                    $batch[]       = array_merge($payload, ['date' => $date]);
 
                     if (count($batch) >= 100) {
                         DB::table('accounting_movements')->insert($batch);
                         $imported += count($batch);
-                        $batch = [];
+                        $batch     = [];
                     }
                 } else {
                     $deferred[] = $payload;
                 }
             } catch (Throwable $e) {
-                $errors[] = "Fila {$excelRow}: ".$e->getMessage();
+                $errors[] = "Fila {$excelRow}: " . $e->getMessage();
             }
         }
 
@@ -120,8 +124,8 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
             $fallbackDate = $lastKnownDate ?? $now->toDateString();
 
             foreach (array_chunk($deferred, 100) as $chunk) {
-                $rowsToInsert = array_map(
-                    static fn (array $item) => array_merge($item, ['date' => $fallbackDate]),
+                $rowsToInsert  = array_map(
+                    static fn(array $item) => array_merge($item, ['date' => $fallbackDate]),
                     $chunk
                 );
                 DB::table('accounting_movements')->insert($rowsToInsert);
@@ -134,7 +138,7 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
         }
 
         $this->imported = $imported;
-        $this->errors = array_slice($errors, 0, 20);
+        $this->errors   = array_slice($errors, 0, 20);
     }
 
     /**
@@ -292,11 +296,11 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
         }
 
         return match (true) {
-            str_contains($text, 'sinpe') => 'sinpe',
-            str_contains($text, 'efectivo') => 'efectivo',
+            str_contains($text, 'sinpe')         => 'sinpe',
+            str_contains($text, 'efectivo')      => 'efectivo',
             str_contains($text, 'transferencia') => 'transferencia',
-            str_contains($text, 'tarjeta') => 'tarjeta',
-            default => 'otros',
+            str_contains($text, 'tarjeta')       => 'tarjeta',
+            default                              => 'otros',
         };
     }
 }

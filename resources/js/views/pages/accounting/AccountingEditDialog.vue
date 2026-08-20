@@ -134,7 +134,7 @@ import submittedVuelidateForm from '@/mixins/submittedVuelidateForm'
 import { parseAmount } from '@core/utils/formatters'
 import { useVuelidate } from '@vuelidate/core'
 import { helpers, required } from '@vuelidate/validators'
-import axios from 'axios'
+import { axios } from '@/plugins/axios'
 
 export default {
   name: 'AccountingEditDialog',

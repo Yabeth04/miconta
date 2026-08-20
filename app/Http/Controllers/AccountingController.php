@@ -18,8 +18,8 @@ class AccountingController extends Controller
     public function index(Request $request)
     {
         $request->validate([
-            'date_from' => ['nullable', 'date'],
-            'date_to' => ['nullable', 'date'],
+            'date_from'   => ['nullable', 'date'],
+            'date_to'     => ['nullable', 'date'],
             'description' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -39,31 +39,32 @@ class AccountingController extends Controller
                 ->selectRaw('COUNT(*) as count_total')
                 ->first();
 
-            $opening = (float) $this->settings()->opening_balance_main;
+            $opening = (float) $this->settings($request)->opening_balance_main;
+            $userId  = $request->user()->id;
 
-            // Saldo de la cuenta: siempre con todos los movimientos (no filtrados)
             $global = DB::table('accounting_movements')
+                ->where('user_id', $userId)
                 ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'debe' THEN amount ELSE 0 END), 0) as total_debe")
                 ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'haber' THEN amount ELSE 0 END), 0) as total_haber")
                 ->first();
 
             $payload['totals'] = [
-                'debe' => (float) $totals->total_debe,
-                'haber' => (float) $totals->total_haber,
-                'count' => (int) $totals->count_total,
+                'debe'            => (float) $totals->total_debe,
+                'haber'           => (float) $totals->total_haber,
+                'count'           => (int) $totals->count_total,
                 'opening_balance' => $opening,
                 'account_balance' => $opening
-                    + (float) $global->total_haber
-                    - (float) $global->total_debe,
+                 + (float) $global->total_haber
+                 - (float) $global->total_debe,
             ];
         }
 
         return response()->json($payload, 200);
     }
 
-    public function showSettings()
+    public function showSettings(Request $request)
     {
-        $settings = $this->settings();
+        $settings = $this->settings($request);
 
         return response()->json([
             'opening_balance_main' => (float) $settings->opening_balance_main,
@@ -76,7 +77,7 @@ class AccountingController extends Controller
             'opening_balance_main' => ['required', 'numeric'],
         ]);
 
-        $settings = $this->settings();
+        $settings                       = $this->settings($request);
         $settings->opening_balance_main = $validated['opening_balance_main'];
         $settings->save();
 
@@ -87,39 +88,35 @@ class AccountingController extends Controller
 
     public function store(Request $request)
     {
-        // para crear un movimiento contable
         $validated = $this->validateAccounting($request);
 
-        $accounting = DB::table('accounting_movements')
-            ->insert(array_merge($validated, [
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]));
+        DB::table('accounting_movements')->insert(array_merge($validated, [
+            'user_id'    => $request->user()->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]));
 
-        return response()->json($accounting, 201);
+        return response()->json(['message' => 'Movimiento creado.'], 201);
     }
 
-    /**
-     * Importa la hoja Principal del Excel y responde al terminar.
-     */
     public function import(Request $request)
     {
         $request->validate([
             'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:10240'],
         ]);
 
-        $importId = (string) Str::uuid();
+        $importId  = (string) Str::uuid();
         $extension = $request->file('file')->getClientOriginalExtension() ?: 'xlsx';
-        $path = $request->file('file')->storeAs(
+        $path      = $request->file('file')->storeAs(
             'imports/accounting',
             "{$importId}.{$extension}",
             'local'
         );
 
         try {
-            $fullPath = Storage::disk('local')->path($path);
-            $sheetName = $this->resolvePrincipalSheetName($fullPath);
-            $movementsImport = new AccountingMovementsImport;
+            $fullPath        = Storage::disk('local')->path($path);
+            $sheetName       = $this->resolvePrincipalSheetName($fullPath);
+            $movementsImport = new AccountingMovementsImport($request->user()->id);
 
             Excel::import(
                 new AccountingWorkbookImport($sheetName, $movementsImport),
@@ -130,70 +127,57 @@ class AccountingController extends Controller
             if ($movementsImport->imported === 0) {
                 return response()->json([
                     'imported' => 0,
-                    'errors' => $movementsImport->errors,
-                    'message' => 'No se importó ningún movimiento.',
+                    'errors'   => $movementsImport->errors,
+                    'message'  => 'No se importó ningún movimiento.',
                 ], 422);
             }
 
             return response()->json([
                 'imported' => $movementsImport->imported,
-                'errors' => $movementsImport->errors,
+                'errors'   => $movementsImport->errors,
             ], 201);
         } finally {
             Storage::disk('local')->delete($path);
         }
     }
 
-    public function show(Accounting $accounting)
+    public function show(Request $request, Accounting $accounting)
     {
-        // para mostrar un movimiento contable
-        $accounting = DB::table('accounting_movements')
-            ->where('id', $accounting->id)
-            ->first();
+        $this->authorizeMovement($request, $accounting);
 
         return response()->json($accounting, 200);
     }
 
     public function update(Request $request, Accounting $accounting)
     {
-        // para actualizar un movimiento contable
+        $this->authorizeMovement($request, $accounting);
         $validated = $this->validateAccounting($request);
 
-        DB::table('accounting_movements')
-            ->where('id', $accounting->id)
-            ->update(array_merge($validated, [
-                'updated_at' => now(),
-            ]));
+        $accounting->update($validated);
 
-        return response()->json($accounting, 200);
+        return response()->json($accounting->fresh(), 200);
     }
 
-    public function destroy(Accounting $accounting)
+    public function destroy(Request $request, Accounting $accounting)
     {
-        // para eliminar un movimiento contable
-        $accounting = DB::table('accounting_movements')
-            ->where('id', $accounting->id)
-            ->delete();
+        $this->authorizeMovement($request, $accounting);
+        $accounting->delete();
 
-        return response()->json($accounting, 200);
+        return response()->json(['message' => 'Movimiento eliminado.'], 200);
     }
 
-    private function settings(): AccountingSetting
+    private function settings(Request $request): AccountingSetting
     {
-        $settings = AccountingSetting::query()->first();
-
-        if ($settings) {
-            return $settings;
-        }
-
-        return AccountingSetting::query()->create([
-            'opening_balance_main' => 0,
-        ]);
+        return AccountingSetting::query()->firstOrCreate(
+            ['user_id' => $request->user()->id],
+            ['opening_balance_main' => 0],
+        );
     }
 
     private function filteredMovements(Request $request)
     {
-        $query = DB::table('accounting_movements');
+        $query = DB::table('accounting_movements')
+            ->where('user_id', $request->user()->id);
 
         if ($request->filled('date_from')) {
             $query->whereDate('date', '>=', $request->date('date_from')->toDateString());
@@ -238,7 +222,7 @@ class AccountingController extends Controller
         return array_values(array_intersect($allowed, array_map('strval', $items)));
     }
 
-    private function validateAccounting(Request $request)
+    private function validateAccounting(Request $request): array
     {
         return $request->validate([
             'date'          => ['required', 'date'],
@@ -249,10 +233,15 @@ class AccountingController extends Controller
         ]);
     }
 
+    private function authorizeMovement(Request $request, Accounting $accounting): void
+    {
+        abort_unless((int) $accounting->user_id === (int) $request->user()->id, 404);
+    }
+
     private function resolvePrincipalSheetName(string $fullPath): string
     {
         $reader = IOFactory::createReaderForFile($fullPath);
-        $names = $reader->listWorksheetNames($fullPath);
+        $names  = $reader->listWorksheetNames($fullPath);
 
         foreach ($names as $name) {
             if (mb_strtolower(trim($name)) === 'principal') {
@@ -261,7 +250,7 @@ class AccountingController extends Controller
         }
 
         throw new RuntimeException(
-            'No se encontró la hoja "Principal". Hojas: '.implode(', ', $names)
+            'No se encontró la hoja "Principal". Hojas: ' . implode(', ', $names)
         );
     }
 }

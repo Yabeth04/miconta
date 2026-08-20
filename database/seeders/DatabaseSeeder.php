@@ -1,23 +1,32 @@
 <?php
-
 namespace Database\Seeders;
 
+use App\Models\Role;
 use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $sysAdmin = Role::query()->updateOrCreate(
+            ['name' => Role::SYS_ADMIN],
+            ['label' => 'Administrador del sistema'],
+        );
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        Role::query()->updateOrCreate(
+            ['name' => Role::USER],
+            ['label' => 'Usuario'],
+        );
+
+        User::query()->updateOrCreate(
+            ['username' => 'villaf14'],
+            [
+                'name'     => 'Yabeth David Villafuerte Sotelo',
+                'email'    => 'soteloyabeth@gmail.com',
+                'password' => 'admin1',
+                'role_id'  => $sysAdmin->id,
+            ],
+        );
     }
 }

@@ -137,7 +137,7 @@
 
 <script>
 import { parseAmount } from '@core/utils/formatters';
-import axios from 'axios';
+import { axios } from '@/plugins/axios';
 
 export default {
   name: 'AccountingOpeningBalanceDialog',
