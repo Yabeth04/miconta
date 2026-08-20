@@ -1,4 +1,13 @@
 <template>
+  <div class="mb-4">
+    <h1 class="text-h4 font-weight-medium mb-1">
+      Contabilidad
+    </h1>
+    <p class="text-body-2 text-medium-emphasis mb-0">
+      Registrá y consultá tus movimientos
+    </p>
+  </div>
+
   <!-- Móvil: registrar + filtros + buscador -->
   <template v-if="mdAndDown">
     <AccountingMobileFormSheet
