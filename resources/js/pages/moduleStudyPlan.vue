@@ -260,18 +260,17 @@ export default {
   methods: {
     termHeaderClass(color) {
       const map = {
-        info: 'term-header-info',
-        warning: 'term-header-warning',
-        success: 'term-header-success',
-        secondary: 'term-header-secondary',
-        purple: 'term-header-purple',
-        teal: 'term-header-teal',
-        olive: 'term-header-olive',
-        error: 'term-header-error',
-        primary: 'term-header-primary',
+        'term-1': 'term-header-1',
+        'term-2': 'term-header-2',
+        'term-3': 'term-header-3',
+        'term-4': 'term-header-4',
+        'term-5': 'term-header-5',
+        'term-6': 'term-header-6',
+        'term-7': 'term-header-7',
+        'term-8': 'term-header-8',
       }
 
-      return map[color] || 'term-header-primary'
+      return map[color] || 'term-header-1'
     },
 
     openProgress(subject) {
@@ -384,31 +383,28 @@ export default {
   padding-inline: 0;
   padding-bottom: 0;
 }
-.term-header-info {
-  background: rgba(var(--v-theme-info), 0.16);
+.term-header-1 {
+  background: rgba(59, 130, 246, 0.16); /* azul */
 }
-.term-header-warning {
-  background: rgba(var(--v-theme-warning), 0.18);
+.term-header-2 {
+  background: rgba(6, 182, 212, 0.16); /* cyan */
 }
-.term-header-success {
-  background: rgba(var(--v-theme-success), 0.16);
+.term-header-3 {
+  background: rgba(16, 185, 129, 0.16); /* verde */
 }
-.term-header-secondary {
-  background: rgba(var(--v-theme-secondary), 0.16);
+.term-header-4 {
+  background: rgba(132, 204, 22, 0.18); /* lima */
 }
-.term-header-primary {
-  background: rgba(var(--v-theme-primary), 0.14);
+.term-header-5 {
+  background: rgba(245, 158, 11, 0.18); /* ámbar */
 }
-.term-header-error {
-  background: rgba(var(--v-theme-error), 0.14);
+.term-header-6 {
+  background: rgba(249, 115, 22, 0.16); /* naranja */
 }
-.term-header-purple {
-  background: rgba(156, 39, 176, 0.14);
+.term-header-7 {
+  background: rgba(244, 114, 182, 0.16); /* rosa */
 }
-.term-header-teal {
-  background: rgba(0, 150, 136, 0.14);
-}
-.term-header-olive {
-  background: rgba(124, 142, 58, 0.18);
+.term-header-8 {
+  background: rgba(139, 92, 246, 0.16); /* violeta */
 }
 </style>

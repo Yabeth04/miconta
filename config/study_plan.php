@@ -2,14 +2,14 @@
 
 return [
     'terms' => [
-        1 => ['name' => 'I CUATRIMESTRE', 'color' => 'info'],
-        2 => ['name' => 'II CUATRIMESTRE', 'color' => 'warning'],
-        3 => ['name' => 'III CUATRIMESTRE', 'color' => 'success'],
-        4 => ['name' => 'IV CUATRIMESTRE', 'color' => 'secondary'],
-        5 => ['name' => 'V CUATRIMESTRE', 'color' => 'purple'],
-        6 => ['name' => 'VI CUATRIMESTRE', 'color' => 'teal'],
-        7 => ['name' => 'VII CUATRIMESTRE', 'color' => 'olive'],
-        8 => ['name' => 'VIII CUATRIMESTRE', 'color' => 'error'],
+        1 => ['name' => 'I CUATRIMESTRE', 'color' => 'term-1'],
+        2 => ['name' => 'II CUATRIMESTRE', 'color' => 'term-2'],
+        3 => ['name' => 'III CUATRIMESTRE', 'color' => 'term-3'],
+        4 => ['name' => 'IV CUATRIMESTRE', 'color' => 'term-4'],
+        5 => ['name' => 'V CUATRIMESTRE', 'color' => 'term-5'],
+        6 => ['name' => 'VI CUATRIMESTRE', 'color' => 'term-6'],
+        7 => ['name' => 'VII CUATRIMESTRE', 'color' => 'term-7'],
+        8 => ['name' => 'VIII CUATRIMESTRE', 'color' => 'term-8'],
     ],
 
     'electives' => [
