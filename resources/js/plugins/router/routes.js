@@ -20,6 +20,11 @@ export const routes = [
         component: () => import('@/pages/moduleAccounting.vue'),
         meta: { auth: true },
       },
+      {
+        path: 'plan-estudios',
+        component: () => import('@/pages/moduleStudyPlan.vue'),
+        meta: { auth: true },
+      },
     ],
   },
   {

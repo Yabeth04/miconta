@@ -17,4 +17,11 @@ import VerticalNavLink from '@layouts/components/VerticalNavLink.vue';
       to: '/contabilidad',
     }"
   />
+  <VerticalNavLink
+    :item="{
+      title: 'Plan de estudios',
+      icon: 'ri-book-open-line',
+      to: '/plan-estudios',
+    }"
+  />
 </template>

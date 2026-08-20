@@ -28,5 +28,7 @@ class DatabaseSeeder extends Seeder
                 'role_id'  => $sysAdmin->id,
             ],
         );
+
+        $this->call(StudyPlanSeeder::class);
     }
 }
