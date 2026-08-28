@@ -5,7 +5,7 @@ import authV1MaskDark from '@images/pages/auth-v1-mask-dark.png'
 import authV1MaskLight from '@images/pages/auth-v1-mask-light.png'
 import authV1Tree2 from '@images/pages/auth-v1-tree-2.png'
 import authV1Tree from '@images/pages/auth-v1-tree.png'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 
 const form = ref({
@@ -17,7 +17,6 @@ const form = ref({
 const errorMessage = ref('')
 const auth = useAuthStore()
 const router = useRouter()
-const route = useRoute()
 const vuetifyTheme = useTheme()
 
 const authThemeMask = computed(() => {
@@ -31,8 +30,7 @@ const onSubmit = async () => {
 
   try {
     await auth.login(form.value)
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
-    await router.replace(redirect || '/')
+    await router.replace('/dashboard')
   } catch (error) {
     errorMessage.value = error.response?.data?.message
       || error.response?.data?.errors?.login?.[0]
