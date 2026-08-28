@@ -400,7 +400,23 @@
               {{ item.date }}
             </td>
             <td class="text-body-2 accounting-table__concept">
-              {{ item.concept || '—' }}
+              <div class="d-flex align-center gap-1 min-w-0">
+                <span
+                  v-if="item.accounting_concept_id"
+                  class="d-inline-flex flex-shrink-0"
+                  title="Concepto de la lista"
+                >
+                  <VIcon
+                    icon="ri-price-tag-3-fill"
+                    size="16"
+                    class="text-primary"
+                  />
+                </span>
+                <span
+                  class="text-truncate"
+                  :title="item.concept || undefined"
+                >{{ item.concept || '—' }}</span>
+              </div>
             </td>
             <td
               class="text-body-2 text-medium-emphasis accounting-table__detail"
@@ -505,7 +521,20 @@
                   </div>
                 </div>
                 <div class="text-body-2 mb-3">
-                  <div>{{ item.concept || '—' }}</div>
+                  <div class="d-flex align-center gap-1">
+                    <span
+                      v-if="item.accounting_concept_id"
+                      class="d-inline-flex flex-shrink-0"
+                      title="Concepto de la lista"
+                    >
+                      <VIcon
+                        icon="ri-price-tag-3-fill"
+                        size="16"
+                        class="text-primary"
+                      />
+                    </span>
+                    <span>{{ item.concept || '—' }}</span>
+                  </div>
                   <div
                     v-if="item.detail"
                     class="text-caption text-medium-emphasis text-truncate"
