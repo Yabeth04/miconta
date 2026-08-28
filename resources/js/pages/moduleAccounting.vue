@@ -426,13 +426,13 @@
             </td>
             <td
               class="text-end accounting-table__num accounting-table__amount"
-              style="color: red;"
+              :class="{ 'accounting-amount--debe': item.movement_type === 'debe' }"
             >
               {{ item.movement_type === 'debe' ? $formatAmount(item.amount) : '—' }}
             </td>
             <td
               class="text-end accounting-table__num accounting-table__amount"
-              style="color: green;"
+              :class="{ 'accounting-amount--haber': item.movement_type === 'haber' }"
             >
               {{ item.movement_type === 'haber' ? $formatAmount(item.amount) : '—' }}
             </td>
@@ -548,7 +548,7 @@
                     <span class="text-medium-emphasis text-caption d-block mb-1">Debe</span>
                     <span
                       class="accounting-table__num font-weight-medium"
-                      style="color: red;"
+                      :class="{ 'accounting-amount--debe': item.movement_type === 'debe' }"
                     >
                       {{ item.movement_type === 'debe' ? $formatAmount(item.amount) : '—' }}
                     </span>
@@ -557,7 +557,7 @@
                     <span class="text-medium-emphasis text-caption d-block mb-1">Haber</span>
                     <span
                       class="accounting-table__num font-weight-medium"
-                      style="color: green;"
+                      :class="{ 'accounting-amount--haber': item.movement_type === 'haber' }"
                     >
                       {{ item.movement_type === 'haber' ? $formatAmount(item.amount) : '—' }}
                     </span>
@@ -613,8 +613,7 @@
               Debe / Gasto
             </span>
             <span
-              class="accounting-totals__desktop-value accounting-table__num text-body-1 font-weight-semibold"
-              style="color: red;"
+              class="accounting-totals__desktop-value accounting-table__num text-body-1 font-weight-semibold accounting-amount--debe"
             >
               {{ $formatAmount(totalDebe) }}
             </span>
@@ -624,8 +623,7 @@
               Haber / Ingreso
             </span>
             <span
-              class="accounting-totals__desktop-value accounting-table__num text-body-1 font-weight-semibold"
-              style="color: green;"
+              class="accounting-totals__desktop-value accounting-table__num text-body-1 font-weight-semibold accounting-amount--haber"
             >
               {{ $formatAmount(totalHaber) }}
             </span>
@@ -673,8 +671,7 @@
           <div>
             <span class="text-medium-emphasis text-caption d-block mb-1">Debe / Gasto</span>
             <span
-              class="accounting-table__num text-body-2 font-weight-medium"
-              style="color: red;"
+              class="accounting-table__num text-body-2 font-weight-medium accounting-amount--debe"
             >
               {{ $formatAmount(totalDebe) }}
             </span>
@@ -682,8 +679,7 @@
           <div class="text-end">
             <span class="text-medium-emphasis text-caption d-block mb-1">Haber / Ingreso</span>
             <span
-              class="accounting-table__num text-body-2 font-weight-medium"
-              style="color: green;"
+              class="accounting-table__num text-body-2 font-weight-medium accounting-amount--haber"
             >
               {{ $formatAmount(totalHaber) }}
             </span>
@@ -1174,6 +1170,14 @@ export default {
 .accounting-table__th--amount + .accounting-table__th--amount,
 .accounting-table__amount + .accounting-table__amount {
   padding-inline-start: 0.5rem !important;
+}
+
+.accounting-amount--debe {
+  color: color-mix(in srgb, rgb(var(--v-theme-error)) 86%, rgb(var(--v-theme-on-surface)) 14%);
+}
+
+.accounting-amount--haber {
+  color: color-mix(in srgb, rgb(var(--v-theme-success)) 86%, rgb(var(--v-theme-on-surface)) 14%);
 }
 
 .accounting-table :deep(tbody tr:nth-child(even)) {
