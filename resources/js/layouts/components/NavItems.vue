@@ -1,4 +1,5 @@
 <script setup>
+import VerticalNavGroup from '@layouts/components/VerticalNavGroup.vue'
 import VerticalNavLink from '@layouts/components/VerticalNavLink.vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
@@ -15,20 +16,30 @@ const { isSysAdmin } = storeToRefs(auth)
       to: '/dashboard',
     }"
   />
-  <VerticalNavLink
+
+  <VerticalNavGroup
     :item="{
       title: 'Contabilidad',
       icon: 'ri-calculator-line',
-      to: '/contabilidad',
+      routePrefix: '/contabilidad',
     }"
-  />
-  <VerticalNavLink
-    :item="{
-      title: 'Conceptos',
-      icon: 'ri-price-tag-3-line',
-      to: '/contabilidad/conceptos',
-    }"
-  />
+  >
+    <VerticalNavLink
+      :item="{
+        title: 'Movimientos',
+        icon: 'ri-exchange-line',
+        to: '/contabilidad',
+      }"
+    />
+    <VerticalNavLink
+      :item="{
+        title: 'Conceptos',
+        icon: 'ri-price-tag-3-line',
+        to: '/contabilidad/conceptos',
+      }"
+    />
+  </VerticalNavGroup>
+
   <VerticalNavLink
     v-if="isSysAdmin"
     :item="{
