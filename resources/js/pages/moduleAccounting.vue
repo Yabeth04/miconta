@@ -158,9 +158,7 @@
         class="accounting-form-card"
       >
         <div class="px-4 pt-3 pb-1">
-          <span class="text-body-2 font-weight-semibold">
-            Nuevo movimiento
-          </span>
+      
         </div>
         <div class="px-4 pb-3 accounting-form-grid">
           <VDateInput
