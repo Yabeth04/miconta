@@ -12,7 +12,7 @@ const props = defineProps({
     class="nav-link"
     :class="{
       disabled: item.disable,
-      'nav-link--child': !item.icon,
+      'nav-link--child': item.child,
     }"
   >
     <Component
@@ -83,19 +83,34 @@ const props = defineProps({
       margin-block-end: 0;
     }
 
+    .nav-item-icon {
+      font-size: 1.125rem;
+      margin-inline-end: 0.5rem;
+    }
+
     > .router-link-exact-active {
       background: rgba(var(--v-theme-primary), 0.1) !important;
       box-shadow: none !important;
 
+      .nav-item-icon,
+      i {
+        color: rgb(var(--v-theme-primary)) !important;
+      }
+
       .nav-item-title {
-        color: rgb(var(--v-theme-primary));
+        color: rgb(var(--v-theme-primary)) !important;
         font-weight: 500;
       }
     }
 
     > a:not(.router-link-exact-active) {
+      .nav-item-icon,
+      i,
       .nav-item-title {
-        color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+        color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity)) !important;
+      }
+
+      .nav-item-title {
         font-weight: 400;
       }
 

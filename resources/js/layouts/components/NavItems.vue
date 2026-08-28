@@ -27,13 +27,17 @@ const { isSysAdmin } = storeToRefs(auth)
     <VerticalNavLink
       :item="{
         title: 'Movimientos',
+        icon: 'ri-list-check-2',
         to: '/contabilidad',
+        child: true,
       }"
     />
     <VerticalNavLink
       :item="{
         title: 'Conceptos',
+        icon: 'ri-price-tag-3-line',
         to: '/contabilidad/conceptos',
+        child: true,
       }"
     />
   </VerticalNavGroup>
