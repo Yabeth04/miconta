@@ -1,5 +1,26 @@
 export const staticPrimaryColor = '#8C57FF'
 export const staticPrimaryDarkenColor = '#7E4EE6'
+
+export const THEME_STORAGE_KEY = 'miconta-theme'
+
+const VALID_THEMES = ['light', 'dark']
+
+export function getStoredTheme() {
+  if (typeof window === 'undefined')
+    return 'light'
+
+  const stored = localStorage.getItem(THEME_STORAGE_KEY)
+
+  return VALID_THEMES.includes(stored) ? stored : 'light'
+}
+
+export function setStoredTheme(name) {
+  if (typeof window === 'undefined' || !VALID_THEMES.includes(name))
+    return
+
+  localStorage.setItem(THEME_STORAGE_KEY, name)
+}
+
 export const themes = {
   light: {
     dark: false,

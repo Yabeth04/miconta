@@ -1,4 +1,5 @@
 <script setup>
+import { setStoredTheme } from '@/plugins/vuetify/theme'
 import { useTheme } from 'vuetify'
 
 const props = defineProps({
@@ -26,6 +27,7 @@ const changeTheme = () => {
 // Update icon if theme is changed from other sources
 watch(() => globalTheme.name.value, val => {
   currentThemeName.value = val
+  setStoredTheme(val)
 })
 </script>
 

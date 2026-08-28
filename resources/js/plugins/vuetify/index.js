@@ -4,7 +4,7 @@ import { VDateInput } from 'vuetify/labs/VDateInput'
 import { VNumberInput } from 'vuetify/labs/VNumberInput'
 import defaults from './defaults'
 import { icons } from './icons'
-import { themes } from './theme'
+import { getStoredTheme, themes } from './theme'
 
 // Styles
 import '@core-scss/template/libs/vuetify/index.scss'
@@ -22,7 +22,7 @@ export default function (app) {
     defaults,
     icons,
     theme: {
-      defaultTheme: 'light',
+      defaultTheme: getStoredTheme(),
       themes,
     },
   })
