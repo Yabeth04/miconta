@@ -58,17 +58,19 @@ function toggle() {
         {{ item.title }}
       </span>
       <VIcon
-        :icon="isOpen ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'"
+        icon="ri-arrow-down-s-line"
         class="nav-group-arrow"
       />
     </div>
 
-    <ul
-      v-show="isOpen"
-      class="nav-group-children"
-    >
-      <slot />
-    </ul>
+    <VExpandTransition>
+      <ul
+        v-show="isOpen"
+        class="nav-group-children"
+      >
+        <slot />
+      </ul>
+    </VExpandTransition>
   </li>
 </template>
 
@@ -114,12 +116,19 @@ function toggle() {
       font-size: 1.125rem;
       margin-inline-start: auto;
       opacity: 0.85;
+      transform-origin: center;
+      transition: transform 0.2s ease;
+    }
+
+    &.open > .nav-group-label .nav-group-arrow {
+      transform: rotate(180deg);
     }
 
     .nav-group-children {
       margin: 0.25rem 0 0;
       padding: 0;
       list-style: none;
+      overflow: hidden;
     }
   }
 }
