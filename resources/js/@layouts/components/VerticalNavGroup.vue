@@ -40,7 +40,7 @@ function toggle() {
 
 <template>
   <li
-    class="nav-group"
+    class="nav-group nav-group--tail"
     :class="{
       open: isOpen,
       active: isActive,
@@ -58,23 +58,69 @@ function toggle() {
         {{ item.title }}
       </span>
       <VIcon
-        icon="ri-arrow-right-s-line"
+        :icon="isOpen ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'"
         class="nav-group-arrow"
       />
     </div>
 
-    <Transition name="transition-slide-x">
-      <ul v-show="isOpen">
-        <slot />
-      </ul>
-    </Transition>
+    <ul
+      v-show="isOpen"
+      class="nav-group-children"
+    >
+      <slot />
+    </ul>
   </li>
 </template>
 
-<style lang="scss" scoped>
-.nav-group-label {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
+<style lang="scss">
+.layout-vertical-nav {
+  .nav-group--tail {
+    margin-block-end: 0.125rem;
+
+    > .nav-group-label {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      border-radius: 0.5rem;
+      transition: background-color 0.2s ease, color 0.2s ease;
+
+      &::before {
+        display: none !important;
+      }
+    }
+
+    &.open > .nav-group-label {
+      background: rgba(var(--v-theme-primary), 0.1) !important;
+      box-shadow: none !important;
+
+      .nav-item-title {
+        color: rgb(var(--v-theme-primary));
+        font-weight: 500;
+      }
+
+      .nav-item-icon,
+      .nav-group-arrow {
+        color: rgb(var(--v-theme-primary));
+      }
+    }
+
+    &:not(.open) > .nav-group-label {
+      .nav-item-title {
+        color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+      }
+    }
+
+    .nav-group-arrow {
+      font-size: 1.125rem;
+      margin-inline-start: auto;
+      opacity: 0.85;
+    }
+
+    .nav-group-children {
+      margin: 0.25rem 0 0;
+      padding: 0;
+      list-style: none;
+    }
+  }
 }
 </style>

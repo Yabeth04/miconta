@@ -1,8 +1,8 @@
 <script setup>
+import { useAuthStore } from '@/stores/auth'
 import VerticalNavGroup from '@layouts/components/VerticalNavGroup.vue'
 import VerticalNavLink from '@layouts/components/VerticalNavLink.vue'
 import { storeToRefs } from 'pinia'
-import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const { isSysAdmin } = storeToRefs(auth)
@@ -27,14 +27,12 @@ const { isSysAdmin } = storeToRefs(auth)
     <VerticalNavLink
       :item="{
         title: 'Movimientos',
-        icon: 'ri-exchange-line',
         to: '/contabilidad',
       }"
     />
     <VerticalNavLink
       :item="{
         title: 'Conceptos',
-        icon: 'ri-price-tag-3-line',
         to: '/contabilidad/conceptos',
       }"
     />
