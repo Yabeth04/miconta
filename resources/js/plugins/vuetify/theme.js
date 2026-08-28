@@ -2,8 +2,25 @@ export const staticPrimaryColor = '#8C57FF'
 export const staticPrimaryDarkenColor = '#7E4EE6'
 
 export const THEME_STORAGE_KEY = 'miconta-theme'
+export const LOADER_BG_STORAGE_KEY = 'miconta-initial-loader-bg'
+export const LOADER_COLOR_STORAGE_KEY = 'miconta-initial-loader-color'
 
 const VALID_THEMES = ['light', 'dark']
+
+const LOADER_COLORS = {
+  light: {
+    bg: '#FFFFFF',
+    color: staticPrimaryColor,
+  },
+  dark: {
+    bg: '#111827',
+    color: staticPrimaryColor,
+  },
+}
+
+export function getLoaderColors(themeName = getStoredTheme()) {
+  return LOADER_COLORS[themeName] || LOADER_COLORS.light
+}
 
 export function getStoredTheme() {
   if (typeof window === 'undefined')
@@ -18,7 +35,11 @@ export function setStoredTheme(name) {
   if (typeof window === 'undefined' || !VALID_THEMES.includes(name))
     return
 
+  const loader = getLoaderColors(name)
+
   localStorage.setItem(THEME_STORAGE_KEY, name)
+  localStorage.setItem(LOADER_BG_STORAGE_KEY, loader.bg)
+  localStorage.setItem(LOADER_COLOR_STORAGE_KEY, loader.color)
 }
 
 export const themes = {

@@ -41,14 +41,20 @@
     </div>
 
     <script>
-        const loaderColor = localStorage.getItem('materio-initial-loader-bg') || '#FFFFFF'
-        const primaryColor = localStorage.getItem('materio-initial-loader-color') || '#9155FD'
+        (function () {
+            const theme = localStorage.getItem('miconta-theme')
+            const loaderByTheme = {
+                light: { bg: '#FFFFFF', color: '#8C57FF' },
+                dark: { bg: '#111827', color: '#8C57FF' },
+            }
+            const fallback = loaderByTheme.light
+            const fromTheme = loaderByTheme[theme] || fallback
+            const loaderBg = localStorage.getItem('miconta-initial-loader-bg') || fromTheme.bg
+            const loaderColor = localStorage.getItem('miconta-initial-loader-color') || fromTheme.color
 
-        if (loaderColor)
-            document.documentElement.style.setProperty('--initial-loader-bg', loaderColor)
-
-        if (primaryColor)
-            document.documentElement.style.setProperty('--initial-loader-color', primaryColor)
+            document.documentElement.style.setProperty('--initial-loader-bg', loaderBg)
+            document.documentElement.style.setProperty('--initial-loader-color', loaderColor)
+        })()
     </script>
 </body>
 
