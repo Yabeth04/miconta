@@ -180,7 +180,7 @@
               Evolución del saldo
             </VCardTitle>
             <VCardSubtitle class="text-body-2">
-              Saldo acumulado mes a mes
+              Saldo en cuenta al cierre de cada mes
             </VCardSubtitle>
           </VCardItem>
           <VCardText>
@@ -410,51 +410,6 @@
         </VCard>
       </VCol>
     </VRow>
-
-    <!-- Accesos rápidos -->
-    <VRow class="mt-2">
-      <VCol cols="12">
-        <VCard
-          rounded="lg"
-          variant="tonal"
-          color="secondary"
-        >
-          <VCardText class="d-flex flex-wrap align-center gap-3 py-4">
-            <span class="text-body-2 font-weight-medium me-auto">
-              Accesos rápidos
-            </span>
-            <VBtn
-              variant="outlined"
-              rounded="lg"
-              size="small"
-              prepend-icon="ri-exchange-line"
-              to="/contabilidad"
-            >
-              Movimientos
-            </VBtn>
-            <VBtn
-              variant="outlined"
-              rounded="lg"
-              size="small"
-              prepend-icon="ri-price-tag-3-line"
-              to="/contabilidad/conceptos"
-            >
-              Conceptos
-            </VBtn>
-            <VBtn
-              v-if="auth.isSysAdmin"
-              variant="outlined"
-              rounded="lg"
-              size="small"
-              prepend-icon="ri-graduation-cap-line"
-              to="/plan-estudios"
-            >
-              Plan de estudios
-            </VBtn>
-          </VCardText>
-        </VCard>
-      </VCol>
-    </VRow>
   </div>
 </template>
 
@@ -495,6 +450,7 @@ export default {
       concepts: [],
       recentMovements: [],
       studyPlanSummary: null,
+      dashboardReady: false,
       paymentTypeLabels: {
         sinpe: 'Sinpe',
         efectivo: 'Efectivo',
@@ -581,6 +537,16 @@ export default {
         const date = new Date(Number(year), Number(month) - 1, 1)
 
         return date.toLocaleDateString('es-CR', { month: 'short' }).replace('.', '')
+      })
+    },
+
+    monthTooltipLabels() {
+      return this.monthly.map(item => {
+        const [year, month] = item.month.split('-')
+        const date = new Date(Number(year), Number(month) - 1, 1)
+        const label = date.toLocaleDateString('es-CR', { month: 'long', year: 'numeric' })
+
+        return label.charAt(0).toUpperCase() + label.slice(1)
       })
     },
 
@@ -675,6 +641,9 @@ export default {
         },
         tooltip: {
           theme: this.isDark ? 'dark' : 'light',
+          x: {
+            formatter: (_val, { dataPointIndex }) => this.monthTooltipLabels[dataPointIndex] ?? '',
+          },
           y: {
             formatter: val => formatAmount(val),
           },
@@ -812,19 +781,21 @@ export default {
     },
   },
 
-  mounted() {
-    this.fetchDashboard()
+  activated() {
+    this.fetchDashboard({ silent: this.dashboardReady })
   },
 
   methods: {
-    async fetchDashboard() {
-      this.loading = true
+    async fetchDashboard({ silent = false } = {}) {
+      if (!silent)
+        this.loading = true
+
       this.error = null
 
       try {
         const requests = [
           axios.get('/api/accounting/stats'),
-          axios.get('/api/accounting', { params: { page: 1 } }),
+          axios.get('/api/accounting', { params: { page: 1, per_page: 5 } }),
         ]
 
         if (this.auth.isSysAdmin)
@@ -837,7 +808,7 @@ export default {
         this.monthly = statsRes.data.monthly
         this.paymentTypes = statsRes.data.payment_types
         this.concepts = statsRes.data.concepts
-        this.recentMovements = movementsRes.data.data ?? []
+        this.recentMovements = (movementsRes.data.data ?? []).slice(0, 5)
 
         if (studyRes?.data?.summary)
           this.studyPlanSummary = studyRes.data.summary
@@ -845,7 +816,9 @@ export default {
         this.error = 'No se pudo cargar el resumen.'
         console.error(e)
       } finally {
-        this.loading = false
+        this.dashboardReady = true
+        if (!silent)
+          this.loading = false
       }
     },
 

@@ -1,10 +1,21 @@
 <script setup>
 import DefaultLayoutWithVerticalNav from './components/DefaultLayoutWithVerticalNav.vue'
+
+const cachedPages = [
+  'Dashboard',
+  'ModuleAccounting',
+  'ModuleAccountingConcepts',
+  'ModuleStudyPlan',
+]
 </script>
 
 <template>
   <DefaultLayoutWithVerticalNav>
-    <RouterView />
+    <RouterView v-slot="{ Component }">
+      <KeepAlive :include="cachedPages">
+        <component :is="Component" />
+      </KeepAlive>
+    </RouterView>
   </DefaultLayoutWithVerticalNav>
 </template>
 

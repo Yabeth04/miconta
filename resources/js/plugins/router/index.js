@@ -60,6 +60,19 @@ axios.interceptors.response.use(
 
 export default function (app) {
   app.use(router)
+
+  router.isReady().then(() => {
+    const prefetch = () => {
+      import('@/pages/moduleAccounting.vue')
+      import('@/pages/moduleStudyPlan.vue')
+      import('@/pages/moduleAccountingConcepts.vue')
+    }
+
+    if (typeof requestIdleCallback === 'function')
+      requestIdleCallback(prefetch)
+    else
+      setTimeout(prefetch, 200)
+  })
 }
 
 export { router }

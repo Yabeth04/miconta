@@ -23,14 +23,16 @@ class AccountingController extends Controller
             'date_to'   => ['nullable', 'date'],
             'concept'   => ['nullable', 'string', 'max:255'],
             'q'         => ['nullable', 'string', 'max:255'],
+            'per_page'  => ['nullable', 'integer', 'min:1', 'max:50'],
         ]);
 
         $filtered = $this->filteredMovements($request);
+        $perPage  = (int) ($request->input('per_page') ?: 10);
 
         $accounting = (clone $filtered)
             ->orderByDesc('date')
             ->orderByDesc('id')
-            ->paginate(10);
+            ->paginate($perPage);
 
         $payload = $accounting->toArray();
 
@@ -88,8 +90,17 @@ class AccountingController extends Controller
             ->get()
             ->keyBy('month');
 
+        $beforeWindow = DB::table('accounting_movements')
+            ->where('user_id', $userId)
+            ->whereDate('date', '<', $from->toDateString())
+            ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'debe' THEN amount ELSE 0 END), 0) as debe")
+            ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'haber' THEN amount ELSE 0 END), 0) as haber")
+            ->first();
+
         $monthly = [];
-        $running = $opening;
+        $running = $opening
+            + (float) $beforeWindow->haber
+            - (float) $beforeWindow->debe;
 
         for ($i = 0; $i < $months; $i++) {
             $key  = $from->copy()->addMonths($i)->format('Y-m');
