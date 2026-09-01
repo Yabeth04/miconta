@@ -1,24 +1,61 @@
-<script setup>
+<script>
+import defaultAvatar from '@images/avatars/avatar-1.png'
 import { useAuthStore } from '@/stores/auth'
-import avatar1 from '@images/avatars/avatar-1.png'
 import { useRouter } from 'vue-router'
 
-const auth = useAuthStore()
-const router = useRouter()
-const loggingOut = ref(false)
+export default {
+  setup() {
+    const auth = useAuthStore()
+    const router = useRouter()
 
-const displayName = computed(() => auth.user?.name || 'Usuario')
-const displayRole = computed(() => auth.roleLabel || 'Usuario')
+    return { auth, router }
+  },
 
-const onLogout = async () => {
-  loggingOut.value = true
+  data() {
+    return {
+      loggingOut: false,
+    }
+  },
 
-  try {
-    await auth.logout()
-    await router.push('/login')
-  } finally {
-    loggingOut.value = false
-  }
+  computed: {
+    displayName() {
+      return this.auth.user?.name || 'Usuario'
+    },
+
+    displayRole() {
+      return this.auth.roleLabel || 'Usuario'
+    },
+
+    avatarSrc() {
+      return this.auth.user?.avatar_url || defaultAvatar
+    },
+
+    initials() {
+      const name = this.auth.user?.name?.trim()
+      if (!name) {
+        return 'U'
+      }
+
+      return name
+        .split(/\s+/)
+        .slice(0, 2)
+        .map(part => part[0]?.toUpperCase() || '')
+        .join('')
+    },
+  },
+
+  methods: {
+    async onLogout() {
+      this.loggingOut = true
+
+      try {
+        await this.auth.logout()
+        await this.router.push('/login')
+      } finally {
+        this.loggingOut = false
+      }
+    },
+  },
 }
 </script>
 
@@ -36,7 +73,14 @@ const onLogout = async () => {
       color="primary"
       variant="tonal"
     >
-      <VImg :src="avatar1" />
+      <VImg
+        v-if="auth.user?.avatar_url"
+        :src="avatarSrc"
+      />
+      <span
+        v-else
+        class="text-h6"
+      >{{ initials }}</span>
 
       <VMenu
         activator="parent"
@@ -59,7 +103,14 @@ const onLogout = async () => {
                     color="primary"
                     variant="tonal"
                   >
-                    <VImg :src="avatar1" />
+                    <VImg
+                      v-if="auth.user?.avatar_url"
+                      :src="avatarSrc"
+                    />
+                    <span
+                      v-else
+                      class="text-body-1"
+                    >{{ initials }}</span>
                   </VAvatar>
                 </VBadge>
               </VListItemAction>

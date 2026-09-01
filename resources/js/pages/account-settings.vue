@@ -1,30 +1,38 @@
-<script setup>
-import { useRoute } from 'vue-router'
+<script>
 import AccountSettingsAccount from '@/views/pages/account-settings/AccountSettingsAccount.vue'
-import AccountSettingsNotification from '@/views/pages/account-settings/AccountSettingsNotification.vue'
 import AccountSettingsSecurity from '@/views/pages/account-settings/AccountSettingsSecurity.vue'
 
-const route = useRoute()
-const activeTab = ref(route.params.tab)
+export default {
+  components: {
+    AccountSettingsAccount,
+    AccountSettingsSecurity,
+  },
 
-// tabs
-const tabs = [
-  {
-    title: 'Account',
-    icon: 'ri-group-line',
-    tab: 'account',
+  data() {
+    return {
+      activeTab: 'account',
+      tabs: [
+        {
+          title: 'Cuenta',
+          icon: 'ri-group-line',
+          tab: 'account',
+        },
+        {
+          title: 'Seguridad',
+          icon: 'ri-lock-line',
+          tab: 'security',
+        },
+      ],
+    }
   },
-  {
-    title: 'Security',
-    icon: 'ri-lock-line',
-    tab: 'security',
+
+  created() {
+    const tab = this.$route.params.tab
+    if (tab && this.tabs.some(item => item.tab === tab)) {
+      this.activeTab = tab
+    }
   },
-  {
-    title: 'Notifications',
-    icon: 'ri-notification-3-line',
-    tab: 'notification',
-  },
-]
+}
 </script>
 
 <template>
@@ -36,7 +44,7 @@ const tabs = [
     >
       <VTab
         v-for="item in tabs"
-        :key="item.icon"
+        :key="item.tab"
         :value="item.tab"
       >
         <VIcon
@@ -53,19 +61,12 @@ const tabs = [
       class="mt-5 disable-tab-transition"
       :touch="false"
     >
-      <!-- Account -->
       <VWindowItem value="account">
         <AccountSettingsAccount />
       </VWindowItem>
 
-      <!-- Security -->
       <VWindowItem value="security">
         <AccountSettingsSecurity />
-      </VWindowItem>
-
-      <!-- Notification -->
-      <VWindowItem value="notification">
-        <AccountSettingsNotification />
       </VWindowItem>
     </VWindow>
   </div>

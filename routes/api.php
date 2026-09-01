@@ -4,11 +4,17 @@ use App\Http\Controllers\AccountingConceptController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\FixedPaymentController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StudyPlanController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
+
+    Route::put('/user/profile', [ProfileController::class, 'update']);
+    Route::put('/user/password', [ProfileController::class, 'updatePassword']);
+    Route::post('/user/avatar', [ProfileController::class, 'updateAvatar']);
+    Route::delete('/user/avatar', [ProfileController::class, 'destroyAvatar']);
 
     Route::get('accounting/stats', [AccountingController::class, 'stats']);
 

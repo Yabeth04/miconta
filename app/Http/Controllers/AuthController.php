@@ -55,11 +55,14 @@ class AuthController extends Controller
     private function userPayload(User $user): array
     {
         return [
-            'id'       => $user->id,
-            'name'     => $user->name,
-            'username' => $user->username,
-            'email'    => $user->email,
-            'role'     => $user->role ? [
+            'id'         => $user->id,
+            'name'       => $user->name,
+            'username'   => $user->username,
+            'email'      => $user->email,
+            'avatar_url' => $user->avatar_path
+                ? \Illuminate\Support\Facades\Storage::disk('public')->url($user->avatar_path)
+                : null,
+            'role'       => $user->role ? [
                 'id'    => $user->role->id,
                 'name'  => $user->role->name,
                 'label' => $user->role->label,

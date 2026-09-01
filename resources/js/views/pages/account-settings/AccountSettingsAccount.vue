@@ -1,332 +1,414 @@
-<script setup>
-import avatar1 from '@images/avatars/avatar-1.png'
+<script>
+import defaultAvatar from '@images/avatars/avatar-1.png'
+import { axios } from '@/plugins/axios'
+import { useAuthStore } from '@/stores/auth'
 
-const accountData = {
-  avatarImg: avatar1,
-  firstName: 'john',
-  lastName: 'Doe',
-  email: 'johnDoe@example.com',
-  org: 'ThemeSelection',
-  phone: '+1 (917) 543-9876',
-  address: '123 Main St, New York, NY 10001',
-  state: 'New York',
-  zip: '10001',
-  country: 'USA',
-  language: 'English',
-  timezone: '(GMT-11:00) International Date Line West',
-  currency: 'USD',
-}
+export default {
+  setup() {
+    const auth = useAuthStore()
 
-const refInputEl = ref()
-const accountDataLocal = ref(structuredClone(accountData))
-const isAccountDeactivated = ref(false)
+    return { auth }
+  },
 
-const resetForm = () => {
-  accountDataLocal.value = structuredClone(accountData)
-}
-
-const changeAvatar = file => {
-  const fileReader = new FileReader()
-  const { files } = file.target
-  if (files && files.length) {
-    fileReader.readAsDataURL(files[0])
-    fileReader.onload = () => {
-      if (typeof fileReader.result === 'string')
-        accountDataLocal.value.avatarImg = fileReader.result
+  data() {
+    return {
+      form: {
+        name: '',
+      },
+      pendingAvatarFile: null,
+      removeAvatarOnSave: false,
+      avatarPreview: null,
+      saving: false,
+      error: null,
+      fieldErrors: {},
+      usernameDialog: false,
+      emailDialog: false,
+      usernameForm: {
+        username: '',
+        current_password: '',
+      },
+      emailForm: {
+        email: '',
+        current_password: '',
+      },
+      savingUsername: false,
+      savingEmail: false,
+      usernameDialogError: null,
+      emailDialogError: null,
+      usernameFieldErrors: {},
+      emailFieldErrors: {},
+      isUsernamePasswordVisible: false,
+      isEmailPasswordVisible: false,
     }
-  }
+  },
+
+  computed: {
+    avatarSrc() {
+      if (this.avatarPreview) {
+        return this.avatarPreview
+      }
+
+      if (this.removeAvatarOnSave || !this.auth.user?.avatar_url) {
+        return defaultAvatar
+      }
+
+      return this.auth.user.avatar_url
+    },
+
+    hasCustomAvatar() {
+      if (this.pendingAvatarFile) {
+        return true
+      }
+
+      return !!(this.auth.user?.avatar_url && !this.removeAvatarOnSave)
+    },
+
+    hasPendingChanges() {
+      const user = this.auth.user
+      if (!user) {
+        return false
+      }
+
+      return this.form.name !== (user.name || '')
+        || !!this.pendingAvatarFile
+        || this.removeAvatarOnSave
+    },
+  },
+
+  created() {
+    this.resetForm()
+  },
+
+  methods: {
+    resetForm() {
+      const user = this.auth.user
+      if (!user) {
+        return
+      }
+
+      this.form = {
+        name: user.name || '',
+      }
+      this.pendingAvatarFile = null
+      this.removeAvatarOnSave = false
+      this.avatarPreview = null
+      this.error = null
+      this.fieldErrors = {}
+    },
+
+    async saveProfile() {
+      if (!this.hasPendingChanges) {
+        return
+      }
+
+      this.saving = true
+      this.error = null
+      this.fieldErrors = {}
+
+      try {
+        let user = this.auth.user
+        const nameChanged = this.form.name !== (user.name || '')
+
+        if (nameChanged) {
+          const { data } = await axios.put('/api/user/profile', {
+            name: this.form.name,
+            username: user.username,
+            email: user.email,
+          })
+          user = data.user
+          this.auth.user = user
+        }
+
+        if (this.removeAvatarOnSave && !this.pendingAvatarFile) {
+          const { data } = await axios.delete('/api/user/avatar')
+          user = data.user
+          this.auth.user = user
+        } else if (this.pendingAvatarFile) {
+          const formData = new FormData()
+          formData.append('avatar', this.pendingAvatarFile)
+          const { data } = await axios.post('/api/user/avatar', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          })
+          user = data.user
+          this.auth.user = user
+        }
+
+        this.pendingAvatarFile = null
+        this.removeAvatarOnSave = false
+        this.avatarPreview = null
+        this.$toast.success('Cambios guardados', { timeout: 2000, closeOnClick: true })
+      } catch (error) {
+        this.error = error.response?.data?.message || 'No se pudieron guardar los cambios.'
+        this.fieldErrors = error.response?.data?.errors || {}
+      } finally {
+        this.saving = false
+      }
+    },
+
+    openUsernameDialog() {
+      this.usernameForm = {
+        username: '',
+        current_password: '',
+      }
+      this.usernameDialogError = null
+      this.usernameFieldErrors = {}
+      this.isUsernamePasswordVisible = false
+      this.usernameDialog = true
+    },
+
+    openEmailDialog() {
+      this.emailForm = {
+        email: '',
+        current_password: '',
+      }
+      this.emailDialogError = null
+      this.emailFieldErrors = {}
+      this.isEmailPasswordVisible = false
+      this.emailDialog = true
+    },
+
+    async saveUsername() {
+      this.savingUsername = true
+      this.usernameDialogError = null
+      this.usernameFieldErrors = {}
+
+      try {
+        const user = this.auth.user
+        const { data } = await axios.put('/api/user/profile', {
+          name: user.name,
+          username: this.usernameForm.username,
+          email: user.email,
+          current_password: this.usernameForm.current_password,
+        })
+        this.auth.user = data.user
+        this.usernameDialog = false
+        this.$toast.success('Usuario actualizado', { timeout: 2000, closeOnClick: true })
+      } catch (error) {
+        this.usernameDialogError = error.response?.data?.message || 'No se pudo actualizar el usuario.'
+        this.usernameFieldErrors = error.response?.data?.errors || {}
+      } finally {
+        this.savingUsername = false
+      }
+    },
+
+    async saveEmail() {
+      this.savingEmail = true
+      this.emailDialogError = null
+      this.emailFieldErrors = {}
+
+      try {
+        const user = this.auth.user
+        const { data } = await axios.put('/api/user/profile', {
+          name: user.name,
+          username: user.username,
+          email: this.emailForm.email,
+          current_password: this.emailForm.current_password,
+        })
+        this.auth.user = data.user
+        this.emailDialog = false
+        this.$toast.success('Correo actualizado', { timeout: 2000, closeOnClick: true })
+      } catch (error) {
+        this.emailDialogError = error.response?.data?.message || 'No se pudo actualizar el correo.'
+        this.emailFieldErrors = error.response?.data?.errors || {}
+      } finally {
+        this.savingEmail = false
+      }
+    },
+
+    onAvatarSelected(event) {
+      const file = event.target.files?.[0]
+      event.target.value = ''
+
+      if (!file) {
+        return
+      }
+
+      this.error = null
+      this.pendingAvatarFile = file
+      this.removeAvatarOnSave = false
+
+      const reader = new FileReader()
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          this.avatarPreview = reader.result
+        }
+      }
+      reader.readAsDataURL(file)
+    },
+
+    removeAvatar() {
+      if (!this.auth.user?.avatar_url && !this.pendingAvatarFile) {
+        return
+      }
+
+      this.error = null
+      this.pendingAvatarFile = null
+      this.avatarPreview = null
+      this.removeAvatarOnSave = true
+    },
+
+    fieldError(field) {
+      return this.fieldErrors[field]?.[0] || null
+    },
+
+    usernameFieldError(field) {
+      return this.usernameFieldErrors[field]?.[0] || null
+    },
+
+    emailFieldError(field) {
+      return this.emailFieldErrors[field]?.[0] || null
+    },
+  },
 }
-
-// reset avatar image
-const resetAvatar = () => {
-  accountDataLocal.value.avatarImg = accountData.avatarImg
-}
-
-const timezones = [
-  '(GMT-11:00) International Date Line West',
-  '(GMT-11:00) Midway Island',
-  '(GMT-10:00) Hawaii',
-  '(GMT-09:00) Alaska',
-  '(GMT-08:00) Pacific Time (US & Canada)',
-  '(GMT-08:00) Tijuana',
-  '(GMT-07:00) Arizona',
-  '(GMT-07:00) Chihuahua',
-  '(GMT-07:00) La Paz',
-  '(GMT-07:00) Mazatlan',
-  '(GMT-07:00) Mountain Time (US & Canada)',
-  '(GMT-06:00) Central America',
-  '(GMT-06:00) Central Time (US & Canada)',
-  '(GMT-06:00) Guadalajara',
-  '(GMT-06:00) Mexico City',
-  '(GMT-06:00) Monterrey',
-  '(GMT-06:00) Saskatchewan',
-  '(GMT-05:00) Bogota',
-  '(GMT-05:00) Eastern Time (US & Canada)',
-  '(GMT-05:00) Indiana (East)',
-  '(GMT-05:00) Lima',
-  '(GMT-05:00) Quito',
-  '(GMT-04:00) Atlantic Time (Canada)',
-  '(GMT-04:00) Caracas',
-  '(GMT-04:00) La Paz',
-  '(GMT-04:00) Santiago',
-  '(GMT-03:30) Newfoundland',
-  '(GMT-03:00) Brasilia',
-  '(GMT-03:00) Buenos Aires',
-  '(GMT-03:00) Georgetown',
-  '(GMT-03:00) Greenland',
-  '(GMT-02:00) Mid-Atlantic',
-  '(GMT-01:00) Azores',
-  '(GMT-01:00) Cape Verde Is.',
-  '(GMT+00:00) Casablanca',
-  '(GMT+00:00) Dublin',
-  '(GMT+00:00) Edinburgh',
-  '(GMT+00:00) Lisbon',
-  '(GMT+00:00) London',
-]
-
-const currencies = [
-  'USD',
-  'EUR',
-  'GBP',
-  'AUD',
-  'BRL',
-  'CAD',
-  'CNY',
-  'CZK',
-  'DKK',
-  'HKD',
-  'HUF',
-  'INR',
-]
 </script>
 
 <template>
   <VRow>
     <VCol cols="12">
-      <VCard title="Account Details">
-        <VCardText class="d-flex">
-          <!-- 👉 Avatar -->
+      <VAlert
+        v-if="error"
+        type="error"
+        variant="tonal"
+        rounded="lg"
+        class="mb-4"
+      >
+        {{ error }}
+      </VAlert>
+
+      <VCard title="Datos de la cuenta">
+        <VCardText class="d-flex flex-wrap align-center gap-6">
           <VAvatar
             rounded="lg"
             size="100"
-            class="me-6"
-            :image="accountDataLocal.avatarImg"
+            :image="avatarSrc"
           />
 
-          <!-- 👉 Upload Photo -->
-          <form class="d-flex flex-column justify-center gap-5">
+          <div class="d-flex flex-column justify-center gap-4">
             <div class="d-flex flex-wrap gap-2">
               <VBtn
                 color="primary"
-                @click="refInputEl?.click()"
+                @click="$refs.avatarInput?.click()"
               >
                 <VIcon
                   icon="ri-upload-cloud-line"
                   class="d-sm-none"
                 />
-                <span class="d-none d-sm-block">Upload new photo</span>
+                <span class="d-none d-sm-block">Subir foto</span>
               </VBtn>
 
               <input
-                ref="refInputEl"
+                ref="avatarInput"
                 type="file"
-                name="file"
-                accept=".jpeg,.png,.jpg,GIF"
+                accept=".jpeg,.png,.jpg,.gif,.webp"
                 hidden
-                @input="changeAvatar"
+                @change="onAvatarSelected"
               >
 
               <VBtn
-                type="reset"
                 color="error"
                 variant="outlined"
-                @click="resetAvatar"
+                :disabled="!hasCustomAvatar"
+                @click="removeAvatar"
               >
-                <span class="d-none d-sm-block">Reset</span>
+                <span class="d-none d-sm-block">Quitar foto</span>
                 <VIcon
-                  icon="ri-refresh-line"
+                  icon="ri-delete-bin-line"
                   class="d-sm-none"
                 />
               </VBtn>
             </div>
 
-            <p class="text-body-1 mb-0">
-              Allowed JPG, GIF or PNG. Max size of 800K
+            <p class="text-body-2 mb-0">
+              JPG, PNG, GIF o WebP. Máximo 800 KB. Los cambios se aplican al guardar.
             </p>
-          </form>
+          </div>
         </VCardText>
 
         <VDivider />
 
         <VCardText>
-          <!-- 👉 Form -->
-          <VForm class="mt-6">
+          <VForm @submit.prevent="saveProfile">
             <VRow>
-              <!-- 👉 First Name -->
-              <VCol
-                md="6"
-                cols="12"
-              >
-                <VTextField
-                  v-model="accountDataLocal.firstName"
-                  placeholder="John"
-                  label="First Name"
-                />
-              </VCol>
-
-              <!-- 👉 Last Name -->
-              <VCol
-                md="6"
-                cols="12"
-              >
-                <VTextField
-                  v-model="accountDataLocal.lastName"
-                  placeholder="Doe"
-                  label="Last Name"
-                />
-              </VCol>
-
-              <!-- 👉 Email -->
               <VCol
                 cols="12"
                 md="6"
               >
                 <VTextField
-                  v-model="accountDataLocal.email"
-                  label="E-mail"
-                  placeholder="johndoe@gmail.com"
-                  type="email"
+                  v-model="form.name"
+                  label="Nombre completo"
+                  placeholder="Tu nombre"
+                  :error-messages="fieldError('name')"
                 />
               </VCol>
 
-              <!-- 👉 Organization -->
               <VCol
                 cols="12"
                 md="6"
               >
-                <VTextField
-                  v-model="accountDataLocal.org"
-                  label="Organization"
-                  placeholder="ThemeSelection"
-                />
+                <div class="d-flex align-start gap-2">
+                  <VTextField
+                    :model-value="auth.user?.username || ''"
+                    label="Usuario"
+                    readonly
+                    disabled
+                    class="flex-grow-1"
+                  />
+                  <VBtn
+                    icon
+                    variant="tonal"
+                    color="primary"
+                    class="mt-1"
+                    @click="openUsernameDialog"
+                  >
+                    <VIcon icon="ri-lock-line" />
+                  </VBtn>
+                </div>
               </VCol>
 
-              <!-- 👉 Phone -->
               <VCol
                 cols="12"
                 md="6"
               >
-                <VTextField
-                  v-model="accountDataLocal.phone"
-                  label="Phone Number"
-                  placeholder="+1 (917) 543-9876"
-                />
+                <div class="d-flex align-start gap-2">
+                  <VTextField
+                    :model-value="auth.user?.email || ''"
+                    label="Correo electrónico"
+                    readonly
+                    disabled
+                    class="flex-grow-1"
+                  />
+                  <VBtn
+                    icon
+                    variant="tonal"
+                    color="primary"
+                    class="mt-1"
+                    @click="openEmailDialog"
+                  >
+                    <VIcon icon="ri-lock-line" />
+                  </VBtn>
+                </div>
               </VCol>
 
-              <!-- 👉 Address -->
-              <VCol
-                cols="12"
-                md="6"
-              >
-                <VTextField
-                  v-model="accountDataLocal.address"
-                  label="Address"
-                  placeholder="123 Main St, New York, NY 10001"
-                />
-              </VCol>
-
-              <!-- 👉 State -->
-              <VCol
-                cols="12"
-                md="6"
-              >
-                <VTextField
-                  v-model="accountDataLocal.state"
-                  label="State"
-                  placeholder="New York"
-                />
-              </VCol>
-
-              <!-- 👉 Zip Code -->
-              <VCol
-                cols="12"
-                md="6"
-              >
-                <VTextField
-                  v-model="accountDataLocal.zip"
-                  label="Zip Code"
-                  placeholder="10001"
-                />
-              </VCol>
-
-              <!-- 👉 Country -->
-              <VCol
-                cols="12"
-                md="6"
-              >
-                <VSelect
-                  v-model="accountDataLocal.country"
-                  label="Country"
-                  :items="['USA', 'Canada', 'UK', 'India', 'Australia']"
-                  placeholder="Select Country"
-                />
-              </VCol>
-
-              <!-- 👉 Language -->
-              <VCol
-                cols="12"
-                md="6"
-              >
-                <VSelect
-                  v-model="accountDataLocal.language"
-                  label="Language"
-                  placeholder="Select Language"
-                  :items="['English', 'Spanish', 'Arabic', 'Hindi', 'Urdu']"
-                />
-              </VCol>
-
-              <!-- 👉 Timezone -->
-              <VCol
-                cols="12"
-                md="6"
-              >
-                <VSelect
-                  v-model="accountDataLocal.timezone"
-                  label="Timezone"
-                  placeholder="Select Timezone"
-                  :items="timezones"
-                  :menu-props="{ maxHeight: 200 }"
-                />
-              </VCol>
-
-              <!-- 👉 Currency -->
-              <VCol
-                cols="12"
-                md="6"
-              >
-                <VSelect
-                  v-model="accountDataLocal.currency"
-                  label="Currency"
-                  placeholder="Select Currency"
-                  :items="currencies"
-                  :menu-props="{ maxHeight: 200 }"
-                />
-              </VCol>
-
-              <!-- 👉 Form Actions -->
               <VCol
                 cols="12"
                 class="d-flex flex-wrap gap-4"
               >
-                <VBtn>Save changes</VBtn>
+                <VBtn
+                  type="submit"
+                  :loading="saving"
+                  :disabled="!hasPendingChanges || saving"
+                >
+                  Guardar cambios
+                </VBtn>
 
                 <VBtn
                   color="secondary"
                   variant="outlined"
-                  type="reset"
-                  @click.prevent="resetForm"
+                  type="button"
+                  :disabled="saving"
+                  @click="resetForm"
                 >
-                  Reset
+                  Restablecer
                 </VBtn>
               </VCol>
             </VRow>
@@ -335,26 +417,149 @@ const currencies = [
       </VCard>
     </VCol>
 
-    <VCol cols="12">
-      <!-- 👉 Deactivate Account -->
-      <VCard title="Deactivate Account">
-        <VCardText>
-          <div>
-            <VCheckbox
-              v-model="isAccountDeactivated"
-              label="I confirm my account deactivation"
-            />
-          </div>
+    <VDialog
+      v-model="usernameDialog"
+      max-width="480"
+    >
+      <VCard rounded="lg">
+        <VCardTitle class="text-h6 px-5 pt-5 pb-3">
+          Cambiar usuario
+        </VCardTitle>
 
-          <VBtn
-            :disabled="!isAccountDeactivated"
-            color="error"
-            class="mt-3"
+        <VDivider />
+
+        <VCardText class="pa-5 d-flex flex-column gap-4">
+          <VAlert
+            v-if="usernameDialogError"
+            type="error"
+            variant="tonal"
+            rounded="lg"
           >
-            Deactivate Account
-          </VBtn>
+            {{ usernameDialogError }}
+          </VAlert>
+
+          <p class="text-body-2 text-medium-emphasis mb-0">
+            Usuario actual: <strong>{{ auth.user?.username }}</strong>
+          </p>
+
+          <VTextField
+            v-model="usernameForm.username"
+            label="Nuevo usuario"
+            placeholder="nombre_usuario"
+            variant="outlined"
+            rounded="lg"
+            hide-details="auto"
+            :error-messages="usernameFieldError('username')"
+          />
+
+          <VTextField
+            v-model="usernameForm.current_password"
+            :type="isUsernamePasswordVisible ? 'text' : 'password'"
+            :append-inner-icon="isUsernamePasswordVisible ? 'ri-eye-off-line' : 'ri-eye-line'"
+            autocomplete="current-password"
+            label="Contraseña actual"
+            placeholder="············"
+            variant="outlined"
+            rounded="lg"
+            hide-details="auto"
+            :error-messages="usernameFieldError('current_password')"
+            @click:append-inner="isUsernamePasswordVisible = !isUsernamePasswordVisible"
+          />
         </VCardText>
+
+        <VCardActions class="px-5 pb-5">
+          <VSpacer />
+          <VBtn
+            variant="text"
+            rounded="lg"
+            @click="usernameDialog = false"
+          >
+            Cancelar
+          </VBtn>
+          <VBtn
+            color="primary"
+            variant="flat"
+            rounded="lg"
+            :loading="savingUsername"
+            @click="saveUsername"
+          >
+            Guardar
+          </VBtn>
+        </VCardActions>
       </VCard>
-    </VCol>
+    </VDialog>
+
+    <VDialog
+      v-model="emailDialog"
+      max-width="480"
+    >
+      <VCard rounded="lg">
+        <VCardTitle class="text-h6 px-5 pt-5 pb-3">
+          Cambiar correo electrónico
+        </VCardTitle>
+
+        <VDivider />
+
+        <VCardText class="pa-5 d-flex flex-column gap-4">
+          <VAlert
+            v-if="emailDialogError"
+            type="error"
+            variant="tonal"
+            rounded="lg"
+          >
+            {{ emailDialogError }}
+          </VAlert>
+
+          <p class="text-body-2 text-medium-emphasis mb-0">
+            Correo actual: <strong>{{ auth.user?.email }}</strong>
+          </p>
+
+          <VTextField
+            v-model="emailForm.email"
+            label="Nuevo correo electrónico"
+            placeholder="correo@ejemplo.com"
+            type="email"
+            variant="outlined"
+            rounded="lg"
+            hide-details="auto"
+            :error-messages="emailFieldError('email')"
+          />
+
+          <VTextField
+            v-model="emailForm.current_password"
+            :type="isEmailPasswordVisible ? 'text' : 'password'"
+            :append-inner-icon="isEmailPasswordVisible ? 'ri-eye-off-line' : 'ri-eye-line'"
+            autocomplete="current-password"
+            label="Contraseña actual"
+            placeholder="············"
+            variant="outlined"
+            rounded="lg"
+            hide-details="auto"
+            :error-messages="emailFieldError('current_password')"
+            @click:append-inner="isEmailPasswordVisible = !isEmailPasswordVisible"
+          />
+        </VCardText>
+
+        <VCardActions class="px-5 pb-5">
+          <VSpacer />
+          <VBtn
+            variant="text"
+            rounded="lg"
+            @click="emailDialog = false"
+          >
+            Cancelar
+          </VBtn>
+          <VBtn
+            color="primary"
+            variant="flat"
+            rounded="lg"
+            :loading="savingEmail"
+            @click="saveEmail"
+          >
+            Guardar
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
   </VRow>
 </template>
