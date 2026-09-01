@@ -78,15 +78,17 @@
         <VCard
           rounded="lg"
           :loading="loading"
-          :color="totals.remaining >= 0 ? 'success' : 'error'"
-          variant="tonal"
-          class="h-100"
+          variant="outlined"
+          class="h-100 fixed-payments__remaining-card"
         >
           <VCardText class="d-flex flex-column justify-center h-100">
-            <p class="text-caption mb-1">
+            <p class="text-caption text-medium-emphasis mb-1">
               Quedan libres al mes
             </p>
-            <p class="text-h4 font-weight-semibold mb-1 fixed-payments__num">
+            <p
+              class="text-h4 font-weight-semibold mb-1 fixed-payments__num"
+              :class="totals.remaining >= 0 ? 'fixed-payments__amount--positive' : 'fixed-payments__amount--negative'"
+            >
               {{ $formatAmount(totals.remaining) }}
             </p>
             <p class="text-caption text-medium-emphasis mb-0">
@@ -114,6 +116,7 @@
       >
         <VCard
           rounded="lg"
+          variant="outlined"
           class="h-100 fixed-payments__group-card"
         >
           <VCardTitle
@@ -142,19 +145,16 @@
               :key="item.id"
               class="px-4"
             >
-              <template #prepend>
+              <VListItemTitle class="d-flex flex-wrap align-center gap-2 font-weight-medium">
+                <span>{{ item.description }}</span>
                 <VChip
                   size="x-small"
+                  :color="group.chipColor"
                   variant="tonal"
                   label
-                  class="me-2"
                 >
                   {{ item.due_label }}
                 </VChip>
-              </template>
-
-              <VListItemTitle class="font-weight-medium">
-                {{ item.description }}
               </VListItemTitle>
               <VListItemSubtitle class="fixed-payments__num">
                 {{ $formatAmount(item.amount) }}
@@ -201,15 +201,14 @@
     <VCard
       v-if="!loading"
       rounded="lg"
-      variant="tonal"
-      color="secondary"
-      class="mt-4"
+      variant="outlined"
+      class="mt-4 fixed-payments__total-card"
     >
       <VCardText class="d-flex flex-wrap justify-space-between align-center gap-3 py-4">
         <span class="text-body-2 font-weight-medium">
           Total gastos fijos
         </span>
-        <span class="text-h6 font-weight-semibold fixed-payments__num">
+        <span class="text-h6 font-weight-semibold fixed-payments__num fixed-payments__total-value">
           {{ $formatAmount(totals.expenses) }}
         </span>
       </VCardText>
@@ -364,12 +363,14 @@ export default {
           totalKey: 'primero',
           title: 'Primer pago',
           headerClass: 'fixed-payments__header--primero',
+          chipColor: 'info',
         },
         {
           key: 'segundo',
           totalKey: 'segundo',
           title: 'Segundo pago',
           headerClass: 'fixed-payments__header--segundo',
+          chipColor: 'primary',
         },
       ],
       groupOptions: [
@@ -546,20 +547,57 @@ export default {
   font-feature-settings: 'tnum';
 }
 
+.fixed-payments__amount--positive {
+  color: color-mix(in srgb, rgb(var(--v-theme-success)) 78%, rgb(var(--v-theme-on-surface)) 22%);
+}
+
+.fixed-payments__amount--negative {
+  color: color-mix(in srgb, rgb(var(--v-theme-error)) 78%, rgb(var(--v-theme-on-surface)) 22%);
+}
+
+.fixed-payments__remaining-card {
+  border-color: rgba(var(--v-border-color), var(--v-border-opacity)) !important;
+  background: color-mix(in srgb, rgb(var(--v-theme-primary)) 8%, rgb(var(--v-theme-surface)) 92%);
+}
+
+.fixed-payments__header--primero,
+.fixed-payments__header--segundo {
+  border-inline-start: 4px solid transparent;
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
 .fixed-payments__header--primero {
-  background: rgba(var(--v-theme-info), 0.12);
+  background: color-mix(in srgb, rgb(var(--v-theme-info)) 18%, rgb(var(--v-theme-surface)) 82%);
+  border-inline-start-color: rgb(var(--v-theme-info));
+  color: color-mix(in srgb, rgb(var(--v-theme-info)) 70%, rgb(var(--v-theme-on-surface)) 30%);
 }
 
 .fixed-payments__header--segundo {
-  background: rgba(var(--v-theme-primary), 0.1);
+  background: color-mix(in srgb, rgb(var(--v-theme-primary)) 18%, rgb(var(--v-theme-surface)) 82%);
+  border-inline-start-color: rgb(var(--v-theme-primary));
+  color: color-mix(in srgb, rgb(var(--v-theme-primary)) 70%, rgb(var(--v-theme-on-surface)) 30%);
 }
 
 .fixed-payments__subtotal {
-  background: rgba(var(--v-theme-on-surface), 0.03);
+  background: color-mix(in srgb, rgb(var(--v-theme-on-surface)) 4%, rgb(var(--v-theme-surface)) 96%);
+  border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.fixed-payments__total-card {
+  border-color: rgba(var(--v-border-color), var(--v-border-opacity)) !important;
+  background: color-mix(in srgb, rgb(var(--v-theme-primary)) 10%, rgb(var(--v-theme-surface)) 90%);
+}
+
+.fixed-payments__total-value {
+  color: color-mix(in srgb, rgb(var(--v-theme-primary)) 75%, rgb(var(--v-theme-on-surface)) 25%);
+}
+
+.fixed-payments__group-card {
+  border-color: rgba(var(--v-border-color), var(--v-border-opacity)) !important;
 }
 
 .fixed-payments__group-card :deep(.v-list-item) {
-  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.06);
+  border-bottom: 1px solid rgba(var(--v-border-color), calc(var(--v-border-opacity) * 0.85));
 }
 
 .fixed-payments__group-card :deep(.v-list-item:last-child) {
