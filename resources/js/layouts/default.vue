@@ -5,6 +5,7 @@ const cachedPages = [
   'Dashboard',
   'ModuleAccounting',
   'ModuleAccountingConcepts',
+  'ModuleFixedPayments',
   'ModuleStudyPlan',
 ]
 </script>

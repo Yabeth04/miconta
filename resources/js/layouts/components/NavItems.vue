@@ -40,6 +40,14 @@ const { isSysAdmin } = storeToRefs(auth)
         child: true,
       }"
     />
+    <VerticalNavLink
+      :item="{
+        title: 'Pagos fijos',
+        icon: 'ri-calendar-check-line',
+        to: '/pagos-fijos',
+        child: true,
+      }"
+    />
   </VerticalNavGroup>
 
   <VerticalNavLink

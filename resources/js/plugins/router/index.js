@@ -66,6 +66,7 @@ export default function (app) {
       import('@/pages/moduleAccounting.vue')
       import('@/pages/moduleStudyPlan.vue')
       import('@/pages/moduleAccountingConcepts.vue')
+      import('@/pages/moduleFixedPayments.vue')
     }
 
     if (typeof requestIdleCallback === 'function')

@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountingConceptController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\FixedPaymentController;
 use App\Http\Controllers\StudyPlanController;
 use Illuminate\Support\Facades\Route;
 
@@ -23,6 +24,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('accounting/concepts/{concept}', [AccountingConceptController::class, 'destroy']);
 
     Route::apiResource('accounting', AccountingController::class);
+
+    Route::get('fixed-payments', [FixedPaymentController::class, 'index']);
+    Route::put('fixed-payments/settings', [FixedPaymentController::class, 'updateSettings']);
+    Route::post('fixed-payments', [FixedPaymentController::class, 'store']);
+    Route::put('fixed-payments/{fixedPayment}', [FixedPaymentController::class, 'update']);
+    Route::delete('fixed-payments/{fixedPayment}', [FixedPaymentController::class, 'destroy']);
 
     Route::middleware('sysadmin')->group(function () {
         Route::get('study-plan', [StudyPlanController::class, 'index']);
