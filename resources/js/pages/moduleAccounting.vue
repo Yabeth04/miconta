@@ -31,50 +31,157 @@
       @saved="refreshAccounting"
     />
 
-    <VContainer class="pb-0">
-      <div class="d-flex align-center gap-2">
+    <VContainer class="accounting-mobile-toolbar pb-0 px-3">
+      <div
+        v-if="!selectionMode"
+        class="accounting-mobile-toolbar__row"
+      >
         <VBtn
           color="primary"
           rounded="lg"
-          class="flex-grow-1"
+          class="accounting-mobile-toolbar__register"
           prepend-icon="ri-add-line"
           @click="openMobileForm"
         >
           Registrar movimiento
         </VBtn>
-        <VBadge
-          :model-value="hasSheetFilters"
-          color="primary"
-          dot
-          location="top end"
-          offset-x="4"
-          offset-y="4"
+
+        <VMenu
+          location="bottom end"
+          :close-on-content-click="true"
         >
+          <template #activator="{ props: menuProps }">
+            <VBadge
+              :model-value="hasMobileToolsActive"
+              color="primary"
+              dot
+              location="top end"
+              offset-x="2"
+              offset-y="2"
+            >
+              <VBtn
+                v-bind="menuProps"
+                icon
+                variant="tonal"
+                rounded="lg"
+                size="default"
+                aria-label="Más opciones"
+              >
+                <VIcon
+                  icon="ri-more-2-fill"
+                  size="20"
+                />
+              </VBtn>
+            </VBadge>
+          </template>
+
+          <VList
+            density="comfortable"
+            min-width="220"
+          >
+            <VListItem
+              prepend-icon="ri-search-line"
+              :title="mobileSearchOpen ? 'Ocultar búsqueda' : 'Buscar'"
+              @click="toggleMobileSearch"
+            />
+            <VListItem
+              prepend-icon="ri-filter-3-line"
+              title="Filtros"
+              @click="filterSheet = true"
+            >
+              <template
+                v-if="hasSheetFilters"
+                #append
+              >
+                <VIcon
+                  icon="ri-checkbox-blank-circle-fill"
+                  size="10"
+                  color="primary"
+                />
+              </template>
+            </VListItem>
+            <VListItem
+              prepend-icon="ri-checkbox-multiple-line"
+              title="Seleccionar"
+              @click="toggleSelectionMode"
+            />
+          </VList>
+        </VMenu>
+      </div>
+
+      <div
+        v-else
+        class="accounting-mobile-selection-toolbar"
+      >
+        <div class="d-flex align-center justify-space-between gap-2 mb-3">
+          <div class="min-w-0">
+            <span class="text-subtitle-2 font-weight-semibold d-block">
+              {{ selectedCount ? `${selectedCount} seleccionado${selectedCount === 1 ? '' : 's'}` : 'Seleccioná movimientos' }}
+            </span>
+            <span class="text-caption text-medium-emphasis">
+              Tocá las tarjetas para marcarlas
+            </span>
+          </div>
+          <VBtn
+            variant="text"
+            size="small"
+            rounded="lg"
+            class="flex-shrink-0"
+            @click="toggleSelectionMode"
+          >
+            Listo
+          </VBtn>
+        </div>
+        <div class="accounting-mobile-selection-toolbar__actions">
+          <VBtn
+            variant="outlined"
+            rounded="lg"
+            size="small"
+            @click="toggleSelectAllVisible"
+          >
+            {{ allVisibleSelected ? 'Ninguno' : 'Todos' }}
+          </VBtn>
           <VBtn
             variant="tonal"
             rounded="lg"
-            class="px-4"
-            aria-label="Filtros"
-            @click="filterSheet = true"
+            size="small"
+            :disabled="!selectedCount"
+            prepend-icon="ri-pencil-line"
+            @click="openBulkEdit"
           >
-            Filtros
+            Editar
           </VBtn>
-        </VBadge>
+          <VBtn
+            variant="tonal"
+            color="error"
+            rounded="lg"
+            size="small"
+            :disabled="!selectedCount"
+            prepend-icon="ri-delete-bin-line"
+            @click="openBulkDelete"
+          >
+            Eliminar
+          </VBtn>
+        </div>
       </div>
 
-      <!-- Buscador móvil -->
-      <VTextField
-        v-model="filterQuery"
-        class="mt-3"
-        type="search"
-        label="Buscar concepto o detalle"
-        variant="outlined"
-        rounded="lg"
-        prepend-inner-icon="ri-search-line"
-        hide-details="auto"
-        clearable
-        @update:model-value="onFilterQueryInput"
-      />
+      <VExpandTransition>
+        <VTextField
+          v-if="mobileSearchOpen && !selectionMode"
+          v-model="filterQuery"
+          class="mt-3"
+          type="search"
+          label="Buscar concepto o detalle"
+          variant="outlined"
+          rounded="lg"
+          prepend-inner-icon="ri-search-line"
+          hide-details="auto"
+          clearable
+          autofocus
+          @update:model-value="onFilterQueryInput"
+          @click:clear="onMobileSearchClear"
+        />
+      </VExpandTransition>
     </VContainer>
 
     <!-- Filtros móvil -->
@@ -107,6 +214,16 @@
     @saved="refreshAccounting"
   />
 
+  <AccountingBulkEditDialog
+    v-model="bulkEditDialog"
+    :ids="selectedIds"
+    :count="selectedCount"
+    :movement-types="movementTypes"
+    :payment-types="paymentTypes"
+    :concepts="fixedConcepts"
+    @saved="onBulkSaved"
+  />
+
   <AccountingOpeningBalanceDialog
     v-model="openingBalanceDialog"
     :opening-balance="openingBalance"
@@ -119,10 +236,10 @@
   >
     <VCard rounded="lg">
       <VCardTitle class="text-h6">
-        Eliminar movimiento
+        {{ deleteDialogTitle }}
       </VCardTitle>
       <VCardText class="text-body-2">
-        ¿Eliminar este movimiento? No se puede deshacer.
+        {{ deleteDialogMessage }}
       </VCardText>
       <VCardActions class="px-4 pb-4">
         <VSpacer />
@@ -305,7 +422,79 @@
               size="18"
             />
           </VBtn>
+          <VBtn
+            :variant="selectionMode ? 'flat' : 'tonal'"
+            :color="selectionMode ? 'primary' : 'default'"
+            rounded="lg"
+            class="px-3 flex-shrink-0"
+            aria-label="Seleccionar movimientos"
+            @click="toggleSelectionMode"
+          >
+            <VIcon
+              icon="ri-checkbox-multiple-line"
+              size="18"
+            />
+          </VBtn>
         </div>
+
+        <VExpandTransition>
+          <div
+            v-if="selectionMode"
+            class="accounting-selection-bar d-flex flex-wrap align-center gap-2 mt-3"
+          >
+            <span
+              v-if="selectedCount"
+              class="text-body-2 font-weight-medium"
+            >
+              {{ selectedCount }} seleccionado{{ selectedCount === 1 ? '' : 's' }}
+            </span>
+            <span
+              v-else
+              class="text-body-2 text-medium-emphasis"
+            >
+              Seleccioná movimientos de la lista
+            </span>
+            <VSpacer />
+            <VBtn
+              v-if="selectedCount"
+              variant="tonal"
+              rounded="lg"
+              size="small"
+              prepend-icon="ri-pencil-line"
+              @click="openBulkEdit"
+            >
+              Editar
+            </VBtn>
+            <VBtn
+              v-if="selectedCount"
+              variant="tonal"
+              color="error"
+              rounded="lg"
+              size="small"
+              prepend-icon="ri-delete-bin-line"
+              @click="openBulkDelete"
+            >
+              Eliminar
+            </VBtn>
+            <VBtn
+              v-if="selectedCount"
+              variant="text"
+              rounded="lg"
+              size="small"
+              @click="clearSelection"
+            >
+              Limpiar
+            </VBtn>
+            <VBtn
+              variant="text"
+              rounded="lg"
+              size="small"
+              @click="toggleSelectionMode"
+            >
+              Cancelar
+            </VBtn>
+          </div>
+        </VExpandTransition>
 
         <VExpandTransition>
           <div
@@ -365,6 +554,18 @@
         <thead>
           <tr>
             <th
+              v-if="selectionMode"
+              class="accounting-table__th accounting-table__th--select"
+            >
+              <VCheckbox
+                :model-value="allVisibleSelected"
+                :indeterminate="someVisibleSelected && !allVisibleSelected"
+                hide-details
+                density="compact"
+                @update:model-value="toggleSelectAllVisible"
+              />
+            </th>
+            <th
               class="accounting-table__th text-start"
               width="120px"
             >
@@ -393,7 +594,24 @@
             v-for="item in accounting"
             :key="item.id"
             class="accounting-table__row"
+            :class="{
+              'accounting-table__row--selected': isSelected(item.id),
+              'accounting-table__row--selectable': selectionMode,
+            }"
+            @click="onRowClick(item)"
           >
+            <td
+              v-if="selectionMode"
+              class="accounting-table__select"
+              @click.stop="toggleSelectItem(item.id)"
+            >
+              <VCheckbox
+                :model-value="isSelected(item.id)"
+                hide-details
+                density="compact"
+                readonly
+              />
+            </td>
             <td class="text-body-2 text-medium-emphasis">
               {{ item.date }}
             </td>
@@ -446,6 +664,7 @@
             </td>
             <td class="accounting-table__actions text-end">
               <AccountingMovementMenu
+                v-if="!selectionMode"
                 @edit="openEdit(item)"
                 @delete="openDelete(item)"
               />
@@ -454,7 +673,7 @@
 
           <tr v-if="!accounting.length && !hasMore && !loading">
             <td
-              colspan="7"
+              :colspan="selectionMode ? 8 : 7"
               class="text-body-2 text-medium-emphasis text-center py-8"
             >
               {{ emptyListMessage }}
@@ -463,7 +682,7 @@
 
           <!-- Carga más movimientos -->
           <tr>
-            <td colspan="7">
+            <td :colspan="selectionMode ? 8 : 7">
               <VInfiniteScroll
                 :key="scrollKey"
                 side="end"
@@ -489,18 +708,44 @@
         :key="scrollKey"
         side="end"
         class="accounting-mobile-list"
+        :class="{ 'accounting-mobile-list--selection': selectionMode }"
         @load="showAccounting"
       >
         <div class="pa-3">
-          <template v-if="accounting.length">
+          <p
+            v-if="!accounting.length"
+            class="text-body-2 text-medium-emphasis text-center py-8"
+          >
+            {{ emptyListMessage }}
+          </p>
+          <template v-else>
             <VCard
               v-for="item in accounting"
               :key="item.id"
               variant="outlined"
               rounded="lg"
               class="accounting-mobile-card mb-3"
+              :class="{
+                'accounting-mobile-card--selected': isSelected(item.id),
+                'accounting-mobile-card--selectable': selectionMode,
+              }"
+              @click="onRowClick(item)"
             >
-              <VCardText class="pa-4">
+              <VCardText class="pa-4 accounting-mobile-card__body">
+                <div class="d-flex align-start gap-3">
+                  <div
+                    v-if="selectionMode"
+                    class="accounting-mobile-card__checkbox flex-shrink-0"
+                  >
+                    <VCheckbox
+                      :model-value="isSelected(item.id)"
+                      hide-details
+                      density="comfortable"
+                      readonly
+                    />
+                  </div>
+
+                  <div class="flex-grow-1 min-w-0">
                 <div class="d-flex justify-space-between align-start gap-2 mb-2">
                   <span class="text-caption text-medium-emphasis">{{ item.date }}</span>
                   <div class="d-flex align-center gap-1 flex-shrink-0">
@@ -513,6 +758,7 @@
                       {{ paymentTypeLabel(item.payment_type) }}
                     </VChip>
                     <AccountingMovementMenu
+                      v-if="!selectionMode"
                       @edit="openEdit(item)"
                       @delete="openDelete(item)"
                     />
@@ -561,15 +807,11 @@
                     </span>
                   </div>
                 </div>
+                  </div>
+                </div>
               </VCardText>
             </VCard>
           </template>
-          <p
-            v-else
-            class="text-body-2 text-medium-emphasis text-center py-8"
-          >
-            {{ emptyListMessage }}
-          </p>
         </div>
 
         <!-- Solo si ya hay items y se acabó la paginación (evita el "No more" por defecto) -->
@@ -708,6 +950,7 @@
 <script>
 import submittedVuelidateForm from '@/mixins/submittedVuelidateForm'
 import { axios } from '@/plugins/axios'
+import AccountingBulkEditDialog from '@/views/pages/accounting/AccountingBulkEditDialog.vue'
 import AccountingConceptCombobox from '@/views/pages/accounting/AccountingConceptCombobox.vue'
 import AccountingEditDialog from '@/views/pages/accounting/AccountingEditDialog.vue'
 import AccountingMobileEditSheet from '@/views/pages/accounting/AccountingMobileEditSheet.vue'
@@ -723,6 +966,7 @@ import { useDisplay } from 'vuetify'
 export default {
   name: 'ModuleAccounting',
   components: {
+    AccountingBulkEditDialog,
     AccountingConceptCombobox,
     AccountingEditDialog,
     AccountingMobileEditSheet,
@@ -787,10 +1031,40 @@ export default {
       editMovement: null,
       deleteDialog: false,
       deleteTarget: null,
+      deleteMode: 'single',
       deleting: false,
+      selectionMode: false,
+      selectedIds: [],
+      bulkEditDialog: false,
+      mobileSearchOpen: false,
     }
   },
   computed: {
+    hasMobileToolsActive() {
+      return this.hasSheetFilters
+        || this.mobileSearchOpen
+        || Boolean(String(this.filterQuery).trim())
+    },
+    selectedCount() {
+      return this.selectedIds.length
+    },
+    allVisibleSelected() {
+      return this.accounting.length > 0
+        && this.accounting.every(item => this.isSelected(item.id))
+    },
+    someVisibleSelected() {
+      return this.accounting.some(item => this.isSelected(item.id))
+    },
+    deleteDialogTitle() {
+      return this.deleteMode === 'bulk' ? 'Eliminar movimientos' : 'Eliminar movimiento'
+    },
+    deleteDialogMessage() {
+      if (this.deleteMode === 'bulk') {
+        return `¿Eliminar ${this.selectedCount} movimiento${this.selectedCount === 1 ? '' : 's'}? No se puede deshacer.`
+      }
+
+      return '¿Eliminar este movimiento? No se puede deshacer.'
+    },
     hasSheetFilters() {
       const range = this.filterDateRange
 
@@ -926,6 +1200,8 @@ export default {
       this.hasMore = true
       this.loading = false
       this.scrollKey += 1
+      this.clearSelection()
+      this.selectionMode = false
     },
     async showAccounting({ done } = {}) {
       if (this.loading) {
@@ -1057,7 +1333,16 @@ export default {
       this.skipFilterRefresh = false
       this.refreshAccounting()
     },
+    onRowClick(item) {
+      if (!this.selectionMode || item?.id == null)
+        return
+
+      this.toggleSelectItem(item.id)
+    },
     openEdit(item) {
+      if (this.selectionMode)
+        return
+
       if (this.mdAndUp) {
         this.editMovement = item
         this.editDialog = true
@@ -1066,22 +1351,120 @@ export default {
       }
     },
     openDelete(item) {
+      this.deleteMode = 'single'
       this.deleteTarget = item
       this.deleteDialog = true
     },
+    openBulkDelete() {
+      if (!this.selectedIds.length)
+        return
+
+      this.deleteMode = 'bulk'
+      this.deleteDialog = true
+    },
+    openBulkEdit() {
+      if (!this.selectedIds.length)
+        return
+
+      this.bulkEditDialog = true
+    },
+    toggleSelectionMode() {
+      this.selectionMode = !this.selectionMode
+
+      if (!this.selectionMode) {
+        this.clearSelection()
+      } else {
+        this.mobileSearchOpen = false
+      }
+    },
+    toggleMobileSearch() {
+      this.mobileSearchOpen = !this.mobileSearchOpen
+    },
+    onMobileSearchClear() {
+      clearTimeout(this.filterQueryTimer)
+      this.filterQuery = ''
+      this.refreshAccounting()
+    },
+    clearSelection() {
+      this.selectedIds = []
+    },
+    normalizeId(id) {
+      return Number(id)
+    },
+    isSelected(id) {
+      const normalizedId = this.normalizeId(id)
+
+      return this.selectedIds.some(itemId => this.normalizeId(itemId) === normalizedId)
+    },
+    setItemSelected(id, selected) {
+      const normalizedId = this.normalizeId(id)
+
+      if (selected) {
+        if (!this.isSelected(normalizedId))
+          this.selectedIds = [...this.selectedIds, normalizedId]
+      } else {
+        this.selectedIds = this.selectedIds.filter(itemId => this.normalizeId(itemId) !== normalizedId)
+      }
+    },
+    toggleSelectItem(id) {
+      this.setItemSelected(id, !this.isSelected(id))
+    },
+    toggleSelectAllVisible(selected) {
+      const shouldSelect = typeof selected === 'boolean' ? selected : !this.allVisibleSelected
+
+      if (!shouldSelect) {
+        const visibleIds = new Set(this.accounting.map(item => this.normalizeId(item.id)))
+
+        this.selectedIds = this.selectedIds.filter(id => !visibleIds.has(this.normalizeId(id)))
+      } else {
+        const ids = new Set(this.selectedIds)
+
+        this.accounting.forEach(item => {
+          if (item?.id != null)
+            ids.add(this.normalizeId(item.id))
+        })
+        this.selectedIds = [...ids]
+      }
+    },
+    onBulkSaved() {
+      this.selectionMode = false
+      this.clearSelection()
+      this.refreshAccounting()
+    },
     async confirmDelete() {
-      if (this.deleting || !this.deleteTarget?.id)
+      if (this.deleting)
+        return
+
+      if (this.deleteMode === 'single' && !this.deleteTarget?.id)
+        return
+
+      if (this.deleteMode === 'bulk' && !this.selectedIds.length)
         return
 
       this.deleting = true
 
       try {
-        await axios.delete(`/api/accounting/${this.deleteTarget.id}`)
-        this.deleteDialog = false
-        this.deleteTarget = null
-        this.editMovement = null
-        this.refreshAccounting()
-        this.$toast.success('Movimiento eliminado', { timeout: 2000, closeOnClick: true })
+        if (this.deleteMode === 'bulk') {
+          const response = await axios.post('/api/accounting/bulk-destroy', {
+            ids: this.selectedIds,
+          })
+
+          this.deleteDialog = false
+          this.selectionMode = false
+          this.clearSelection()
+          this.refreshAccounting()
+          this.$toast.success(
+            `Eliminados ${response.data.deleted} movimiento${response.data.deleted === 1 ? '' : 's'}`,
+            { timeout: 2000, closeOnClick: true },
+          )
+        } else {
+          await axios.delete(`/api/accounting/${this.deleteTarget.id}`)
+          this.deleteDialog = false
+          this.deleteTarget = null
+          this.editMovement = null
+          this.refreshAccounting()
+          this.$toast.success('Movimiento eliminado', { timeout: 2000, closeOnClick: true })
+        }
       } catch (error) {
         console.log(error)
       } finally {
@@ -1154,6 +1537,111 @@ export default {
 .accounting-table__th--narrow {
   width: 1%;
   white-space: nowrap;
+}
+
+.accounting-table__th--select,
+.accounting-table__select {
+  width: 3rem;
+  min-width: 3rem;
+  padding-inline: 0.75rem !important;
+}
+
+.accounting-table__row--selectable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.accounting-table__row--selectable:hover {
+  background: rgba(var(--v-theme-on-surface), 0.06) !important;
+}
+
+.accounting-table__select :deep(.v-selection-control) {
+  pointer-events: none;
+}
+
+.accounting-table__row--selected {
+  background: rgba(var(--v-theme-primary), 0.06) !important;
+}
+
+.accounting-selection-bar {
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  background: rgba(var(--v-theme-primary), 0.08);
+  border: thin solid rgba(var(--v-theme-primary), 0.16);
+}
+
+.accounting-mobile-card--selected {
+  border-color: rgba(var(--v-theme-primary), 0.55) !important;
+  background: rgba(var(--v-theme-primary), 0.08);
+  box-shadow: inset 0 0 0 1px rgba(var(--v-theme-primary), 0.12);
+}
+
+.accounting-mobile-list--selection {
+  padding-bottom: 1rem;
+}
+
+.accounting-mobile-toolbar__row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.accounting-mobile-toolbar__register {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.accounting-mobile-selection-toolbar {
+  padding: 0.875rem 1rem;
+  border-radius: 0.875rem;
+  background: rgba(var(--v-theme-primary), 0.08);
+  border: thin solid rgba(var(--v-theme-primary), 0.18);
+}
+
+.accounting-mobile-selection-toolbar__actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.accounting-mobile-selection-toolbar__actions :deep(.v-btn) {
+  width: 100%;
+  min-width: 0;
+  padding-inline: 0.5rem;
+}
+
+.accounting-mobile-card__checkbox {
+  margin-block-start: -0.25rem;
+  margin-inline-start: -0.5rem;
+}
+
+.accounting-mobile-card__checkbox :deep(.v-selection-control) {
+  pointer-events: none;
+}
+
+.accounting-mobile-card__body {
+  width: 100%;
+}
+
+.accounting-mobile-card {
+  cursor: default;
+}
+
+.accounting-mobile-list--selection .accounting-mobile-card {
+  cursor: pointer;
+}
+
+.accounting-mobile-card--selectable {
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.accounting-mobile-card--selectable:active {
+  transform: scale(0.995);
+}
+
+.accounting-mobile-card :deep(.v-selection-control) {
+  pointer-events: none;
 }
 
 /* Montos compactos y juntos a la derecha */

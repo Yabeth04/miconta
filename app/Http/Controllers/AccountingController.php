@@ -168,6 +168,93 @@ class AccountingController extends Controller
         return response()->json(['message' => 'Movimiento eliminado.'], 200);
     }
 
+    public function bulkUpdate(Request $request)
+    {
+        $validated = $request->validate([
+            'ids'           => ['required', 'array', 'min:1'],
+            'ids.*'         => ['integer'],
+            'movement_type' => ['sometimes', 'in:haber,debe'],
+            'payment_type'  => ['sometimes', 'in:sinpe,efectivo,transferencia,tarjeta,otros'],
+            'concept'       => ['sometimes', 'nullable', 'string', 'max:255'],
+            'detail'        => ['sometimes', 'nullable', 'string', 'max:255'],
+        ]);
+
+        $ids = array_values(array_unique(array_map('intval', $validated['ids'])));
+        unset($validated['ids']);
+
+        if ($validated === []) {
+            return response()->json(['message' => 'Indicá al menos un campo para actualizar.'], 422);
+        }
+
+        $movements = Accounting::query()
+            ->where('user_id', $request->user()->id)
+            ->whereIn('id', $ids)
+            ->get();
+
+        abort_unless($movements->count() === count($ids), 404);
+
+        $payload = $this->bulkUpdatePayload($request, $validated);
+
+        foreach ($movements as $movement) {
+            $movement->update($payload);
+        }
+
+        return response()->json([
+            'updated' => $movements->count(),
+        ], 200);
+    }
+
+    public function bulkDestroy(Request $request)
+    {
+        $validated = $request->validate([
+            'ids'   => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $ids = array_values(array_unique(array_map('intval', $validated['ids'])));
+
+        $deleted = Accounting::query()
+            ->where('user_id', $request->user()->id)
+            ->whereIn('id', $ids)
+            ->delete();
+
+        abort_unless($deleted === count($ids), 404);
+
+        return response()->json([
+            'deleted' => $deleted,
+        ], 200);
+    }
+
+    private function bulkUpdatePayload(Request $request, array $input): array
+    {
+        $payload = [];
+
+        if (array_key_exists('movement_type', $input)) {
+            $payload['movement_type'] = $input['movement_type'];
+        }
+
+        if (array_key_exists('payment_type', $input)) {
+            $payload['payment_type'] = $input['payment_type'];
+        }
+
+        if (array_key_exists('detail', $input)) {
+            $rawDetail = trim((string) ($input['detail'] ?? ''));
+            $payload['detail'] = $rawDetail === '' ? null : $rawDetail;
+        }
+
+        if (array_key_exists('concept', $input)) {
+            $resolved = $this->resolveConcept($request, [
+                'concept' => $input['concept'],
+                'detail'  => $payload['detail'] ?? null,
+            ]);
+
+            $payload['concept'] = $resolved['concept'];
+            $payload['accounting_concept_id'] = $resolved['accounting_concept_id'];
+        }
+
+        return $payload;
+    }
+
     private function settings(Request $request): AccountingSetting
     {
         return AccountingSetting::query()->firstOrCreate(
