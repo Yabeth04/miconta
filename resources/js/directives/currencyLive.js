@@ -1,4 +1,4 @@
-import { formatAmountValue, maskAmountInput, parseAmount } from '@core/utils/formatters'
+import { maskAmountInput } from '@core/utils/formatters'
 
 /**
  * Formatea montos en vivo mientras se escribe (es: 1.234,56).
@@ -48,20 +48,9 @@ function bindCurrencyLive(el) {
     input.dispatchEvent(new Event('input', { bubbles: true }))
   }
 
-  const onBlur = () => {
-    const normalized = formatAmountValue(parseAmount(input.value))
-
-    if (normalized === input.value)
-      return
-
-    input.value = normalized
-    input.dispatchEvent(new Event('input', { bubbles: true }))
-  }
-
   input.addEventListener('input', onInput)
-  input.addEventListener('blur', onBlur)
   input.__currencyLiveBound = true
-  el.__currencyLive = { input, onInput, onBlur }
+  el.__currencyLive = { input, onInput }
 }
 
 function unbindCurrencyLive(el) {
@@ -70,7 +59,6 @@ function unbindCurrencyLive(el) {
     return
 
   state.input.removeEventListener('input', state.onInput)
-  state.input.removeEventListener('blur', state.onBlur)
   delete state.input.__currencyLiveBound
   delete el.__currencyLive
 }

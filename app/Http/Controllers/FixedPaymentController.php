@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Models\FixedPayment;
@@ -21,7 +20,7 @@ class FixedPaymentController extends Controller
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get()
-            ->map(fn (FixedPayment $item) => $this->serializeItem($item));
+            ->map(fn(FixedPayment $item) => $this->serializeItem($item));
 
         $grouped = $items->groupBy('payment_group');
         $primero = (float) collect($grouped->get('primero', []))->sum('amount');
@@ -33,15 +32,15 @@ class FixedPaymentController extends Controller
             'settings' => [
                 'monthly_salary' => $salary,
             ],
-            'groups' => [
+            'groups'   => [
                 'primero' => $grouped->get('primero', collect())->values(),
                 'segundo' => $grouped->get('segundo', collect())->values(),
             ],
-            'totals' => [
-                'primero'    => $primero,
-                'segundo'    => $segundo,
-                'expenses'   => $total,
-                'remaining'  => $salary - $total,
+            'totals'   => [
+                'primero'   => $primero,
+                'segundo'   => $segundo,
+                'expenses'  => $total,
+                'remaining' => $salary - $total,
             ],
         ], 200);
     }
@@ -52,8 +51,8 @@ class FixedPaymentController extends Controller
             'monthly_salary' => ['required', 'numeric', 'min:0'],
         ]);
 
-        $settings                   = $this->settings($request);
-        $settings->monthly_salary   = $validated['monthly_salary'];
+        $settings                 = $this->settings($request);
+        $settings->monthly_salary = $validated['monthly_salary'];
         $settings->save();
 
         return response()->json([
