@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
 
+    Route::get('accounting/stats', [AccountingController::class, 'stats']);
+
     Route::post('accounting/import', [AccountingController::class, 'import']);
     Route::post('accounting/bulk-update', [AccountingController::class, 'bulkUpdate']);
     Route::post('accounting/bulk-destroy', [AccountingController::class, 'bulkDestroy']);

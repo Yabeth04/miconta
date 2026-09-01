@@ -64,6 +64,118 @@ class AccountingController extends Controller
         return response()->json($payload, 200);
     }
 
+    public function stats(Request $request)
+    {
+        $userId     = $request->user()->id;
+        $months     = 6;
+        $from       = now()->subMonths($months - 1)->startOfMonth();
+        $monthStart = now()->startOfMonth()->toDateString();
+        $monthEnd   = now()->endOfMonth()->toDateString();
+        $opening    = (float) $this->settings($request)->opening_balance_main;
+
+        $monthExpr = DB::connection()->getDriverName() === 'sqlite'
+            ? "strftime('%Y-%m', date)"
+            : "DATE_FORMAT(date, '%Y-%m')";
+
+        $monthlyRows = DB::table('accounting_movements')
+            ->where('user_id', $userId)
+            ->whereDate('date', '>=', $from->toDateString())
+            ->selectRaw("{$monthExpr} as month")
+            ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'debe' THEN amount ELSE 0 END), 0) as debe")
+            ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'haber' THEN amount ELSE 0 END), 0) as haber")
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get()
+            ->keyBy('month');
+
+        $monthly = [];
+        $running = $opening;
+
+        for ($i = 0; $i < $months; $i++) {
+            $key  = $from->copy()->addMonths($i)->format('Y-m');
+            $row  = $monthlyRows->get($key);
+            $debe = $row ? (float) $row->debe : 0.0;
+            $haber = $row ? (float) $row->haber : 0.0;
+
+            $running += $haber - $debe;
+
+            $monthly[] = [
+                'month'    => $key,
+                'debe'     => $debe,
+                'haber'    => $haber,
+                'balance'  => $running,
+            ];
+        }
+
+        $paymentTypes = DB::table('accounting_movements')
+            ->where('user_id', $userId)
+            ->select('payment_type')
+            ->selectRaw('COALESCE(SUM(amount), 0) as total')
+            ->groupBy('payment_type')
+            ->orderByDesc('total')
+            ->get()
+            ->map(fn ($row) => [
+                'payment_type' => $row->payment_type,
+                'total'        => (float) $row->total,
+            ])
+            ->values();
+
+        $concepts = DB::table('accounting_concepts')
+            ->where('accounting_concepts.user_id', $userId)
+            ->leftJoin('accounting_movements', function ($join) use ($userId, $monthStart, $monthEnd) {
+                $join->on('accounting_movements.accounting_concept_id', '=', 'accounting_concepts.id')
+                    ->where('accounting_movements.user_id', '=', $userId)
+                    ->whereDate('accounting_movements.date', '>=', $monthStart)
+                    ->whereDate('accounting_movements.date', '<=', $monthEnd);
+            })
+            ->select('accounting_concepts.name as concept')
+            ->selectRaw('COALESCE(SUM(accounting_movements.amount), 0) as total')
+            ->groupBy('accounting_concepts.id', 'accounting_concepts.name')
+            ->orderBy('accounting_concepts.name')
+            ->get()
+            ->map(fn ($row) => [
+                'concept' => $row->concept,
+                'total'   => (float) $row->total,
+            ])
+            ->values();
+
+        $global = DB::table('accounting_movements')
+            ->where('user_id', $userId)
+            ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'debe' THEN amount ELSE 0 END), 0) as total_debe")
+            ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'haber' THEN amount ELSE 0 END), 0) as total_haber")
+            ->selectRaw('COUNT(*) as count_total')
+            ->first();
+
+        $monthTotals = DB::table('accounting_movements')
+            ->where('user_id', $userId)
+            ->whereDate('date', '>=', $monthStart)
+            ->whereDate('date', '<=', $monthEnd)
+            ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'debe' THEN amount ELSE 0 END), 0) as total_debe")
+            ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'haber' THEN amount ELSE 0 END), 0) as total_haber")
+            ->selectRaw('COUNT(*) as count_total')
+            ->first();
+
+        return response()->json([
+            'totals' => [
+                'debe'            => (float) $global->total_debe,
+                'haber'           => (float) $global->total_haber,
+                'count'           => (int) $global->count_total,
+                'opening_balance' => $opening,
+                'account_balance' => $opening
+                    + (float) $global->total_haber
+                    - (float) $global->total_debe,
+            ],
+            'month_totals' => [
+                'debe'  => (float) $monthTotals->total_debe,
+                'haber' => (float) $monthTotals->total_haber,
+                'count' => (int) $monthTotals->count_total,
+            ],
+            'monthly'       => $monthly,
+            'payment_types' => $paymentTypes,
+            'concepts'      => $concepts,
+        ], 200);
+    }
+
     public function showSettings(Request $request)
     {
         $settings = $this->settings($request);
