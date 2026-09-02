@@ -99,6 +99,23 @@ class ProjectionController extends Controller
         $start = Carbon::create($fromYear, $fromMonth, 1)->startOfDay();
         $end   = Carbon::create($toYear, $toMonth, 1)->startOfDay();
 
+        // Real: solo desde el mes actual hacia adelante (no meses pasados).
+        if ($mode === 'real') {
+            $currentStart = $today->copy()->startOfMonth();
+
+            if ($start->lt($currentStart)) {
+                $fromYear  = (int) $today->year;
+                $fromMonth = (int) $today->month;
+                $start     = $currentStart->copy();
+            }
+
+            if ($end->lt($start)) {
+                $toYear  = $fromYear;
+                $toMonth = $fromMonth;
+                $end     = $start->copy();
+            }
+        }
+
         if ($start->gt($end)) {
             return ['error' => 'El periodo inicial no puede ser posterior al final.'];
         }

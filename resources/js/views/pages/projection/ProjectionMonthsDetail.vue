@@ -424,8 +424,8 @@
       class="pt-4 text-body-2 text-medium-emphasis"
     >
       <template v-if="projectionMode === 'real'">
-        Proyecta cada mes completo (1 y 15): salario quincenal y pagos fijos.
-        El saldo inicial se apoya en el de hoy y recrea el mes desde el 1 para no dejar filas a medias.
+        Proyecta desde el mes actual hacia adelante (1 y 15): salario quincenal y pagos fijos.
+        El saldo inicial es el de hoy; el mes en curso se arma completo desde el 1.
         En meses sin U no descuenta la cuota.
       </template>
       <template v-else>

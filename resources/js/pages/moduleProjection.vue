@@ -7,7 +7,7 @@
         </h1>
         <p class="text-body-2 text-medium-emphasis mb-0">
           {{ projectionMode === 'real'
-            ? 'Proyección mes a mes: salario (1 y 15), pagos fijos y meses sin U'
+            ? 'Desde el mes actual hacia adelante: salario (1 y 15), pagos fijos y meses sin U'
             : 'Escenario fijo: lo que te queda al mes y meses sin pago de universidad' }}
         </p>
       </div>
@@ -64,7 +64,7 @@
           >
             <VSelect
               v-model="year"
-              :items="yearOptions"
+              :items="realYearOptions"
               label="Año"
               variant="outlined"
               rounded="lg"
@@ -661,6 +661,10 @@ export default {
     },
 
     fromYearOptions() {
+      return this.realYearOptions
+    },
+
+    realYearOptions() {
       return this.yearOptions.filter(year => year >= this.minFromYear)
     },
 
@@ -710,6 +714,18 @@ export default {
     toMonth(month) {
       if (this.toYear === this.fromYear && month < this.fromMonth)
         this.toMonth = this.fromMonth
+    },
+    year(value) {
+      if (this.projectionMode !== 'real')
+        return
+
+      if (value < this.minFromYear)
+        this.year = this.minFromYear
+
+      if (this.rangeMode === 'year' && this.year === this.minFromYear) {
+        this.fromMonth = this.minFromMonth
+        this.fromYear = this.minFromYear
+      }
     },
     rangeMode(mode) {
       if (mode === 'year') {
