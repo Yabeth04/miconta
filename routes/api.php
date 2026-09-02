@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AccountingConceptController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AuthController;
@@ -38,6 +39,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('fixed-payments/{fixedPayment}', [FixedPaymentController::class, 'destroy']);
 
     Route::middleware('sysadmin')->group(function () {
+        Route::get('users', [AdminUserController::class, 'index']);
+        Route::post('users', [AdminUserController::class, 'store']);
+        Route::put('users/{user}', [AdminUserController::class, 'update']);
+        Route::delete('users/{user}', [AdminUserController::class, 'destroy']);
+
         Route::get('study-plan', [StudyPlanController::class, 'index']);
         Route::post('study-plan/subjects', [StudyPlanController::class, 'storeSubject']);
         Route::put('study-plan/subjects/{subject}', [StudyPlanController::class, 'updateSubject']);

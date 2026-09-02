@@ -53,6 +53,15 @@ const { isSysAdmin } = storeToRefs(auth)
   <VerticalNavLink
     v-if="isSysAdmin"
     :item="{
+      title: 'Usuarios',
+      icon: 'ri-group-line',
+      to: '/usuarios',
+    }"
+  />
+
+  <VerticalNavLink
+    v-if="isSysAdmin"
+    :item="{
       title: 'Plan de estudios',
       icon: 'ri-book-open-line',
       to: '/plan-estudios',
