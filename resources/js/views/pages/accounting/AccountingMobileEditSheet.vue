@@ -45,14 +45,15 @@
             <AccountingConceptCombobox
               v-model="concept"
               :concepts="concepts"
+              :error-messages="errors(v$.concept)"
             />
           </VCol>
           <VCol cols="12">
             <VTextField
               v-model="detail"
               type="text"
-              label="Detalle"
-              placeholder="Opcional, ej. 10 litros"
+              label="Detalle (opcional)"
+              placeholder="Ej. 10 litros"
               variant="outlined"
               rounded="lg"
               hide-details="auto"
@@ -184,6 +185,9 @@ export default {
       },
       selectedPaymentType: {
         required: helpers.withMessage('Tipo de pago requerido', required),
+      },
+      concept: {
+        required: helpers.withMessage('Concepto requerido', value => String(value ?? '').trim() !== ''),
       },
     }
   },

@@ -466,7 +466,11 @@ class AccountingController extends Controller
             'movement_type' => ['required', 'in:haber,debe'],
             'payment_type'  => ['required', 'in:sinpe,efectivo,transferencia,tarjeta,otros'],
             'amount'        => ['required', 'numeric', 'min:0'],
-            'concept'       => ['nullable', 'string', 'max:255'],
+            'concept'       => ['required', 'string', 'max:255', function (string $attribute, mixed $value, \Closure $fail) {
+                if (trim((string) $value) === '') {
+                    $fail('El concepto es obligatorio.');
+                }
+            }],
             'detail'        => ['nullable', 'string', 'max:255'],
         ]);
     }

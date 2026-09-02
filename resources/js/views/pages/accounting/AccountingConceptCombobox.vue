@@ -6,6 +6,8 @@
     variant="outlined"
     rounded="lg"
     hide-details="auto"
+    required
+    :error-messages="errorMessages"
     clearable
     @update:model-value="onUpdate"
   />
@@ -22,6 +24,10 @@ export default {
     },
     concepts: {
       type: Array,
+      default: () => [],
+    },
+    errorMessages: {
+      type: [String, Array],
       default: () => [],
     },
   },
