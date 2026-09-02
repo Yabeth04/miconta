@@ -7,6 +7,10 @@ use Carbon\Carbon;
 
 class AnnualSalaryResolver
 {
+    /**
+     * Resuelve el salario del año sin crear filas.
+     * Solo se persiste al guardar explícitamente (Pagos fijos).
+     */
     public static function forUserYear(int $userId, int $year): AnnualSalary
     {
         $existing = AnnualSalary::query()
@@ -24,14 +28,19 @@ class AnnualSalaryResolver
             ->orderByDesc('year')
             ->first();
 
-        $payday = $fallback
-            ? (float) $fallback->payday_amount
-            : ((float) FixedPaymentSetting::query()->firstOrCreate(
-                ['user_id' => $userId],
-                ['monthly_salary' => 0],
-            )->monthly_salary) / 2;
+        if ($fallback) {
+            $payday = (float) $fallback->payday_amount;
+        } else {
+            $settings = FixedPaymentSetting::query()
+                ->where('user_id', $userId)
+                ->first();
 
-        return AnnualSalary::query()->create([
+            $payday = $settings
+                ? ((float) $settings->monthly_salary) / 2
+                : 0.0;
+        }
+
+        return new AnnualSalary([
             'user_id'       => $userId,
             'year'          => $year,
             'payday_amount' => round($payday, 2),

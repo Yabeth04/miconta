@@ -44,6 +44,7 @@
             />
           </VCol>
           <VCol
+            v-if="projectionMode === 'real' && rangeMode === 'year'"
             cols="6"
             md="3"
           >
@@ -57,7 +58,22 @@
             />
           </VCol>
           <VCol
-            cols="6"
+            v-if="projectionMode === 'fixed'"
+            cols="12"
+            md="3"
+          >
+            <VSelect
+              v-model="year"
+              :items="yearOptions"
+              label="Año"
+              variant="outlined"
+              rounded="lg"
+              hide-details
+            />
+          </VCol>
+          <VCol
+            v-if="projectionMode === 'real'"
+            :cols="rangeMode === 'year' ? 6 : 12"
             md="3"
           >
             <VSelect
@@ -69,34 +85,60 @@
               hide-details
             />
           </VCol>
-          <VCol
-            v-if="rangeMode === 'custom'"
-            cols="6"
-            md="3"
-          >
-            <VSelect
-              v-model="fromMonth"
-              :items="monthOptions"
-              label="Desde"
-              variant="outlined"
-              rounded="lg"
-              hide-details
-            />
-          </VCol>
-          <VCol
-            v-if="rangeMode === 'custom'"
-            cols="6"
-            md="3"
-          >
-            <VSelect
-              v-model="toMonth"
-              :items="monthOptions"
-              label="Hasta"
-              variant="outlined"
-              rounded="lg"
-              hide-details
-            />
-          </VCol>
+          <template v-if="projectionMode === 'real' && rangeMode === 'custom'">
+            <VCol
+              cols="7"
+              md="3"
+            >
+              <VSelect
+                v-model="fromMonth"
+                :items="monthOptions"
+                label="Desde mes"
+                variant="outlined"
+                rounded="lg"
+                hide-details
+              />
+            </VCol>
+            <VCol
+              cols="5"
+              md="2"
+            >
+              <VSelect
+                v-model="fromYear"
+                :items="yearOptions"
+                label="Año"
+                variant="outlined"
+                rounded="lg"
+                hide-details
+              />
+            </VCol>
+            <VCol
+              cols="7"
+              md="3"
+            >
+              <VSelect
+                v-model="toMonth"
+                :items="monthOptions"
+                label="Hasta mes"
+                variant="outlined"
+                rounded="lg"
+                hide-details
+              />
+            </VCol>
+            <VCol
+              cols="5"
+              md="2"
+            >
+              <VSelect
+                v-model="toYear"
+                :items="yearOptions"
+                label="Año"
+                variant="outlined"
+                rounded="lg"
+                hide-details
+              />
+            </VCol>
+          </template>
         </VRow>
 
         <!-- Móvil: resumen + acciones -->
@@ -802,8 +844,10 @@ export default {
       saving: false,
       error: '',
       amountsSheet: false,
-      projectionMode: 'fixed',
+      projectionMode: 'real',
       year: currentYear,
+      fromYear: currentYear,
+      toYear: currentYear + 1,
       rangeMode: 'year',
       fromMonth: 1,
       toMonth: 12,
@@ -826,15 +870,15 @@ export default {
       months: [],
       summary: null,
       monthOptions: MONTH_OPTIONS,
+      projectionModeOptions: [
+        { title: 'Real', value: 'real' },
+        { title: 'Fija', value: 'fixed' },
+      ],
       rangeModeOptions: [
         { title: 'Anual', value: 'year' },
         { title: 'Mensual', value: 'custom' },
       ],
-      projectionModeOptions: [
-        { title: 'Fija', value: 'fixed' },
-        { title: 'Real', value: 'real' },
-      ],
-      yearOptions: [currentYear - 1, currentYear, currentYear + 1, currentYear + 2],
+      yearOptions: [currentYear - 1, currentYear, currentYear + 1, currentYear + 2, currentYear + 3],
     }
   },
 
@@ -861,7 +905,7 @@ export default {
     },
 
     periodLabel() {
-      if (this.rangeMode === 'year') {
+      if (this.projectionMode === 'fixed' || this.rangeMode === 'year') {
         if (this.projectionMode === 'real' && this.year === new Date().getFullYear()) {
           const from = MONTH_OPTIONS.find(m => m.value === this.fromMonth)?.title || ''
 
@@ -874,7 +918,10 @@ export default {
       const from = MONTH_OPTIONS.find(m => m.value === this.fromMonth)?.title || ''
       const to = MONTH_OPTIONS.find(m => m.value === this.toMonth)?.title || ''
 
-      return `${from} – ${to} ${this.year}`
+      if (this.fromYear === this.toYear)
+        return `${from} – ${to} ${this.fromYear}`
+
+      return `${from} ${this.fromYear} – ${to} ${this.toYear}`
     },
 
     summaryCards() {
@@ -968,12 +1015,28 @@ export default {
       if (mode === 'year') {
         this.fromMonth = 1
         this.toMonth = 12
+        this.fromYear = this.year
+        this.toYear = this.year
+      } else {
+        const now = new Date()
+
+        this.fromMonth = now.getMonth() + 1
+        this.fromYear = now.getFullYear()
+        this.toMonth = 2
+        this.toYear = now.getFullYear() + 1
       }
     },
-    projectionMode() {
+    projectionMode(mode) {
       this.startingBalanceInput = ''
       this.monthlySalaryInput = ''
-      this.loadProjection()
+
+      if (mode === 'fixed') {
+        this.rangeMode = 'year'
+        this.fromMonth = 1
+        this.toMonth = 12
+        this.fromYear = this.year
+        this.toYear = this.year
+      }
     },
   },
 
@@ -983,18 +1046,27 @@ export default {
 
   methods: {
     effectiveRange() {
-      if (this.rangeMode === 'year') {
+      if (this.projectionMode === 'fixed' || this.rangeMode === 'year') {
         const now = new Date()
+        let fromMonth = 1
+        const toMonth = 12
+        const year = this.year
 
-        if (this.projectionMode === 'real' && this.year === now.getFullYear()) {
-          return { from_month: now.getMonth() + 1, to_month: 12 }
+        if (this.projectionMode === 'real' && year === now.getFullYear())
+          fromMonth = now.getMonth() + 1
+
+        return {
+          from_year: year,
+          from_month: fromMonth,
+          to_year: year,
+          to_month: toMonth,
         }
-
-        return { from_month: 1, to_month: 12 }
       }
 
       return {
+        from_year: this.fromYear,
         from_month: this.fromMonth,
+        to_year: this.toYear,
         to_month: this.toMonth,
       }
     },
@@ -1008,8 +1080,10 @@ export default {
       const monthlySalary = this.$parseAmount(this.monthlySalaryInput)
       const params = {
         mode: this.projectionMode,
-        year: this.year,
+        year: range.from_year,
+        from_year: range.from_year,
         from_month: range.from_month,
+        to_year: range.to_year,
         to_month: range.to_month,
       }
 
@@ -1053,6 +1127,10 @@ export default {
       this.summary = data.summary
       this.fromMonth = data.from_month
       this.toMonth = data.to_month
+      this.fromYear = data.from_year ?? data.year
+      this.toYear = data.to_year ?? data.year
+      if (this.rangeMode === 'year')
+        this.year = data.from_year ?? data.year
 
       if (data.settings.monthly_remaining != null)
         this.monthlyRemainingInput = this.$formatAmountValue(data.settings.monthly_remaining)
