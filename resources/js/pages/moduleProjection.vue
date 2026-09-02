@@ -84,121 +84,293 @@
           </VCol>
         </VRow>
 
-        <VDivider class="projection-form__divider" />
+        <!-- Móvil: resumen + acciones -->
+        <template v-if="mdAndDown">
+          <VDivider class="projection-form__divider" />
 
-        <VRow class="projection-form__row">
-          <VCol
-            cols="12"
-            md="4"
-            class="projection-form__field"
-          >
-            <VTextField
-              v-currency-live
-              v-model="monthlyRemainingInput"
-              class="monto-with-action"
-              type="text"
-              inputmode="decimal"
-              autocomplete="off"
-              label="Queda al mes"
-              variant="outlined"
-              rounded="lg"
-              hide-details="auto"
-              :hint="remainingHint"
-              persistent-hint
-            >
-              <template #append-inner>
-                <VBtn
-                  color="primary"
-                  variant="flat"
-                  class="monto-with-action__btn rounded-s-0 rounded-e-lg"
-                  :disabled="loading || saving || sources.fixed_payments_remaining == null"
-                  aria-label="Usar monto de pagos fijos"
-                  title="Usar monto de pagos fijos"
-                  type="button"
-                  tabindex="-1"
-                  @click="useFixedRemaining"
-                >
-                  <VIcon
-                    icon="ri-calendar-check-line"
-                    size="22"
-                  />
-                </VBtn>
-              </template>
-            </VTextField>
-          </VCol>
-          <VCol
-            cols="12"
-            md="4"
-            class="projection-form__field"
-          >
-            <VTextField
-              v-currency-live
-              v-model="universityFeeInput"
-              type="text"
-              inputmode="decimal"
-              autocomplete="off"
-              label="Cuota universidad"
-              variant="outlined"
-              rounded="lg"
-              hide-details="auto"
-              hint="Se suma en meses sin pago U"
-              persistent-hint
-            />
-          </VCol>
-          <VCol
-            cols="12"
-            md="4"
-            class="projection-form__field"
-          >
-            <VTextField
-              v-currency-live
-              v-model="startingBalanceInput"
-              class="monto-with-action"
-              type="text"
-              inputmode="decimal"
-              autocomplete="off"
-              label="Saldo inicial"
-              variant="outlined"
-              rounded="lg"
-              hide-details="auto"
-              :hint="startingBalanceHint"
-              persistent-hint
-            >
-              <template #append-inner>
-                <VBtn
-                  color="primary"
-                  variant="flat"
-                  class="monto-with-action__btn rounded-s-0 rounded-e-lg"
-                  :disabled="loading || saving"
-                  aria-label="Usar saldo actual de la cuenta"
-                  title="Usar saldo actual de la cuenta"
-                  type="button"
-                  tabindex="-1"
-                  @click="useAccountBalance"
-                >
-                  <VIcon
-                    icon="ri-wallet-3-line"
-                    size="22"
-                  />
-                </VBtn>
-              </template>
-            </VTextField>
-          </VCol>
-        </VRow>
+          <div class="projection-form__params">
+            <div class="projection-form__params-row">
+              <span class="text-caption text-medium-emphasis">Queda al mes</span>
+              <span class="text-body-2 font-weight-medium projection__num">
+                {{ $formatAmount(settings.monthly_remaining) }}
+              </span>
+            </div>
+            <div class="projection-form__params-row">
+              <span class="text-caption text-medium-emphasis">Cuota U</span>
+              <span class="text-body-2 font-weight-medium projection__num">
+                {{ $formatAmount(settings.university_fee) }}
+              </span>
+            </div>
+            <div class="projection-form__params-row">
+              <span class="text-caption text-medium-emphasis">Saldo inicial</span>
+              <span class="text-body-2 font-weight-medium projection__num">
+                {{ $formatAmount(startingBalance) }}
+              </span>
+            </div>
+          </div>
 
-        <div class="projection-form__actions">
+          <div class="projection-form__actions projection-form__actions--mobile">
+            <VBtn
+              variant="tonal"
+              rounded="lg"
+              class="flex-grow-1"
+              prepend-icon="ri-equalizer-line"
+              @click="amountsSheet = true"
+            >
+              Ajustar
+            </VBtn>
+            <VBtn
+              color="primary"
+              rounded="lg"
+              class="flex-grow-1"
+              :loading="saving"
+              @click="saveAndReload"
+            >
+              Calcular
+            </VBtn>
+          </div>
+        </template>
+
+        <!-- Desktop: inputs en la misma tarjeta -->
+        <template v-else>
+          <VDivider class="projection-form__divider" />
+
+          <VRow class="projection-form__row">
+            <VCol
+              cols="12"
+              md="4"
+              class="projection-form__field"
+            >
+              <VTextField
+                v-currency-live
+                v-model="monthlyRemainingInput"
+                class="monto-with-action"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                label="Queda al mes libre"
+                variant="outlined"
+                rounded="lg"
+                hide-details="auto"
+                :hint="remainingHint"
+                persistent-hint
+              >
+                <template #append-inner>
+                  <VBtn
+                    color="primary"
+                    variant="flat"
+                    class="monto-with-action__btn rounded-s-0 rounded-e-lg"
+                    :disabled="loading || saving || sources.fixed_payments_remaining == null"
+                    aria-label="Usar monto de pagos fijos"
+                    title="Usar monto de pagos fijos"
+                    type="button"
+                    tabindex="-1"
+                    @click="useFixedRemaining"
+                  >
+                    <VIcon
+                      icon="ri-calendar-check-line"
+                      size="22"
+                    />
+                  </VBtn>
+                </template>
+              </VTextField>
+            </VCol>
+            <VCol
+              cols="12"
+              md="4"
+              class="projection-form__field"
+            >
+              <VTextField
+                v-currency-live
+                v-model="universityFeeInput"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                label="Cuota universidad"
+                variant="outlined"
+                rounded="lg"
+                hide-details="auto"
+                hint="Se suma en meses sin pago U"
+                persistent-hint
+              />
+            </VCol>
+            <VCol
+              cols="12"
+              md="4"
+              class="projection-form__field"
+            >
+              <VTextField
+                v-currency-live
+                v-model="startingBalanceInput"
+                class="monto-with-action"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                label="Saldo inicial"
+                variant="outlined"
+                rounded="lg"
+                hide-details="auto"
+                :hint="startingBalanceHint"
+                persistent-hint
+              >
+                <template #append-inner>
+                  <VBtn
+                    color="primary"
+                    variant="flat"
+                    class="monto-with-action__btn rounded-s-0 rounded-e-lg"
+                    :disabled="loading || saving"
+                    aria-label="Usar saldo actual de la cuenta"
+                    title="Usar saldo actual de la cuenta"
+                    type="button"
+                    tabindex="-1"
+                    @click="useAccountBalance"
+                  >
+                    <VIcon
+                      icon="ri-wallet-3-line"
+                      size="22"
+                    />
+                  </VBtn>
+                </template>
+              </VTextField>
+            </VCol>
+          </VRow>
+
+          <div class="projection-form__actions">
+            <VBtn
+              color="primary"
+              rounded="lg"
+              class="projection-form__submit"
+              :loading="saving"
+              @click="saveAndReload"
+            >
+              Guardar y calcular
+            </VBtn>
+          </div>
+        </template>
+      </VCardText>
+    </VCard>
+
+    <VBottomSheet
+      v-if="mdAndDown"
+      v-model="amountsSheet"
+      :scrim="true"
+    >
+      <VCard
+        rounded="t-lg"
+        class="projection-amounts-sheet"
+      >
+        <div class="d-flex align-center justify-space-between px-4 pt-4 pb-2">
+          <span class="text-h6">
+            Ajustar montos
+          </span>
+          <VBtn
+            icon
+            variant="text"
+            aria-label="Cerrar"
+            @click="amountsSheet = false"
+          >
+            <VIcon icon="ri-close-line" />
+          </VBtn>
+        </div>
+
+        <VDivider />
+
+        <div class="pa-4">
+          <VTextField
+            v-currency-live
+            v-model="monthlyRemainingInput"
+            class="monto-with-action mb-4"
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
+            label="Queda al mes"
+            variant="outlined"
+            rounded="lg"
+            hide-details="auto"
+            :hint="remainingHint"
+            persistent-hint
+          >
+            <template #append-inner>
+              <VBtn
+                color="primary"
+                variant="flat"
+                class="monto-with-action__btn rounded-s-0 rounded-e-lg"
+                :disabled="loading || saving || sources.fixed_payments_remaining == null"
+                aria-label="Usar monto de pagos fijos"
+                title="Usar monto de pagos fijos"
+                type="button"
+                tabindex="-1"
+                @click="useFixedRemaining"
+              >
+                <VIcon
+                  icon="ri-calendar-check-line"
+                  size="22"
+                />
+              </VBtn>
+            </template>
+          </VTextField>
+
+          <VTextField
+            v-currency-live
+            v-model="universityFeeInput"
+            class="mb-4"
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
+            label="Cuota universidad"
+            variant="outlined"
+            rounded="lg"
+            hide-details="auto"
+            hint="Se suma en meses sin pago U"
+            persistent-hint
+          />
+
+          <VTextField
+            v-currency-live
+            v-model="startingBalanceInput"
+            class="monto-with-action mb-4"
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
+            label="Saldo inicial"
+            variant="outlined"
+            rounded="lg"
+            hide-details="auto"
+            :hint="startingBalanceHint"
+            persistent-hint
+          >
+            <template #append-inner>
+              <VBtn
+                color="primary"
+                variant="flat"
+                class="monto-with-action__btn rounded-s-0 rounded-e-lg"
+                :disabled="loading || saving"
+                aria-label="Usar saldo actual de la cuenta"
+                title="Usar saldo actual de la cuenta"
+                type="button"
+                tabindex="-1"
+                @click="useAccountBalance"
+              >
+                <VIcon
+                  icon="ri-wallet-3-line"
+                  size="22"
+                />
+              </VBtn>
+            </template>
+          </VTextField>
+
           <VBtn
             color="primary"
             rounded="lg"
-            class="projection-form__submit"
+            block
             :loading="saving"
-            @click="saveAndReload"
+            @click="saveAndReload({ closeSheet: true })"
           >
             Guardar y calcular
           </VBtn>
         </div>
-      </VCardText>
-    </VCard>
+      </VCard>
+    </VBottomSheet>
 
     <VRow class="mb-4">
       <VCol
@@ -341,7 +513,8 @@
 </template>
 
 <script>
-import { axios } from '@/plugins/axios'
+import { axios } from '@/plugins/axios';
+import { useDisplay } from 'vuetify'
 
 const MONTH_OPTIONS = [
   { title: 'Enero', value: 1 },
@@ -361,6 +534,12 @@ const MONTH_OPTIONS = [
 export default {
   name: 'ModuleProjection',
 
+  setup() {
+    const { mdAndDown } = useDisplay()
+
+    return { mdAndDown }
+  },
+
   data() {
     const currentYear = new Date().getFullYear()
 
@@ -368,6 +547,7 @@ export default {
       loading: true,
       saving: false,
       error: '',
+      amountsSheet: false,
       year: currentYear,
       rangeMode: 'year',
       fromMonth: 1,
@@ -439,7 +619,7 @@ export default {
           valueClass: 'text-primary',
         },
         {
-          title: 'Suma de “queda”',
+          title: 'Suma de “quedan libres al mes”',
           value: this.$formatAmount(s.total_monthly_remaining),
           subtitle: `${s.payment_months_count + s.free_months_count} meses`,
           icon: 'ri-stack-line',
@@ -540,7 +720,7 @@ export default {
       this.monthlyRemainingInput = this.$formatAmountValue(this.sources.fixed_payments_remaining)
     },
 
-    saveAndReload({ clearRemainingOverride = false } = {}) {
+    saveAndReload({ clearRemainingOverride = false, closeSheet = false } = {}) {
       const universityFee = this.$parseAmount(this.universityFeeInput)
       let monthlyRemaining = this.$parseAmount(this.monthlyRemainingInput)
 
@@ -576,6 +756,9 @@ export default {
         .put('/api/projection/settings', payload)
         .then(() => {
           this.$toast.success('Proyección actualizada', { timeout: 2000, closeOnClick: true })
+
+          if (closeSheet)
+            this.amountsSheet = false
 
           return this.loadProjection()
         })
@@ -619,6 +802,24 @@ export default {
 
 .projection-form__actions {
   margin-top: 1.25rem;
+}
+
+.projection-form__actions--mobile {
+  display: flex;
+  gap: 10px;
+}
+
+.projection-form__params {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.projection-form__params-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .projection-form__row {
