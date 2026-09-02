@@ -116,7 +116,7 @@
               <div class="projection-form__params-row">
                 <span class="text-caption text-medium-emphasis">Salario al mes</span>
                 <span class="text-body-2 font-weight-medium projection__num">
-                  {{ $formatAmount(sources.monthly_salary || 0) }}
+                  {{ $formatAmount($parseAmount(monthlySalaryInput) || sources.monthly_salary || 0) }}
                 </span>
               </div>
             </template>
@@ -229,15 +229,38 @@
               class="projection-form__field"
             >
               <VTextField
-                :model-value="$formatAmountValue(sources.monthly_salary || 0)"
+                v-currency-live
+                v-model="monthlySalaryInput"
+                class="monto-with-action"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
                 label="Salario al mes"
                 variant="outlined"
                 rounded="lg"
                 hide-details="auto"
-                :hint="`Quincena (1 y 15): ${$formatAmount(sources.payday_amount || 0)} · se edita en Pagos fijos`"
+                :hint="salaryHint"
                 persistent-hint
-                readonly
-              />
+              >
+                <template #append-inner>
+                  <VBtn
+                    color="primary"
+                    variant="flat"
+                    class="monto-with-action__btn rounded-s-0 rounded-e-lg"
+                    :disabled="loading || saving"
+                    aria-label="Usar salario registrado"
+                    title="Usar salario registrado"
+                    type="button"
+                    tabindex="-1"
+                    @click="useRegisteredSalary"
+                  >
+                    <VIcon
+                      icon="ri-calendar-check-line"
+                      size="22"
+                    />
+                  </VBtn>
+                </template>
+              </VTextField>
             </VCol>
             <VCol
               cols="12"
@@ -358,16 +381,38 @@
 
           <VTextField
             v-if="projectionMode === 'real'"
-            class="mb-4"
-            :model-value="$formatAmountValue(sources.monthly_salary || 0)"
+            v-currency-live
+            v-model="monthlySalaryInput"
+            class="monto-with-action mb-4"
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
             label="Salario al mes"
             variant="outlined"
             rounded="lg"
             hide-details="auto"
-            :hint="`Quincena: ${$formatAmount(sources.payday_amount || 0)} · se edita en Pagos fijos`"
+            :hint="salaryHint"
             persistent-hint
-            readonly
-          />
+          >
+            <template #append-inner>
+              <VBtn
+                color="primary"
+                variant="flat"
+                class="monto-with-action__btn rounded-s-0 rounded-e-lg"
+                :disabled="loading || saving"
+                aria-label="Usar salario registrado"
+                title="Usar salario registrado"
+                type="button"
+                tabindex="-1"
+                @click="useRegisteredSalary"
+              >
+                <VIcon
+                  icon="ri-calendar-check-line"
+                  size="22"
+                />
+              </VBtn>
+            </template>
+          </VTextField>
 
           <VTextField
             v-currency-live
@@ -524,7 +569,23 @@
           <div class="projection-month-card__grid">
             <template v-if="projectionMode === 'real'">
               <div class="projection-month-card__cell">
-                <span class="text-caption text-medium-emphasis">Salario in</span>
+                <span class="text-caption text-medium-emphasis d-inline-flex align-center gap-1">
+                  Salario in
+                  <VTooltip
+                    v-if="isPartialSalaryMonth(row)"
+                    location="top"
+                  >
+                    <template #activator="{ props: tipProps }">
+                      <VIcon
+                        v-bind="tipProps"
+                        icon="ri-information-line"
+                        size="14"
+                        class="text-medium-emphasis"
+                      />
+                    </template>
+                    <span>{{ salaryInTooltip(row) }}</span>
+                  </VTooltip>
+                </span>
                 <span class="text-body-2 projection__num">
                   {{ $formatAmount(row.salary_in) }}
                 </span>
@@ -637,7 +698,23 @@
               v-if="projectionMode === 'real'"
               class="text-right projection__num"
             >
-              {{ $formatAmount(row.salary_in) }}
+              <span class="d-inline-flex align-center justify-end gap-1">
+                <VTooltip
+                  v-if="isPartialSalaryMonth(row)"
+                  location="top"
+                >
+                  <template #activator="{ props: tipProps }">
+                    <VIcon
+                      v-bind="tipProps"
+                      icon="ri-information-line"
+                      size="16"
+                      class="text-medium-emphasis"
+                    />
+                  </template>
+                  <span>{{ salaryInTooltip(row) }}</span>
+                </VTooltip>
+                <span>{{ $formatAmount(row.salary_in) }}</span>
+              </span>
             </td>
             <td
               v-if="projectionMode === 'real'"
@@ -675,7 +752,9 @@
       >
         <template v-if="projectionMode === 'real'">
           Simula el 1 y el 15: entra el salario quincenal y salen los pagos fijos.
-          En el año actual omite quincenas ya pasadas. En meses sin U no descuenta la cuota.
+          El saldo inicial es el de hoy (ya incluye quincenas pasadas).
+          En el año actual solo proyecta quincenas que faltan — por eso septiembre puede verse en 221 (el 15), no 443.
+          En meses sin U no descuenta la cuota.
         </template>
         <template v-else>
           En meses con pago U solo suma lo que te queda.
@@ -731,6 +810,7 @@ export default {
       monthlyRemainingInput: '',
       universityFeeInput: '',
       startingBalanceInput: '',
+      monthlySalaryInput: '',
       settings: {
         university_fee: 110000,
         monthly_remaining: 0,
@@ -769,6 +849,15 @@ export default {
 
     startingBalanceHint() {
       return `Saldo en cuenta hoy: ${this.$formatAmount(this.sources.account_balance)}`
+    },
+
+    salaryHint() {
+      const payday = this.$parseAmount(this.monthlySalaryInput)
+      const quincena = payday === '' || Number.isNaN(payday)
+        ? (this.sources.payday_amount || 0)
+        : payday / 2
+
+      return `Quincena: ${this.$formatAmount(quincena)} · registrado: ${this.$formatAmount(this.sources.monthly_salary || 0)}`
     },
 
     periodLabel() {
@@ -813,7 +902,7 @@ export default {
           {
             title: 'Salario proyectado',
             value: this.$formatAmount(s.total_salary_in),
-            subtitle: `Quincena ${this.$formatAmount(this.sources.payday_amount || 0)}`,
+            subtitle: `Quincena ${this.$formatAmount((this.$parseAmount(this.monthlySalaryInput) || this.sources.monthly_salary || 0) / 2)}`,
             icon: 'ri-money-dollar-circle-line',
             color: 'info',
             valueClass: '',
@@ -883,6 +972,7 @@ export default {
     },
     projectionMode() {
       this.startingBalanceInput = ''
+      this.monthlySalaryInput = ''
       this.loadProjection()
     },
   },
@@ -915,6 +1005,7 @@ export default {
 
       const range = this.effectiveRange()
       const starting = this.$parseAmount(this.startingBalanceInput)
+      const monthlySalary = this.$parseAmount(this.monthlySalaryInput)
       const params = {
         mode: this.projectionMode,
         year: this.year,
@@ -925,10 +1016,16 @@ export default {
       if (starting !== '' && !Number.isNaN(starting))
         params.starting_balance = starting
 
+      if (this.projectionMode === 'real' && monthlySalary !== '' && !Number.isNaN(monthlySalary))
+        params.monthly_salary = monthlySalary
+
       return axios
         .get('/api/projection', { params })
         .then(response => {
-          this.applyResponse(response.data, { preserveStartingInput: starting !== '' && !Number.isNaN(starting) })
+          this.applyResponse(response.data, {
+            preserveStartingInput: starting !== '' && !Number.isNaN(starting),
+            preserveSalaryInput: monthlySalary !== '' && !Number.isNaN(monthlySalary),
+          })
         })
         .catch(error => {
           this.error = error.response?.data?.message || 'No se pudo cargar la proyección.'
@@ -938,7 +1035,7 @@ export default {
         })
     },
 
-    applyResponse(data, { preserveStartingInput = false } = {}) {
+    applyResponse(data, { preserveStartingInput = false, preserveSalaryInput = false } = {}) {
       this.projectionMode = data.mode || this.projectionMode
       this.settings = {
         university_fee: data.settings.university_fee,
@@ -966,14 +1063,49 @@ export default {
 
       if (!preserveStartingInput)
         this.startingBalanceInput = this.$formatAmountValue(data.starting_balance)
+
+      if (!preserveSalaryInput) {
+        const salary = data.monthly_salary ?? data.sources.monthly_salary ?? 0
+        this.monthlySalaryInput = this.$formatAmountValue(salary)
+      }
     },
 
     useAccountBalance() {
       this.startingBalanceInput = this.$formatAmountValue(this.sources.account_balance)
     },
 
+    useRegisteredSalary() {
+      this.monthlySalaryInput = this.$formatAmountValue(this.sources.monthly_salary || 0)
+    },
+
     useFixedRemaining() {
       this.monthlyRemainingInput = this.$formatAmountValue(this.sources.fixed_payments_remaining)
+    },
+
+    salaryInTooltip(row) {
+      const day1 = row?.primero?.applied
+      const day15 = row?.segundo?.applied
+
+      if (day1 && day15) {
+        return 'Salario que entra este mes: quincenas del 1 y del 15.'
+      }
+
+      if (!day1 && day15) {
+        return 'Solo cuenta la quincena del 15. La del 1 ya pasó y está incluida en el saldo inicial.'
+      }
+
+      if (day1 && !day15) {
+        return 'Solo cuenta la quincena del 1. La del 15 ya pasó o no aplica en este corte.'
+      }
+
+      return 'No quedan quincenas por sumar este mes: ya estaban reflejadas en el saldo inicial.'
+    },
+
+    isPartialSalaryMonth(row) {
+      const day1 = Boolean(row?.primero?.applied)
+      const day15 = Boolean(row?.segundo?.applied)
+
+      return !(day1 && day15)
     },
 
     saveAndReload({ clearRemainingOverride = false, closeSheet = false } = {}) {

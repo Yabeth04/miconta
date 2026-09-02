@@ -35,6 +35,7 @@ class ProjectionController extends Controller
             'from_month'       => ['nullable', 'integer', 'min:1', 'max:12'],
             'to_month'         => ['nullable', 'integer', 'min:1', 'max:12'],
             'starting_balance' => ['nullable', 'numeric'],
+            'monthly_salary'   => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $mode      = $validated['mode'] ?? 'fixed';
@@ -177,8 +178,14 @@ class ProjectionController extends Controller
             ? (float) $validated['starting_balance']
             : $sources['account_balance'];
 
+        $paydayAmount = array_key_exists('monthly_salary', $validated)
+            ? round(((float) $validated['monthly_salary']) / 2, 2)
+            : $sources['payday_amount'];
+        $monthlySalary = round($paydayAmount * 2, 2);
+
         $paymentMonths = $this->universityPaymentMonths();
         $paymentDay    = (int) config('projection.payment_day', 15);
+        // En el año actual omite quincenas ya pasadas (el saldo de hoy ya las incluye).
         $skipPast = $year === (int) $today->year;
 
         $months      = [];
@@ -202,7 +209,7 @@ class ProjectionController extends Controller
                 $year,
                 $month,
                 1,
-                $sources['payday_amount'],
+                $paydayAmount,
                 $primeroOut,
                 $today,
                 $skipPast,
@@ -214,7 +221,7 @@ class ProjectionController extends Controller
                 $year,
                 $month,
                 15,
-                $sources['payday_amount'],
+                $paydayAmount,
                 $segundoOut,
                 $today,
                 $skipPast,
@@ -278,6 +285,8 @@ class ProjectionController extends Controller
                 'university_in_segundo'  => $sources['university_in_segundo'],
             ],
             'starting_balance'          => round($startingBalance, 2),
+            'monthly_salary'            => $monthlySalary,
+            'payday_amount'             => $paydayAmount,
             'months'                    => $months,
             'summary'                   => [
                 'months_count'         => count($months),
