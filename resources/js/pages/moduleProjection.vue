@@ -7,7 +7,7 @@
         </h1>
         <p class="text-body-2 text-medium-emphasis mb-0">
           {{ projectionMode === 'real'
-            ? 'Flujo real desde hoy: solo quincenas que faltan, pagos fijos y meses sin U'
+            ? 'Proyección mes a mes: salario (1 y 15), pagos fijos y meses sin U'
             : 'Escenario fijo: lo que te queda al mes y meses sin pago de universidad' }}
         </p>
       </div>
@@ -20,7 +20,7 @@
       rounded="lg"
       class="mb-4"
     >
-      {{ isRangeInvalid ? 'El periodo inicial no puede ser posterior al final.' : error }}
+      {{ rangeInvalidMessage || error }}
     </VAlert>
 
     <VCard
@@ -103,7 +103,7 @@
               >
                 <VSelect
                   v-model="fromYear"
-                  :items="yearOptions"
+                  :items="fromYearOptions"
                   label="Desde año"
                   variant="outlined"
                   rounded="lg"
@@ -116,7 +116,7 @@
               >
                 <VSelect
                   v-model="fromMonth"
-                  :items="monthOptions"
+                  :items="fromMonthOptions"
                   label="Mes"
                   variant="outlined"
                   rounded="lg"
@@ -149,7 +149,7 @@
               >
                 <VSelect
                   v-model="toYear"
-                  :items="yearOptions"
+                  :items="toYearOptions"
                   label="Hasta año"
                   variant="outlined"
                   rounded="lg"
@@ -162,7 +162,7 @@
               >
                 <VSelect
                   v-model="toMonth"
-                  :items="monthOptions"
+                  :items="toMonthOptions"
                   label="Mes"
                   variant="outlined"
                   rounded="lg"
@@ -663,15 +663,6 @@
             >
               {{ row.kind_label }}
             </VChip>
-            <VChip
-              v-if="projectionMode === 'real' && row.partial"
-              size="small"
-              rounded="lg"
-              color="warning"
-              variant="tonal"
-            >
-              Parcial
-            </VChip>
           </div>
 
           <div class="projection-month-card__grid">
@@ -969,25 +960,14 @@
               {{ row.label }}
             </td>
             <td>
-              <div class="d-flex flex-wrap align-center gap-2">
-                <VChip
-                  size="small"
-                  rounded="lg"
-                  :color="row.pays_university ? 'info' : 'success'"
-                  variant="tonal"
-                >
-                  {{ row.kind_label }}
-                </VChip>
-                <VChip
-                  v-if="projectionMode === 'real' && row.partial"
-                  size="small"
-                  rounded="lg"
-                  color="warning"
-                  variant="tonal"
-                >
-                  Parcial
-                </VChip>
-              </div>
+              <VChip
+                size="small"
+                rounded="lg"
+                :color="row.pays_university ? 'info' : 'success'"
+                variant="tonal"
+              >
+                {{ row.kind_label }}
+              </VChip>
             </td>
             <td
               v-if="projectionMode === 'real'"
@@ -1062,9 +1042,9 @@
         class="pt-4 text-body-2 text-medium-emphasis"
       >
         <template v-if="projectionMode === 'real'">
-          Cada mes muestra salario y gastos completos (ambas quincenas; sin U si el mes es libre).
-          El saldo parte de hoy: lo ya pasado del mes en curso no se vuelve a sumar.
-          Ejemplo sept: 80 + 221 − 100 (casa; U no se paga) ≈ 201. Gastos del mes ≈ 294 (sin los 110 de U).
+          Proyecta cada mes completo (1 y 15): salario quincenal y pagos fijos.
+          El saldo inicial se apoya en el de hoy y recrea el mes desde el 1 para no dejar filas a medias.
+          En meses sin U no descuenta la cuota.
         </template>
         <template v-else>
           En meses con pago U solo suma lo que te queda.
@@ -1130,9 +1110,10 @@ export default {
       },
       sources: {
         account_balance: 0,
-        prior_month_balance: 0,
-        prior_month_label: '',
-        fixed_payments_remaining: 0,
+      prior_month_balance: 0,
+      prior_month_label: '',
+      anchor_balance: 0,
+      fixed_payments_remaining: 0,
         payday_amount: 0,
         monthly_salary: 0,
       },
@@ -1162,8 +1143,8 @@ export default {
     },
 
     startingBalanceHint() {
-      if (this.projectionMode === 'real' && this.sources.prior_month_label) {
-        return `Saldo hoy: ${this.$formatAmount(this.sources.account_balance)} · cierre ${this.sources.prior_month_label}: ${this.$formatAmount(this.sources.prior_month_balance)}`
+      if (this.projectionMode === 'real') {
+        return `Hoy: ${this.$formatAmount(this.sources.account_balance)} · base del mes para proyectar completo`
       }
 
       return `Saldo en cuenta hoy: ${this.$formatAmount(this.sources.account_balance)}`
@@ -1204,17 +1185,65 @@ export default {
 
       const from = this.fromYear * 12 + this.fromMonth
       const to = this.toYear * 12 + this.toMonth
+      const min = this.minFromYear * 12 + this.minFromMonth
 
-      return from > to
+      return from > to || from < min
+    },
+
+    rangeInvalidMessage() {
+      if (this.projectionMode !== 'real' || this.rangeMode !== 'custom')
+        return ''
+
+      const from = this.fromYear * 12 + this.fromMonth
+      const to = this.toYear * 12 + this.toMonth
+      const min = this.minFromYear * 12 + this.minFromMonth
+
+      if (from < min)
+        return 'El periodo inicial no puede ser anterior al mes actual.'
+
+      if (from > to)
+        return 'El periodo inicial no puede ser posterior al final.'
+
+      return ''
+    },
+
+    minFromYear() {
+      return new Date().getFullYear()
+    },
+
+    minFromMonth() {
+      return new Date().getMonth() + 1
+    },
+
+    fromYearOptions() {
+      return this.yearOptions.filter(year => year >= this.minFromYear)
+    },
+
+    fromMonthOptions() {
+      if (this.fromYear > this.minFromYear)
+        return this.monthOptions
+
+      return this.monthOptions.filter(month => month.value >= this.minFromMonth)
+    },
+
+    toYearOptions() {
+      return this.yearOptions.filter(year => year >= this.fromYear)
+    },
+
+    toMonthOptions() {
+      if (this.toYear > this.fromYear)
+        return this.monthOptions
+
+      return this.monthOptions.filter(month => month.value >= this.fromMonth)
     },
 
     columnTooltips() {
       if (this.projectionMode === 'real') {
         return {
-          salary: 'Salario del mes completo (quincena del 1 + quincena del 15). Si el mes es parcial, el saldo de hoy ya incluye lo del 1; el Δ solo suma lo que falta.',
+          salary: 'Salario del mes completo: quincena del 1 + quincena del 15.',
           expenses: 'Pagos fijos del mes (primero + segundo). En meses sin U no cuenta la cuota de universidad.',
-          delta: 'Lo que aún mueve el saldo desde hoy: quincenas pendientes − sus gastos. En un mes completo coincide con salario − gastos.',
-          balance: 'Saldo acumulado al cierre del mes. En el mes en curso: saldo de hoy + Δ pendiente (ej. 80 + 221 − 100 ≈ 201).',
+          delta: 'Salario del mes − gastos del mes.',
+          balance: 'Saldo al cierre del mes tras ambas quincenas.',
         }
       }
 
@@ -1243,8 +1272,8 @@ export default {
           {
             title: 'Saldo al final',
             value: this.$formatAmount(s.ending_balance),
-            subtitle: `Partiendo de ${this.$formatAmount(this.startingBalance)}`,
-            tooltip: 'Saldo inicial + salario proyectado − gastos proyectados en el rango.',
+            subtitle: `Hoy ${this.$formatAmount(this.sources.anchor_balance || this.sources.account_balance)}`,
+            tooltip: 'Cierre del rango. La base del mes se arma desde el saldo de hoy para proyectar quincenas completas.',
             icon: 'ri-wallet-3-line',
             color: 'primary',
             valueClass: 'text-primary',
@@ -1253,7 +1282,7 @@ export default {
             title: 'Salario proyectado',
             value: this.$formatAmount(s.total_salary_in),
             subtitle: `Quincena ${this.$formatAmount((this.$parseAmount(this.monthlySalaryInput) || this.sources.monthly_salary || 0) / 2)}`,
-            tooltip: 'Suma de lo que aún entra desde hoy (quincenas pendientes). El detalle mes a mes muestra el salario completo del mes.',
+            tooltip: 'Suma del salario de ambos pagos (1 y 15) en todos los meses del rango.',
             icon: 'ri-money-dollar-circle-line',
             color: 'info',
             valueClass: '',
@@ -1262,7 +1291,7 @@ export default {
             title: 'Gastos proyectados',
             value: this.$formatAmount(s.total_expenses_out),
             subtitle: `${s.free_months_count} mes(es) sin U`,
-            tooltip: 'Suma de lo que aún sale desde hoy. En cada mes, la columna Gastos muestra el mes completo (sin U si aplica).',
+            tooltip: 'Suma de pagos fijos del rango (sin cuota U en meses libres).',
             icon: 'ri-bill-line',
             color: 'error',
             valueClass: '',
@@ -1321,6 +1350,32 @@ export default {
   },
 
   watch: {
+    fromYear(year) {
+      if (year < this.minFromYear)
+        this.fromYear = this.minFromYear
+
+      if (this.fromYear === this.minFromYear && this.fromMonth < this.minFromMonth)
+        this.fromMonth = this.minFromMonth
+
+      this.clampToPeriod()
+    },
+    fromMonth(month) {
+      if (this.fromYear === this.minFromYear && month < this.minFromMonth)
+        this.fromMonth = this.minFromMonth
+
+      this.clampToPeriod()
+    },
+    toYear(year) {
+      if (year < this.fromYear)
+        this.toYear = this.fromYear
+
+      if (this.toYear === this.fromYear && this.toMonth < this.fromMonth)
+        this.toMonth = this.fromMonth
+    },
+    toMonth(month) {
+      if (this.toYear === this.fromYear && month < this.fromMonth)
+        this.toMonth = this.fromMonth
+    },
     rangeMode(mode) {
       if (mode === 'year') {
         this.fromMonth = 1
@@ -1355,6 +1410,14 @@ export default {
   },
 
   methods: {
+    clampToPeriod() {
+      if (this.toYear < this.fromYear)
+        this.toYear = this.fromYear
+
+      if (this.toYear === this.fromYear && this.toMonth < this.fromMonth)
+        this.toMonth = this.fromMonth
+    },
+
     effectiveRange() {
       if (this.projectionMode === 'fixed' || this.rangeMode === 'year') {
         const now = new Date()
@@ -1428,6 +1491,7 @@ export default {
       }
       this.sources = {
         account_balance: data.sources.account_balance ?? 0,
+        anchor_balance: data.sources.anchor_balance ?? data.sources.account_balance ?? 0,
         prior_month_balance: data.sources.prior_month_balance ?? data.sources.account_balance ?? 0,
         prior_month_label: data.sources.prior_month_label ?? '',
         fixed_payments_remaining: data.sources.fixed_payments_remaining ?? 0,
@@ -1451,8 +1515,10 @@ export default {
 
       this.universityFeeInput = this.$formatAmountValue(data.settings.university_fee)
 
-      if (!preserveStartingInput)
-        this.startingBalanceInput = this.$formatAmountValue(data.starting_balance)
+      if (!preserveStartingInput) {
+        const anchor = data.sources.anchor_balance ?? data.sources.account_balance ?? data.starting_balance
+        this.startingBalanceInput = this.$formatAmountValue(anchor)
+      }
 
       if (!preserveSalaryInput) {
         const salary = data.monthly_salary ?? data.sources.monthly_salary ?? 0
@@ -1473,39 +1539,17 @@ export default {
     },
 
     salaryInTooltip(row) {
-      const q = this.$formatAmount(row?.primero?.full_income || row?.segundo?.full_income || 0)
-      const full = this.$formatAmount(row.salary_in)
-      const pending = this.$formatAmount(row.projected_salary_in ?? 0)
-
-      if (row.partial && row?.primero?.skipped && row?.segundo?.applied) {
-        return `Mes completo: ${full} (2 × ${q}). El saldo de hoy ya incluye el 1. Desde hoy solo suma el 15: ${pending}.`
-      }
-
-      if (row.partial) {
-        return `Mes completo: ${full}. Pendiente desde hoy: ${pending}.`
-      }
-
-      return `Salario del mes: ${full} (quincenas del 1 y del 15).`
+      return `Salario del mes: ${this.$formatAmount(row.salary_in)} (quincenas del 1 y del 15).`
     },
 
     expensesOutTooltip(row) {
-      const p = this.$formatAmount(row?.primero?.full_expense || 0)
-      const s = this.$formatAmount(row?.segundo?.full_expense || 0)
-      const full = this.$formatAmount(row.expenses_out)
-      const pending = this.$formatAmount(row.projected_expenses_out ?? 0)
+      const p = this.$formatAmount(row?.primero?.expense || 0)
+      const s = this.$formatAmount(row?.segundo?.expense || 0)
       const freed = row.university_freed > 0
         ? ` Sin U este mes (−${this.$formatAmount(row.university_freed)}).`
         : ''
 
-      if (row.partial && row?.primero?.skipped && row?.segundo?.applied) {
-        return `Mes completo: ${full} = primero ${p} + segundo ${s}.${freed} El 1 ya está en el saldo de hoy. Desde hoy solo sale el 15: ${pending}. Fin de mes ≈ saldo hoy + ${this.$formatAmount(row.projected_salary_in)} − ${pending}.`
-      }
-
-      if (row.partial) {
-        return `Mes completo: ${full}.${freed} Pendiente desde hoy: ${pending}.`
-      }
-
-      return `Gastos del mes: ${full} = primero ${p} + segundo ${s}.${freed}`
+      return `Gastos del mes: ${this.$formatAmount(row.expenses_out)} = primero ${p} + segundo ${s}.${freed}`
     },
 
     saveAndReload({ clearRemainingOverride = false, closeSheet = false } = {}) {

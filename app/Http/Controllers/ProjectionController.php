@@ -228,17 +228,51 @@ class ProjectionController extends Controller
             $range['from_month'],
         );
 
-        $startingBalance = array_key_exists('starting_balance', $validated)
-            ? (float) $validated['starting_balance']
-            : $sources['account_balance'];
-
         $salaryOverride = array_key_exists('monthly_salary', $validated)
             ? round(((float) $validated['monthly_salary']) / 2, 2)
             : null;
 
         $paymentMonths = $this->universityPaymentMonths();
         $paymentDay    = (int) config('projection.payment_day', 15);
-        $skipPast      = true;
+
+        $hasStartingOverride = array_key_exists('starting_balance', $validated);
+        $anchorBalance       = $hasStartingOverride
+            ? (float) $validated['starting_balance']
+            : $sources['account_balance'];
+
+        // El ancla es el saldo “a hoy”. Se restan quincenas ya pasadas del rango
+        // para proyectar cada mes completo (1 y 15) sin duplicar lo ya reflejado.
+        $startingBalance = $anchorBalance;
+        foreach ($range['periods'] as $period) {
+            $year  = $period['year'];
+            $month = $period['month'];
+
+            $yearSources = $year === $range['from_year']
+                ? $sources
+                : $this->resolveRealSources($request, $settings, $year);
+
+            $paydayAmount   = $salaryOverride ?? $yearSources['payday_amount'];
+            $paysUniversity = in_array($month, $paymentMonths, true);
+            $primeroOut     = $yearSources['primero_expenses'];
+            $segundoOut     = $this->segundoExpensesForMonth(
+                $yearSources['segundo_expenses'],
+                $yearSources['university_fee'],
+                $yearSources['university_in_segundo'],
+                $paysUniversity,
+            );
+
+            $day1  = Carbon::create($year, $month, 1)->startOfDay();
+            $day15 = Carbon::create($year, $month, 15)->startOfDay();
+
+            if ($day1->lt($today))
+                $startingBalance -= ($paydayAmount - $primeroOut);
+
+            if ($day15->lt($today))
+                $startingBalance -= ($paydayAmount - $segundoOut);
+
+            if ($day15->gte($today))
+                break;
+        }
 
         $months     = [];
         $running    = $startingBalance;
@@ -265,75 +299,45 @@ class ProjectionController extends Controller
                 $paysUniversity,
             );
 
-            $day1 = $this->applyPayday(
-                $running,
-                $year,
-                $month,
-                1,
-                $paydayAmount,
-                $primeroOut,
-                $today,
-                $skipPast,
-            );
+            $day1 = $this->applyPayday($running, $paydayAmount, $primeroOut);
             $running = $day1['balance'];
 
-            $day15 = $this->applyPayday(
-                $running,
-                $year,
-                $month,
-                15,
-                $paydayAmount,
-                $segundoOut,
-                $today,
-                $skipPast,
-            );
+            $day15 = $this->applyPayday($running, $paydayAmount, $segundoOut);
             $running = $day15['balance'];
 
-            $income      = $day1['income'] + $day15['income'];
-            $expense     = $day1['expense'] + $day15['expense'];
-            $delta       = $income - $expense;
-            $totalIn    += $income;
-            $totalOut   += $expense;
+            $income  = $day1['income'] + $day15['income'];
+            $expense = $day1['expense'] + $day15['expense'];
+            $delta   = $income - $expense;
+            $totalIn += $income;
+            $totalOut += $expense;
             $totalDelta += $delta;
 
-            $fullSalary   = round($paydayAmount * 2, 2);
-            $fullExpenses = round($primeroOut + $segundoOut, 2);
-
             $months[] = [
-                'year'            => $year,
-                'month'           => $month,
-                'label'           => $this->monthLabel($year, $month, $range['span_years']),
-                'pays_university' => $paysUniversity,
-                'kind'            => $paysUniversity ? 'pago' : 'libre',
-                'kind_label'      => $paysUniversity
+                'year'             => $year,
+                'month'            => $month,
+                'label'            => $this->monthLabel($year, $month, $range['span_years']),
+                'pays_university'  => $paysUniversity,
+                'kind'             => $paysUniversity ? 'pago' : 'libre',
+                'kind_label'       => $paysUniversity
                     ? "Pago U ({$paymentDay})"
                     : 'Sin pago U',
-                // Mes completo (para leer la proyección del mes)
-                'salary_in'        => $fullSalary,
-                'expenses_out'     => $fullExpenses,
-                // Lo que aún mueve el saldo desde hoy
-                'projected_salary_in'    => round($income, 2),
-                'projected_expenses_out' => round($expense, 2),
+                'salary_in'        => round($income, 2),
+                'expenses_out'     => round($expense, 2),
                 'university_freed' => round($paysUniversity ? 0.0 : (
                     $yearSources['university_in_segundo'] ? $yearSources['university_fee'] : 0.0
                 ), 2),
                 'primero'          => [
-                    'applied' => $day1['applied'],
-                    'income'  => round($day1['applied'] ? $paydayAmount : 0.0, 2),
-                    'expense' => round($day1['applied'] ? $primeroOut : 0.0, 2),
-                    'full_income'  => round($paydayAmount, 2),
-                    'full_expense' => round($primeroOut, 2),
-                    'skipped' => $day1['skipped'],
+                    'applied' => true,
+                    'income'  => round($day1['income'], 2),
+                    'expense' => round($day1['expense'], 2),
+                    'skipped' => false,
                 ],
                 'segundo'          => [
-                    'applied' => $day15['applied'],
-                    'income'  => round($day15['applied'] ? $paydayAmount : 0.0, 2),
-                    'expense' => round($day15['applied'] ? $segundoOut : 0.0, 2),
-                    'full_income'  => round($paydayAmount, 2),
-                    'full_expense' => round($segundoOut, 2),
-                    'skipped' => $day15['skipped'],
+                    'applied' => true,
+                    'income'  => round($day15['income'], 2),
+                    'expense' => round($day15['expense'], 2),
+                    'skipped' => false,
                 ],
-                'partial'          => $day1['skipped'] || $day15['skipped'],
                 'delta'            => round($delta, 2),
                 'balance'          => round($running, 2),
             ];
@@ -356,6 +360,7 @@ class ProjectionController extends Controller
             ],
             'sources'                   => [
                 'account_balance'       => $sources['account_balance'],
+                'anchor_balance'        => round($anchorBalance, 2),
                 'prior_month_balance'   => round($priorMonthBalance, 2),
                 'prior_month_label'     => $priorLabel,
                 'payday_amount'         => $sources['payday_amount'],
@@ -396,26 +401,9 @@ class ProjectionController extends Controller
 
     private function applyPayday(
         float $balance,
-        int $year,
-        int $month,
-        int $day,
         float $paydayAmount,
         float $expenses,
-        Carbon $today,
-        bool $skipPast,
     ): array {
-        $date = Carbon::create($year, $month, $day)->startOfDay();
-
-        if ($skipPast && $date->lt($today)) {
-            return [
-                'applied' => false,
-                'skipped' => true,
-                'income'  => 0.0,
-                'expense' => 0.0,
-                'balance' => $balance,
-            ];
-        }
-
         $income  = $paydayAmount;
         $expense = $expenses;
         $next    = $balance + $income - $expense;
