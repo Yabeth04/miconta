@@ -30,27 +30,22 @@ class ProjectionController extends Controller
     public function show(Request $request)
     {
         $validated = $request->validate([
-            'mode'             => ['nullable', 'in:fixed,real'],
             'year'             => ['nullable', 'integer', 'min:2000', 'max:2100'],
             'from_year'        => ['nullable', 'integer', 'min:2000', 'max:2100'],
             'to_year'          => ['nullable', 'integer', 'min:2000', 'max:2100'],
             'from_month'       => ['nullable', 'integer', 'min:1', 'max:12'],
             'to_month'         => ['nullable', 'integer', 'min:1', 'max:12'],
             'starting_balance' => ['nullable', 'numeric'],
-            'monthly_salary'   => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        $mode     = $validated['mode'] ?? 'real';
         $settings = $this->settings($request);
-        $range    = $this->resolveRange($validated, $mode);
+        $range    = $this->resolveRange($validated);
 
         if ($range['error']) {
             return response()->json(['message' => $range['error']], 422);
         }
 
-        return $mode === 'real'
-            ? $this->showReal($request, $settings, $range, $validated)
-            : $this->showFixed($request, $settings, $range, $validated);
+        return $this->buildProjection($request, $settings, $range, $validated);
     }
 
     public function updateSettings(Request $request)
@@ -76,7 +71,7 @@ class ProjectionController extends Controller
         ], 200);
     }
 
-    private function resolveRange(array $validated, string $mode): array
+    private function resolveRange(array $validated): array
     {
         $today = Carbon::today();
         $year  = (int) ($validated['year'] ?? $today->year);
@@ -86,10 +81,9 @@ class ProjectionController extends Controller
         $fromMonth = (int) ($validated['from_month'] ?? 1);
         $toMonth   = (int) ($validated['to_month'] ?? 12);
 
-        // Anual / defaults: si no mandan from_year y es real en año actual, partir del mes de hoy
+        // Anual / defaults: si no mandan from_year y es año actual, partir del mes de hoy
         if (
-            $mode === 'real'
-            && ! array_key_exists('from_month', $validated)
+            ! array_key_exists('from_month', $validated)
             && ! array_key_exists('from_year', $validated)
             && $fromYear === (int) $today->year
         ) {
@@ -99,21 +93,19 @@ class ProjectionController extends Controller
         $start = Carbon::create($fromYear, $fromMonth, 1)->startOfDay();
         $end   = Carbon::create($toYear, $toMonth, 1)->startOfDay();
 
-        // Real: solo desde el mes actual hacia adelante (no meses pasados).
-        if ($mode === 'real') {
-            $currentStart = $today->copy()->startOfMonth();
+        // Solo desde el mes actual hacia adelante (no meses pasados).
+        $currentStart = $today->copy()->startOfMonth();
 
-            if ($start->lt($currentStart)) {
-                $fromYear  = (int) $today->year;
-                $fromMonth = (int) $today->month;
-                $start     = $currentStart->copy();
-            }
+        if ($start->lt($currentStart)) {
+            $fromYear  = (int) $today->year;
+            $fromMonth = (int) $today->month;
+            $start     = $currentStart->copy();
+        }
 
-            if ($end->lt($start)) {
-                $toYear  = $fromYear;
-                $toMonth = $fromMonth;
-                $end     = $start->copy();
-            }
+        if ($end->lt($start)) {
+            $toYear  = $fromYear;
+            $toMonth = $fromMonth;
+            $end     = $start->copy();
         }
 
         if ($start->gt($end)) {
@@ -146,108 +138,20 @@ class ProjectionController extends Controller
         ];
     }
 
-    private function showFixed(
-        Request $request,
-        ProjectionSetting $settings,
-        array $range,
-        array $validated,
-    ) {
-        $userId        = $request->user()->id;
-        $paymentMonths = $this->universityPaymentMonths();
-        $paymentDay    = (int) config('projection.payment_day', 15);
-
-        $baseSources     = $this->resolveFixedSources($request, $settings, $range['from_year']);
-        $startingBalance = array_key_exists('starting_balance', $validated)
-            ? (float) $validated['starting_balance']
-            : $baseSources['account_balance'];
-
-        $months      = [];
-        $running     = $startingBalance;
-        $totalRemain = 0.0;
-        $totalFree   = 0.0;
-
-        foreach ($range['periods'] as $period) {
-            $year    = $period['year'];
-            $month   = $period['month'];
-            $sources = $this->resolveFixedSources($request, $settings, $year);
-
-            $paysUniversity  = in_array($month, $paymentMonths, true);
-            $remaining       = $sources['monthly_remaining'];
-            $freed           = $paysUniversity ? 0.0 : $sources['university_fee'];
-            $delta           = $remaining + $freed;
-            $running        += $delta;
-            $totalRemain    += $remaining;
-            $totalFree      += $freed;
-
-            $months[] = [
-                'year'            => $year,
-                'month'           => $month,
-                'label'           => $this->monthLabel($year, $month, $range['span_years']),
-                'pays_university' => $paysUniversity,
-                'kind'            => $paysUniversity ? 'pago' : 'libre',
-                'kind_label'      => $paysUniversity
-                    ? "Pago U ({$paymentDay})"
-                    : 'Sin pago U',
-                'monthly_remaining' => round($remaining, 2),
-                'university_freed'  => round($freed, 2),
-                'delta'             => round($delta, 2),
-                'balance'           => round($running, 2),
-            ];
-        }
-
-        return response()->json([
-            'mode'                      => 'fixed',
-            'year'                      => $range['from_year'],
-            'from_year'                 => $range['from_year'],
-            'from_month'                => $range['from_month'],
-            'to_year'                   => $range['to_year'],
-            'to_month'                  => $range['to_month'],
-            'payment_day'               => $paymentDay,
-            'university_payment_months' => $paymentMonths,
-            'settings'                  => [
-                'university_fee'                => $baseSources['university_fee'],
-                'monthly_remaining'             => $baseSources['monthly_remaining'],
-                'monthly_remaining_override'    => $settings->monthly_remaining,
-                'uses_fixed_payments_remaining' => $settings->monthly_remaining === null,
-            ],
-            'sources'                   => [
-                'account_balance'          => $baseSources['account_balance'],
-                'fixed_payments_remaining' => $baseSources['fixed_payments_remaining'],
-                'payday_amount'            => $baseSources['payday_amount'],
-                'monthly_salary'           => $baseSources['monthly_salary'],
-            ],
-            'starting_balance'          => round($startingBalance, 2),
-            'months'                    => $months,
-            'summary'                   => [
-                'months_count'            => count($months),
-                'payment_months_count'    => collect($months)->where('pays_university', true)->count(),
-                'free_months_count'       => collect($months)->where('pays_university', false)->count(),
-                'total_monthly_remaining' => round($totalRemain, 2),
-                'total_university_freed'  => round($totalFree, 2),
-                'total_delta'             => round($totalRemain + $totalFree, 2),
-                'ending_balance'          => round($running, 2),
-            ],
-        ], 200);
-    }
-
-    private function showReal(
+    private function buildProjection(
         Request $request,
         ProjectionSetting $settings,
         array $range,
         array $validated,
     ) {
         $today   = Carbon::today();
-        $sources = $this->resolveRealSources($request, $settings, $range['from_year']);
+        $sources = $this->resolveSources($request, $settings, $range['from_year']);
 
         $priorMonthBalance = $this->accountBalanceBefore(
             $request->user()->id,
             $range['from_year'],
             $range['from_month'],
         );
-
-        $salaryOverride = array_key_exists('monthly_salary', $validated)
-            ? round(((float) $validated['monthly_salary']) / 2, 2)
-            : null;
 
         $paymentMonths = $this->universityPaymentMonths();
         $paymentDay    = (int) config('projection.payment_day', 15);
@@ -266,9 +170,9 @@ class ProjectionController extends Controller
 
             $yearSources = $year === $range['from_year']
                 ? $sources
-                : $this->resolveRealSources($request, $settings, $year);
+                : $this->resolveSources($request, $settings, $year);
 
-            $paydayAmount   = $salaryOverride ?? $yearSources['payday_amount'];
+            $paydayAmount   = $yearSources['payday_amount'];
             $paysUniversity = in_array($month, $paymentMonths, true);
             $primeroOut     = $yearSources['primero_expenses'];
             $segundoOut     = $this->segundoExpensesForMonth(
@@ -303,9 +207,9 @@ class ProjectionController extends Controller
 
             $yearSources = $year === $range['from_year']
                 ? $sources
-                : $this->resolveRealSources($request, $settings, $year);
+                : $this->resolveSources($request, $settings, $year);
 
-            $paydayAmount = $salaryOverride ?? $yearSources['payday_amount'];
+            $paydayAmount = $yearSources['payday_amount'];
 
             $paysUniversity = in_array($month, $paymentMonths, true);
             $primeroOut     = $yearSources['primero_expenses'];
@@ -360,11 +264,9 @@ class ProjectionController extends Controller
             ];
         }
 
-        $displayPayday = $salaryOverride ?? $sources['payday_amount'];
-        $priorLabel    = $this->priorMonthLabel($range['from_year'], $range['from_month']);
+        $priorLabel = $this->priorMonthLabel($range['from_year'], $range['from_month']);
 
         return response()->json([
-            'mode'                      => 'real',
             'year'                      => $range['from_year'],
             'from_year'                 => $range['from_year'],
             'from_month'                => $range['from_month'],
@@ -387,8 +289,8 @@ class ProjectionController extends Controller
                 'university_in_segundo' => $sources['university_in_segundo'],
             ],
             'starting_balance'          => round($startingBalance, 2),
-            'monthly_salary'            => round($displayPayday * 2, 2),
-            'payday_amount'             => round($displayPayday, 2),
+            'monthly_salary'            => round($sources['monthly_salary'], 2),
+            'payday_amount'             => round($sources['payday_amount'], 2),
             'months'                    => $months,
             'summary'                   => [
                 'months_count'         => count($months),
@@ -518,33 +420,7 @@ class ProjectionController extends Controller
             - (float) ($global->total_debe ?? 0);
     }
 
-    private function resolveFixedSources(Request $request, ProjectionSetting $settings, int $year): array
-    {
-        $userId  = $request->user()->id;
-        $salary  = AnnualSalaryResolver::forUserYear($userId, $year);
-        $monthly = $salary->monthlyAmount();
-
-        $expenses = (float) FixedPayment::query()
-            ->where('user_id', $userId)
-            ->where('is_active', true)
-            ->sum('amount');
-
-        $fixedRemaining   = $monthly - $expenses;
-        $monthlyRemaining = $settings->monthly_remaining !== null
-            ? (float) $settings->monthly_remaining
-            : $fixedRemaining;
-
-        return [
-            'university_fee'           => (float) $settings->university_fee,
-            'monthly_remaining'        => $monthlyRemaining,
-            'fixed_payments_remaining' => $fixedRemaining,
-            'account_balance'          => $this->accountBalance($userId),
-            'payday_amount'            => (float) $salary->payday_amount,
-            'monthly_salary'           => $monthly,
-        ];
-    }
-
-    private function resolveRealSources(Request $request, ProjectionSetting $settings, int $year): array
+    private function resolveSources(Request $request, ProjectionSetting $settings, int $year): array
     {
         $userId = $request->user()->id;
         $salary = AnnualSalaryResolver::forUserYear($userId, $year);

@@ -67,17 +67,9 @@ export default {
       type: Boolean,
       default: false,
     },
-    projectionMode: {
-      type: String,
-      required: true,
-    },
     summary: {
       type: Object,
       default: null,
-    },
-    startingBalance: {
-      type: Number,
-      default: 0,
     },
     sources: {
       type: Object,
@@ -88,90 +80,46 @@ export default {
   computed: {
     cards() {
       const s = this.summary || {
-        total_monthly_remaining: 0,
-        total_university_freed: 0,
         total_salary_in: 0,
         total_expenses_out: 0,
         total_delta: 0,
         ending_balance: 0,
         free_months_count: 0,
-        payment_months_count: 0,
-      }
-
-      if (this.projectionMode === 'real') {
-        return [
-          {
-            title: 'Saldo al final',
-            value: this.$formatAmount(s.ending_balance),
-            subtitle: `Hoy ${this.$formatAmount(this.sources.anchor_balance || this.sources.account_balance)}`,
-            tooltip: 'Cierre del rango. La base del mes se arma desde el saldo de hoy para proyectar quincenas completas.',
-            icon: 'ri-wallet-3-line',
-            color: 'primary',
-            valueClass: 'text-primary',
-          },
-          {
-            title: 'Salario proyectado',
-            value: this.$formatAmount(s.total_salary_in),
-            subtitle: `Quincena ${this.$formatAmount((this.sources.monthly_salary || 0) / 2)}`,
-            tooltip: 'Suma del salario de ambos pagos (1 y 15) en todos los meses del rango. Viene de Pagos fijos.',
-            icon: 'ri-money-dollar-circle-line',
-            color: 'info',
-            valueClass: '',
-          },
-          {
-            title: 'Gastos proyectados',
-            value: this.$formatAmount(s.total_expenses_out),
-            subtitle: `${s.free_months_count} mes(es) sin U`,
-            tooltip: 'Suma de pagos fijos del rango (sin cuota U en meses libres).',
-            icon: 'ri-bill-line',
-            color: 'error',
-            valueClass: '',
-          },
-          {
-            title: 'Δ total',
-            value: this.$formatAmount(s.total_delta),
-            subtitle: 'Ingresos − gastos',
-            tooltip: 'Salario proyectado − gastos proyectados en todo el rango.',
-            icon: 'ri-line-chart-line',
-            color: 'warning',
-            valueClass: 'projection__delta',
-          },
-        ]
       }
 
       return [
         {
           title: 'Saldo al final',
           value: this.$formatAmount(s.ending_balance),
-          subtitle: `Partiendo de ${this.$formatAmount(this.startingBalance)}`,
-          tooltip: 'Saldo inicial + suma de “queda” + liberado por U en el rango.',
+          subtitle: `Hoy ${this.$formatAmount(this.sources.anchor_balance || this.sources.account_balance)}`,
+          tooltip: 'Cierre del rango. La base del mes se arma desde el saldo de hoy para proyectar quincenas completas.',
           icon: 'ri-wallet-3-line',
           color: 'primary',
           valueClass: 'text-primary',
         },
         {
-          title: 'Suma de “quedan libres al mes”',
-          value: this.$formatAmount(s.total_monthly_remaining),
-          subtitle: `${s.payment_months_count + s.free_months_count} meses`,
-          tooltip: '“Queda al mes” × cantidad de meses del rango (salario − fijos, o el monto guardado).',
-          icon: 'ri-stack-line',
+          title: 'Salario proyectado',
+          value: this.$formatAmount(s.total_salary_in),
+          subtitle: `Quincena ${this.$formatAmount((this.sources.monthly_salary || 0) / 2)}`,
+          tooltip: 'Suma del salario de ambos pagos (1 y 15) en todos los meses del rango. Viene de Pagos fijos.',
+          icon: 'ri-money-dollar-circle-line',
           color: 'info',
           valueClass: '',
         },
         {
-          title: 'Liberado por U',
-          value: this.$formatAmount(s.total_university_freed),
-          subtitle: `${s.free_months_count} mes(es) sin pago`,
-          tooltip: 'Cuota U × meses sin pago. Esa plata se queda en la cuenta.',
-          icon: 'ri-gift-line',
-          color: 'success',
-          valueClass: 'projection__freed',
+          title: 'Gastos proyectados',
+          value: this.$formatAmount(s.total_expenses_out),
+          subtitle: `${s.free_months_count} mes(es) sin U`,
+          tooltip: 'Suma de pagos fijos del rango (sin cuota U en meses libres).',
+          icon: 'ri-bill-line',
+          color: 'error',
+          valueClass: '',
         },
         {
-          title: 'Total proyectado',
+          title: 'Δ total',
           value: this.$formatAmount(s.total_delta),
-          subtitle: 'Queda + liberado U',
-          tooltip: 'Suma de lo que queda cada mes más lo liberado en meses sin U.',
+          subtitle: 'Ingresos − gastos',
+          tooltip: 'Salario proyectado − gastos proyectados en todo el rango.',
           icon: 'ri-line-chart-line',
           color: 'warning',
           valueClass: 'projection__delta',
@@ -186,10 +134,6 @@ export default {
 .projection__num {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
-}
-
-.projection__freed {
-  color: color-mix(in srgb, rgb(var(--v-theme-success)) 78%, rgb(var(--v-theme-on-surface)) 22%);
 }
 
 .projection__delta {

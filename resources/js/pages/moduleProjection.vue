@@ -6,9 +6,7 @@
           Proyección
         </h1>
         <p class="text-body-2 text-medium-emphasis mb-0">
-          {{ projectionMode === 'real'
-            ? 'Desde el mes actual hacia adelante: salario (1 y 15), pagos fijos y meses sin U'
-            : 'Escenario fijo: lo que te queda al mes y meses sin pago de universidad' }}
+          Desde el mes actual hacia adelante: salario (1 y 15), pagos fijos y meses sin U
         </p>
       </div>
     </div>
@@ -35,20 +33,6 @@
             md="3"
           >
             <VSelect
-              v-model="projectionMode"
-              :items="projectionModeOptions"
-              label="Modo"
-              variant="outlined"
-              rounded="lg"
-              hide-details
-            />
-          </VCol>
-          <VCol
-            v-if="projectionMode === 'real'"
-            cols="6"
-            md="3"
-          >
-            <VSelect
               v-model="rangeMode"
               :items="rangeModeOptions"
               label="Periodo"
@@ -58,27 +42,13 @@
             />
           </VCol>
           <VCol
-            v-if="projectionMode === 'real' && rangeMode === 'year'"
+            v-if="rangeMode === 'year'"
             cols="12"
             md="3"
           >
             <VSelect
               v-model="year"
-              :items="realYearOptions"
-              label="Año"
-              variant="outlined"
-              rounded="lg"
-              hide-details
-            />
-          </VCol>
-          <VCol
-            v-if="projectionMode === 'fixed'"
-            cols="6"
-            md="3"
-          >
-            <VSelect
-              v-model="year"
-              :items="yearOptions"
+              :items="fromYearOptions"
               label="Año"
               variant="outlined"
               rounded="lg"
@@ -88,7 +58,7 @@
         </VRow>
 
         <VRow
-          v-if="projectionMode === 'real' && rangeMode === 'custom'"
+          v-if="rangeMode === 'custom'"
           class="projection-form__row projection-form__range mt-3"
           align="center"
         >
@@ -174,7 +144,7 @@
         </VRow>
 
         <p
-          v-if="projectionMode === 'real' && !isRangeInvalid"
+          v-if="!isRangeInvalid"
           class="text-caption text-medium-emphasis mb-0 mt-3"
         >
           Rango proyectado: {{ periodLabel }}
@@ -185,22 +155,12 @@
           <VDivider class="projection-form__divider" />
 
           <div class="projection-form__params">
-            <template v-if="projectionMode === 'fixed'">
-              <div class="projection-form__params-row">
-                <span class="text-caption text-medium-emphasis">Queda al mes</span>
-                <span class="text-body-2 font-weight-medium projection__num">
-                  {{ $formatAmount(settings.monthly_remaining) }}
-                </span>
-              </div>
-            </template>
-            <template v-else>
-              <div class="projection-form__params-row">
-                <span class="text-caption text-medium-emphasis">Salario al mes</span>
-                <span class="text-body-2 font-weight-medium projection__num">
-                  {{ $formatAmount(sources.monthly_salary || 0) }}
-                </span>
-              </div>
-            </template>
+            <div class="projection-form__params-row">
+              <span class="text-caption text-medium-emphasis">Salario al mes</span>
+              <span class="text-body-2 font-weight-medium projection__num">
+                {{ $formatAmount(sources.monthly_salary || 0) }}
+              </span>
+            </div>
             <div class="projection-form__params-row">
               <span class="text-caption text-medium-emphasis">Cuota U</span>
               <span class="text-body-2 font-weight-medium projection__num">
@@ -244,46 +204,6 @@
 
           <VRow class="projection-form__row">
             <VCol
-              v-if="projectionMode === 'fixed'"
-              cols="12"
-              md="4"
-              class="projection-form__field"
-            >
-              <VTextField
-                v-currency-live
-                v-model="monthlyRemainingInput"
-                class="monto-with-action"
-                type="text"
-                inputmode="decimal"
-                autocomplete="off"
-                label="Queda al mes libre"
-                variant="outlined"
-                rounded="lg"
-                hide-details="auto"
-                :hint="remainingHint"
-                persistent-hint
-              >
-                <template #append-inner>
-                  <VBtn
-                    color="primary"
-                    variant="flat"
-                    class="monto-with-action__btn rounded-s-0 rounded-e-lg"
-                    :disabled="loading || saving || sources.fixed_payments_remaining == null"
-                    aria-label="Usar monto de pagos fijos"
-                    title="Usar monto de pagos fijos"
-                    type="button"
-                    tabindex="-1"
-                    @click="useFixedRemaining"
-                  >
-                    <VIcon
-                      icon="ri-calendar-check-line"
-                      size="22"
-                    />
-                  </VBtn>
-                </template>
-              </VTextField>
-            </VCol>
-            <VCol
               cols="12"
               md="4"
               class="projection-form__field"
@@ -298,9 +218,7 @@
                 variant="outlined"
                 rounded="lg"
                 hide-details="auto"
-                :hint="projectionMode === 'real'
-                  ? 'No se descuenta en meses sin pago U'
-                  : 'Se suma en meses sin pago U'"
+                hint="No se descuenta en meses sin pago U"
                 persistent-hint
               />
             </VCol>
@@ -388,41 +306,6 @@
 
         <div class="pa-4">
           <VTextField
-            v-if="projectionMode === 'fixed'"
-            v-currency-live
-            v-model="monthlyRemainingInput"
-            class="monto-with-action mb-4"
-            type="text"
-            inputmode="decimal"
-            autocomplete="off"
-            label="Queda al mes"
-            variant="outlined"
-            rounded="lg"
-            hide-details="auto"
-            :hint="remainingHint"
-            persistent-hint
-          >
-            <template #append-inner>
-              <VBtn
-                color="primary"
-                variant="flat"
-                class="monto-with-action__btn rounded-s-0 rounded-e-lg"
-                :disabled="loading || saving || sources.fixed_payments_remaining == null"
-                aria-label="Usar monto de pagos fijos"
-                title="Usar monto de pagos fijos"
-                type="button"
-                tabindex="-1"
-                @click="useFixedRemaining"
-              >
-                <VIcon
-                  icon="ri-calendar-check-line"
-                  size="22"
-                />
-              </VBtn>
-            </template>
-          </VTextField>
-
-          <VTextField
             v-currency-live
             v-model="universityFeeInput"
             class="mb-4"
@@ -433,7 +316,7 @@
             variant="outlined"
             rounded="lg"
             hide-details="auto"
-            hint="Se suma en meses sin pago U"
+            hint="No se descuenta en meses sin pago U"
             persistent-hint
           />
 
@@ -487,9 +370,7 @@
 
     <ProjectionSummaryCards
       :loading="loading"
-      :projection-mode="projectionMode"
       :summary="summary"
-      :starting-balance="startingBalance"
       :sources="sources"
     />
 
@@ -497,15 +378,13 @@
       :loading="loading"
       :months="months"
       :period-label="periodLabel"
-      :projection-mode="projectionMode"
-      :university-fee="settings.university_fee"
       :has-summary="Boolean(summary)"
     />
   </div>
 </template>
 
 <script>
-import { axios } from '@/plugins/axios';
+import { axios } from '@/plugins/axios'
 import { useDisplay } from 'vuetify'
 import ProjectionMonthsDetail from '@/views/pages/projection/ProjectionMonthsDetail.vue'
 import ProjectionSummaryCards from '@/views/pages/projection/ProjectionSummaryCards.vue'
@@ -547,27 +426,22 @@ export default {
       saving: false,
       error: '',
       amountsSheet: false,
-      projectionMode: 'real',
       year: currentYear,
       fromYear: currentYear,
       toYear: currentYear,
       rangeMode: 'year',
       fromMonth: new Date().getMonth() + 1,
       toMonth: 12,
-      monthlyRemainingInput: '',
       universityFeeInput: '',
       startingBalanceInput: '',
       settings: {
         university_fee: 110000,
-        monthly_remaining: 0,
-        uses_fixed_payments_remaining: true,
       },
       sources: {
         account_balance: 0,
-      prior_month_balance: 0,
-      prior_month_label: '',
-      anchor_balance: 0,
-      fixed_payments_remaining: 0,
+        prior_month_balance: 0,
+        prior_month_label: '',
+        anchor_balance: 0,
         payday_amount: 0,
         monthly_salary: 0,
       },
@@ -575,10 +449,6 @@ export default {
       months: [],
       summary: null,
       monthOptions: MONTH_OPTIONS,
-      projectionModeOptions: [
-        { title: 'Real', value: 'real' },
-        { title: 'Fija', value: 'fixed' },
-      ],
       rangeModeOptions: [
         { title: 'Anual', value: 'year' },
         { title: 'Rango', value: 'custom' },
@@ -588,25 +458,13 @@ export default {
   },
 
   computed: {
-    remainingHint() {
-      if (this.settings.uses_fixed_payments_remaining) {
-        return `Tomado de pagos fijos (${this.$formatAmount(this.sources.fixed_payments_remaining)})`
-      }
-
-      return 'Monto fijo por mes (con pago U)'
-    },
-
     startingBalanceHint() {
-      if (this.projectionMode === 'real') {
-        return `Hoy: ${this.$formatAmount(this.sources.account_balance)} · base del mes para proyectar completo`
-      }
-
-      return `Saldo en cuenta hoy: ${this.$formatAmount(this.sources.account_balance)}`
+      return `Hoy: ${this.$formatAmount(this.sources.account_balance)} · base del mes para proyectar completo`
     },
 
     periodLabel() {
-      if (this.projectionMode === 'fixed' || this.rangeMode === 'year') {
-        if (this.projectionMode === 'real' && this.year === new Date().getFullYear()) {
+      if (this.rangeMode === 'year') {
+        if (this.year === new Date().getFullYear()) {
           const from = MONTH_OPTIONS.find(m => m.value === this.fromMonth)?.title || ''
 
           return `${from} – Diciembre ${this.year}`
@@ -625,7 +483,7 @@ export default {
     },
 
     isRangeInvalid() {
-      if (this.projectionMode !== 'real' || this.rangeMode !== 'custom')
+      if (this.rangeMode !== 'custom')
         return false
 
       const from = this.fromYear * 12 + this.fromMonth
@@ -636,7 +494,7 @@ export default {
     },
 
     rangeInvalidMessage() {
-      if (this.projectionMode !== 'real' || this.rangeMode !== 'custom')
+      if (this.rangeMode !== 'custom')
         return ''
 
       const from = this.fromYear * 12 + this.fromMonth
@@ -661,10 +519,6 @@ export default {
     },
 
     fromYearOptions() {
-      return this.realYearOptions
-    },
-
-    realYearOptions() {
       return this.yearOptions.filter(year => year >= this.minFromYear)
     },
 
@@ -716,9 +570,6 @@ export default {
         this.toMonth = this.fromMonth
     },
     year(value) {
-      if (this.projectionMode !== 'real')
-        return
-
       if (value < this.minFromYear)
         this.year = this.minFromYear
 
@@ -742,17 +593,6 @@ export default {
         this.toYear = now.getFullYear()
       }
     },
-    projectionMode(mode) {
-      this.startingBalanceInput = ''
-
-      if (mode === 'fixed') {
-        this.rangeMode = 'year'
-        this.fromMonth = 1
-        this.toMonth = 12
-        this.fromYear = this.year
-        this.toYear = this.year
-      }
-    },
   },
 
   mounted() {
@@ -769,13 +609,13 @@ export default {
     },
 
     effectiveRange() {
-      if (this.projectionMode === 'fixed' || this.rangeMode === 'year') {
+      if (this.rangeMode === 'year') {
         const now = new Date()
         let fromMonth = 1
         const toMonth = 12
         const year = this.year
 
-        if (this.projectionMode === 'real' && year === now.getFullYear())
+        if (year === now.getFullYear())
           fromMonth = now.getMonth() + 1
 
         return {
@@ -801,7 +641,6 @@ export default {
       const range = this.effectiveRange()
       const starting = this.$parseAmount(this.startingBalanceInput)
       const params = {
-        mode: this.projectionMode,
         year: range.from_year,
         from_year: range.from_year,
         from_month: range.from_month,
@@ -828,18 +667,14 @@ export default {
     },
 
     applyResponse(data, { preserveStartingInput = false } = {}) {
-      this.projectionMode = data.mode || this.projectionMode
       this.settings = {
         university_fee: data.settings.university_fee,
-        monthly_remaining: data.settings.monthly_remaining ?? this.settings.monthly_remaining,
-        uses_fixed_payments_remaining: data.settings.uses_fixed_payments_remaining ?? true,
       }
       this.sources = {
         account_balance: data.sources.account_balance ?? 0,
         anchor_balance: data.sources.anchor_balance ?? data.sources.account_balance ?? 0,
         prior_month_balance: data.sources.prior_month_balance ?? data.sources.account_balance ?? 0,
         prior_month_label: data.sources.prior_month_label ?? '',
-        fixed_payments_remaining: data.sources.fixed_payments_remaining ?? 0,
         payday_amount: data.sources.payday_amount ?? 0,
         monthly_salary: data.sources.monthly_salary ?? 0,
       }
@@ -853,11 +688,6 @@ export default {
       if (this.rangeMode === 'year')
         this.year = data.from_year ?? data.year
 
-      if (data.settings.monthly_remaining != null)
-        this.monthlyRemainingInput = this.$formatAmountValue(data.settings.monthly_remaining)
-      else if (data.sources.fixed_payments_remaining != null)
-        this.monthlyRemainingInput = this.$formatAmountValue(data.sources.fixed_payments_remaining)
-
       this.universityFeeInput = this.$formatAmountValue(data.settings.university_fee)
 
       if (!preserveStartingInput) {
@@ -870,16 +700,11 @@ export default {
       this.startingBalanceInput = this.$formatAmountValue(this.sources.account_balance)
     },
 
-    useFixedRemaining() {
-      this.monthlyRemainingInput = this.$formatAmountValue(this.sources.fixed_payments_remaining)
-    },
-
-    saveAndReload({ clearRemainingOverride = false, closeSheet = false } = {}) {
+    saveAndReload({ closeSheet = false } = {}) {
       if (this.isRangeInvalid)
         return
 
       const universityFee = this.$parseAmount(this.universityFeeInput)
-      let monthlyRemaining = this.$parseAmount(this.monthlyRemainingInput)
 
       if (universityFee === '' || Number.isNaN(universityFee)) {
         this.error = 'Ingresa una cuota de universidad válida.'
@@ -887,32 +712,14 @@ export default {
         return
       }
 
-      if (this.projectionMode === 'fixed' && (monthlyRemaining === '' || Number.isNaN(monthlyRemaining))) {
-        this.error = 'Ingresa un monto de “queda al mes” válido.'
-
-        return
-      }
-
-      if (
-        this.projectionMode === 'fixed'
-        && !clearRemainingOverride
-        && Math.abs(monthlyRemaining - Number(this.sources.fixed_payments_remaining || 0)) < 0.005
-      ) {
-        clearRemainingOverride = true
-      }
-
       this.saving = true
       this.error = ''
 
-      const payload = {
-        university_fee: universityFee,
-        monthly_remaining: this.projectionMode === 'real'
-          ? (this.settings.uses_fixed_payments_remaining ? null : this.settings.monthly_remaining)
-          : (clearRemainingOverride ? null : monthlyRemaining),
-      }
-
       axios
-        .put('/api/projection/settings', payload)
+        .put('/api/projection/settings', {
+          university_fee: universityFee,
+          monthly_remaining: null,
+        })
         .then(() => {
           this.$toast.success('Proyección actualizada', { timeout: 2000, closeOnClick: true })
 
