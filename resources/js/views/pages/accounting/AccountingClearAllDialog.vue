@@ -12,11 +12,16 @@
 
       <VDivider />
 
-      <VCardText class="pa-5 d-flex flex-column gap-4">
+      <VForm
+        autocomplete="off"
+        class="pa-5 d-flex flex-column gap-4"
+        @submit.prevent="confirmClearAll"
+      >
         <VAlert
           type="warning"
           variant="tonal"
           rounded="lg"
+          class="mb-0"
         >
           Se eliminarán <strong>{{ totalCount }}</strong> movimiento{{ totalCount === 1 ? '' : 's' }}.
           Esta acción no se puede deshacer. El saldo inicial se mantiene.
@@ -27,42 +32,85 @@
           type="error"
           variant="tonal"
           rounded="lg"
+          class="mb-0"
         >
           {{ error }}
         </VAlert>
 
-        <VCheckbox
-          v-model="acknowledged"
-          hide-details
-          label="Entiendo que se borrarán todos mis movimientos"
-        />
-
         <VTextField
+          :id="confirmationFieldId"
           v-model="confirmation"
           label='Escribí "ELIMINAR" para confirmar'
           placeholder="ELIMINAR"
+          type="text"
+          :name="confirmationFieldName"
+          autocomplete="one-time-code"
+          autocapitalize="characters"
+          autocorrect="off"
+          spellcheck="false"
+          inputmode="text"
+          data-form-type="other"
+          data-lpignore="true"
+          data-1p-ignore
           variant="outlined"
           rounded="lg"
           hide-details="auto"
+          :readonly="fieldsLocked"
           :error-messages="fieldError('confirmation')"
+          @focus="unlockFields"
         />
 
         <VTextField
+          :id="passwordFieldId"
           v-model="password"
           label="Contraseña actual"
           placeholder="············"
           :type="passwordVisible ? 'text' : 'password'"
+          :name="passwordFieldName"
+          autocomplete="off"
+          data-form-type="other"
+          data-lpignore="true"
+          data-1p-ignore
           :append-inner-icon="passwordVisible ? 'ri-eye-off-line' : 'ri-eye-line'"
-          autocomplete="current-password"
           variant="outlined"
           rounded="lg"
           hide-details="auto"
+          :readonly="fieldsLocked"
           :error-messages="fieldError('current_password')"
+          @focus="unlockFields"
           @click:append-inner="passwordVisible = !passwordVisible"
         />
-      </VCardText>
 
-      <VCardActions class="px-5 pb-5">
+        <div
+          class="clear-all-dialog__ack"
+          :class="{ 'clear-all-dialog__ack--checked': acknowledged }"
+          role="button"
+          tabindex="0"
+          @click="toggleAcknowledged"
+          @keydown.enter.prevent="toggleAcknowledged"
+          @keydown.space.prevent="toggleAcknowledged"
+        >
+          <VCheckbox
+            :model-value="acknowledged"
+            hide-details
+            density="compact"
+            color="error"
+            class="clear-all-dialog__ack-checkbox flex-shrink-0"
+            @click.stop
+            @update:model-value="acknowledged = $event ?? false"
+          />
+          <div class="min-w-0">
+            <p class="text-body-2 font-weight-semibold mb-1">
+              Confirmación final
+            </p>
+            <p class="text-body-2 text-medium-emphasis mb-0">
+              Entiendo que se borrarán todos mis movimientos y que no podré recuperarlos.
+            </p>
+          </div>
+        </div>
+      </VForm>
+
+      <VCardActions class="px-5 pb-5 pt-0">
         <VSpacer />
         <VBtn
           variant="text"
@@ -112,6 +160,8 @@ export default {
       confirmation: '',
       password: '',
       passwordVisible: false,
+      fieldsLocked: true,
+      fieldSuffix: '',
       saving: false,
       error: '',
       fieldErrors: {},
@@ -119,6 +169,22 @@ export default {
   },
 
   computed: {
+    confirmationFieldId() {
+      return `clear-all-confirmation-${this.fieldSuffix}`
+    },
+
+    passwordFieldId() {
+      return `clear-all-password-${this.fieldSuffix}`
+    },
+
+    confirmationFieldName() {
+      return `clear-all-confirmation-${this.fieldSuffix}`
+    },
+
+    passwordFieldName() {
+      return `clear-all-password-${this.fieldSuffix}`
+    },
+
     canConfirm() {
       return this.acknowledged
         && this.confirmation.trim().toUpperCase() === 'ELIMINAR'
@@ -138,12 +204,22 @@ export default {
 
   methods: {
     resetForm() {
+      this.fieldSuffix = Math.random().toString(36).slice(2)
       this.acknowledged = false
       this.confirmation = ''
       this.password = ''
       this.passwordVisible = false
+      this.fieldsLocked = true
       this.error = ''
       this.fieldErrors = {}
+    },
+
+    unlockFields() {
+      this.fieldsLocked = false
+    },
+
+    toggleAcknowledged() {
+      this.acknowledged = !this.acknowledged
     },
 
     close() {
@@ -189,3 +265,31 @@ export default {
   },
 }
 </script>
+
+<style scoped>
+.clear-all-dialog__ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-radius: 0.75rem;
+  border: thin solid rgba(var(--v-theme-on-surface), 0.12);
+  background: rgba(var(--v-theme-on-surface), 0.03);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.clear-all-dialog__ack:hover {
+  background: rgba(var(--v-theme-on-surface), 0.05);
+}
+
+.clear-all-dialog__ack--checked {
+  border-color: rgba(var(--v-theme-error), 0.45);
+  background: rgba(var(--v-theme-error), 0.06);
+}
+
+.clear-all-dialog__ack-checkbox {
+  margin-top: 0.125rem;
+  pointer-events: none;
+}
+</style>
