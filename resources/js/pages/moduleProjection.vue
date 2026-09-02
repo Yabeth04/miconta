@@ -437,6 +437,64 @@
         Sin meses en el rango elegido
       </div>
 
+      <!-- Móvil: cards por mes -->
+      <div
+        v-else-if="months.length && mdAndDown"
+        class="projection-month-list"
+      >
+        <div
+          v-for="row in months"
+          :key="`${row.year}-${row.month}`"
+          class="projection-month-card"
+          :class="{ 'projection-month-card--free': !row.pays_university }"
+        >
+          <div class="projection-month-card__head">
+            <span class="text-body-1 font-weight-semibold">
+              {{ row.label }}
+            </span>
+            <VChip
+              size="small"
+              rounded="lg"
+              :color="row.pays_university ? 'info' : 'success'"
+              variant="tonal"
+            >
+              {{ row.kind_label }}
+            </VChip>
+          </div>
+
+          <div class="projection-month-card__grid">
+            <div class="projection-month-card__cell">
+              <span class="text-caption text-medium-emphasis">Queda</span>
+              <span class="text-body-2 projection__num">
+                {{ $formatAmount(row.monthly_remaining) }}
+              </span>
+            </div>
+            <div class="projection-month-card__cell">
+              <span class="text-caption text-medium-emphasis">Libre U</span>
+              <span
+                class="text-body-2 projection__num"
+                :class="{ 'projection__freed': row.university_freed > 0 }"
+              >
+                {{ $formatAmount(row.university_freed) }}
+              </span>
+            </div>
+            <div class="projection-month-card__cell">
+              <span class="text-caption text-medium-emphasis">Δ mes</span>
+              <span class="text-body-2 projection__num projection__delta">
+                {{ $formatAmount(row.delta) }}
+              </span>
+            </div>
+            <div class="projection-month-card__cell">
+              <span class="text-caption text-medium-emphasis">Saldo</span>
+              <span class="text-body-2 font-weight-semibold projection__num">
+                {{ $formatAmount(row.balance) }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop: tabla -->
       <VTable
         v-else-if="months.length"
         class="projection-table"
@@ -794,6 +852,50 @@ export default {
 .projection-table :deep(th),
 .projection-table :deep(td) {
   white-space: nowrap;
+}
+
+.projection-month-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px 4px;
+}
+
+.projection-month-card {
+  padding: 14px;
+  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 12px;
+  background: rgb(var(--v-theme-surface));
+}
+
+.projection-month-card--free {
+  border-color: color-mix(in srgb, rgb(var(--v-theme-success)) 35%, rgba(var(--v-border-color), var(--v-border-opacity)));
+  background: color-mix(in srgb, rgb(var(--v-theme-success)) 8%, rgb(var(--v-theme-surface)) 92%);
+}
+
+.projection-month-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.projection-month-card__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+}
+
+.projection-month-card__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.projection-month-card__cell .projection__num {
+  word-break: break-word;
 }
 
 .projection-form__divider {
