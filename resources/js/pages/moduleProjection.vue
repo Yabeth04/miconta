@@ -31,7 +31,7 @@
       <VCardText class="projection-form">
         <VRow class="projection-form__row">
           <VCol
-            cols="12"
+            cols="6"
             md="3"
           >
             <VSelect
@@ -44,8 +44,22 @@
             />
           </VCol>
           <VCol
-            v-if="projectionMode === 'real' && rangeMode === 'year'"
+            v-if="projectionMode === 'real'"
             cols="6"
+            md="3"
+          >
+            <VSelect
+              v-model="rangeMode"
+              :items="rangeModeOptions"
+              label="Periodo"
+              variant="outlined"
+              rounded="lg"
+              hide-details
+            />
+          </VCol>
+          <VCol
+            v-if="projectionMode === 'real' && rangeMode === 'year'"
+            cols="12"
             md="3"
           >
             <VSelect
@@ -59,7 +73,7 @@
           </VCol>
           <VCol
             v-if="projectionMode === 'fixed'"
-            cols="12"
+            cols="6"
             md="3"
           >
             <VSelect
@@ -71,75 +85,72 @@
               hide-details
             />
           </VCol>
+        </VRow>
+
+        <VRow
+          v-if="projectionMode === 'real' && rangeMode === 'custom'"
+          class="projection-form__row mt-3"
+        >
           <VCol
-            v-if="projectionMode === 'real'"
-            :cols="rangeMode === 'year' ? 6 : 12"
+            cols="6"
             md="3"
           >
             <VSelect
-              v-model="rangeMode"
-              :items="rangeModeOptions"
-              label="Periodo"
+              v-model="fromYear"
+              :items="yearOptions"
+              label="Desde año"
               variant="outlined"
               rounded="lg"
               hide-details
             />
           </VCol>
-          <template v-if="projectionMode === 'real' && rangeMode === 'custom'">
-            <VCol
-              cols="7"
-              md="3"
-            >
-              <VSelect
-                v-model="fromMonth"
-                :items="monthOptions"
-                label="Desde mes"
-                variant="outlined"
-                rounded="lg"
-                hide-details
-              />
-            </VCol>
-            <VCol
-              cols="5"
-              md="2"
-            >
-              <VSelect
-                v-model="fromYear"
-                :items="yearOptions"
-                label="Año"
-                variant="outlined"
-                rounded="lg"
-                hide-details
-              />
-            </VCol>
-            <VCol
-              cols="7"
-              md="3"
-            >
-              <VSelect
-                v-model="toMonth"
-                :items="monthOptions"
-                label="Hasta mes"
-                variant="outlined"
-                rounded="lg"
-                hide-details
-              />
-            </VCol>
-            <VCol
-              cols="5"
-              md="2"
-            >
-              <VSelect
-                v-model="toYear"
-                :items="yearOptions"
-                label="Año"
-                variant="outlined"
-                rounded="lg"
-                hide-details
-              />
-            </VCol>
-          </template>
+          <VCol
+            cols="6"
+            md="3"
+          >
+            <VSelect
+              v-model="fromMonth"
+              :items="monthOptions"
+              label="Mes"
+              variant="outlined"
+              rounded="lg"
+              hide-details
+            />
+          </VCol>
+          <VCol
+            cols="6"
+            md="3"
+          >
+            <VSelect
+              v-model="toYear"
+              :items="yearOptions"
+              label="Hasta año"
+              variant="outlined"
+              rounded="lg"
+              hide-details
+            />
+          </VCol>
+          <VCol
+            cols="6"
+            md="3"
+          >
+            <VSelect
+              v-model="toMonth"
+              :items="monthOptions"
+              label="Mes"
+              variant="outlined"
+              rounded="lg"
+              hide-details
+            />
+          </VCol>
         </VRow>
+
+        <p
+          v-if="projectionMode === 'real'"
+          class="text-caption text-medium-emphasis mb-0 mt-3"
+        >
+          Rango proyectado: {{ periodLabel }}
+        </p>
 
         <!-- Móvil: resumen + acciones -->
         <template v-if="mdAndDown">
@@ -847,9 +858,9 @@ export default {
       projectionMode: 'real',
       year: currentYear,
       fromYear: currentYear,
-      toYear: currentYear + 1,
+      toYear: currentYear,
       rangeMode: 'year',
-      fromMonth: 1,
+      fromMonth: new Date().getMonth() + 1,
       toMonth: 12,
       monthlyRemainingInput: '',
       universityFeeInput: '',
@@ -876,7 +887,7 @@ export default {
       ],
       rangeModeOptions: [
         { title: 'Anual', value: 'year' },
-        { title: 'Mensual', value: 'custom' },
+        { title: 'Rango', value: 'custom' },
       ],
       yearOptions: [currentYear - 1, currentYear, currentYear + 1, currentYear + 2, currentYear + 3],
     }
@@ -1022,8 +1033,8 @@ export default {
 
         this.fromMonth = now.getMonth() + 1
         this.fromYear = now.getFullYear()
-        this.toMonth = 2
-        this.toYear = now.getFullYear() + 1
+        this.toMonth = 12
+        this.toYear = now.getFullYear()
       }
     },
     projectionMode(mode) {

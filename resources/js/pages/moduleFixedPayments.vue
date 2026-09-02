@@ -65,8 +65,8 @@
                 rounded="lg"
                 hide-details
                 :disabled="savingSalary"
-                @blur="onSalaryBlur"
-                @keydown.enter.prevent="onSalaryBlur"
+                @blur="normalizeSalary"
+                @keydown.enter.prevent="saveSalary"
               />
               <VBtn
                 class="fixed-payments__salary-save"
@@ -448,6 +448,8 @@ export default {
     },
 
     saveSalary() {
+      this.normalizeSalary()
+
       const amount = this.$parseAmount(this.salaryInput)
 
       if (amount === '' || Number.isNaN(amount) || this.savingSalary)
@@ -476,6 +478,12 @@ export default {
         })
     },
 
+    normalizeSalary() {
+      const n = this.$parseAmount(this.salaryInput)
+
+      this.salaryInput = n === '' ? '' : this.$formatAmountValue(n)
+    },
+
     openNewItem(group = 'primero') {
       this.editingItem = null
       this.form = {
@@ -496,17 +504,6 @@ export default {
         due_label: item.due_label,
       }
       this.itemDialog = true
-    },
-
-    onSalaryBlur() {
-      this.normalizeSalary()
-      this.saveSalary()
-    },
-
-    normalizeSalary() {
-      const n = this.$parseAmount(this.salaryInput)
-
-      this.salaryInput = n === '' ? '' : this.$formatAmountValue(n)
     },
 
     normalizeFormAmount() {
