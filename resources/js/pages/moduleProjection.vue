@@ -354,7 +354,7 @@
               :disabled="isRangeInvalid"
               @click="saveAndReload"
             >
-              Guardar y calcular
+              Calcular
             </VBtn>
           </div>
         </template>
@@ -479,7 +479,7 @@
             :disabled="isRangeInvalid"
             @click="saveAndReload({ closeSheet: true })"
           >
-            Guardar y calcular
+            Calcular
           </VBtn>
         </div>
       </VCard>

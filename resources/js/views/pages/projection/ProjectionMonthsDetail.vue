@@ -1,6 +1,7 @@
 <template>
   <VCard
     rounded="lg"
+    class="projection-months-card overflow-hidden"
     :loading="loading"
   >
     <VCardItem>
@@ -514,6 +515,10 @@ export default {
 </script>
 
 <style scoped>
+.projection-months-card {
+  border-color: rgba(var(--v-theme-on-surface), 0.08);
+}
+
 .projection__num {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
@@ -536,11 +541,26 @@ export default {
   white-space: nowrap;
 }
 
+/* Ventana con scroll (como movimientos): crece hasta el tope y scrollea adentro */
+.projection-table :deep(.v-table__wrapper) {
+  max-height: min(410px, 55vh);
+  overflow-y: auto;
+}
+
+.projection-table :deep(thead th) {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: rgb(var(--v-theme-surface));
+}
+
 .projection-month-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 12px 16px 4px;
+  max-height: min(520px, 65vh);
+  overflow-y: auto;
 }
 
 .projection-month-card {
@@ -548,6 +568,7 @@ export default {
   border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
   border-radius: 12px;
   background: rgb(var(--v-theme-surface));
+  flex-shrink: 0;
 }
 
 .projection-month-card--free {
