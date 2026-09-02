@@ -21,7 +21,7 @@ const { isSysAdmin } = storeToRefs(auth)
     :item="{
       title: 'Contabilidad',
       icon: 'ri-calculator-line',
-      routePrefixes: ['/contabilidad', '/pagos-fijos', '/proyeccion'],
+      routePrefixes: ['/contabilidad', '/pagos-fijos', '/proyeccion', '/cierres'],
     }"
   >
     <VerticalNavLink
@@ -53,6 +53,14 @@ const { isSysAdmin } = storeToRefs(auth)
         title: 'Proyección',
         icon: 'ri-line-chart-line',
         to: '/proyeccion',
+        child: true,
+      }"
+    />
+    <VerticalNavLink
+      :item="{
+        title: 'Cierres',
+        icon: 'ri-lock-2-line',
+        to: '/cierres',
         child: true,
       }"
     />

@@ -6,6 +6,7 @@ use App\Imports\AccountingWorkbookImport;
 use App\Models\Accounting;
 use App\Models\AccountingConcept;
 use App\Models\AccountingSetting;
+use App\Support\MonthCloseGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -202,6 +203,11 @@ class AccountingController extends Controller
             'opening_balance_main' => ['required', 'numeric'],
         ]);
 
+        MonthCloseGuard::assertNoCloses(
+            $request->user()->id,
+            'Hay meses cerrados. Reabrilos desde Historial de cierres antes de cambiar el saldo inicial.',
+        );
+
         $settings                       = $this->settings($request);
         $settings->opening_balance_main = $validated['opening_balance_main'];
         $settings->save();
@@ -214,6 +220,7 @@ class AccountingController extends Controller
     public function store(Request $request)
     {
         $validated = $this->resolveConcept($request, $this->validateAccounting($request));
+        MonthCloseGuard::assertOpenForDate($request->user()->id, $validated['date']);
 
         DB::table('accounting_movements')->insert(array_merge($validated, [
             'user_id'    => $request->user()->id,
@@ -276,7 +283,9 @@ class AccountingController extends Controller
     public function update(Request $request, Accounting $accounting)
     {
         $this->authorizeMovement($request, $accounting);
+        MonthCloseGuard::assertOpenForDate($request->user()->id, $accounting->date);
         $validated = $this->resolveConcept($request, $this->validateAccounting($request));
+        MonthCloseGuard::assertOpenForDate($request->user()->id, $validated['date']);
 
         $accounting->update($validated);
 
@@ -286,6 +295,7 @@ class AccountingController extends Controller
     public function destroy(Request $request, Accounting $accounting)
     {
         $this->authorizeMovement($request, $accounting);
+        MonthCloseGuard::assertOpenForDate($request->user()->id, $accounting->date);
         $accounting->delete();
 
         return response()->json(['message' => 'Movimiento eliminado.'], 200);
@@ -315,6 +325,7 @@ class AccountingController extends Controller
             ->get();
 
         abort_unless($movements->count() === count($ids), 404);
+        MonthCloseGuard::assertOpenForMovements($request->user()->id, $movements);
 
         $payload = $this->bulkUpdatePayload($request, $validated);
 
@@ -336,12 +347,18 @@ class AccountingController extends Controller
 
         $ids = array_values(array_unique(array_map('intval', $validated['ids'])));
 
+        $movements = Accounting::query()
+            ->where('user_id', $request->user()->id)
+            ->whereIn('id', $ids)
+            ->get();
+
+        abort_unless($movements->count() === count($ids), 404);
+        MonthCloseGuard::assertOpenForMovements($request->user()->id, $movements);
+
         $deleted = Accounting::query()
             ->where('user_id', $request->user()->id)
             ->whereIn('id', $ids)
             ->delete();
-
-        abort_unless($deleted === count($ids), 404);
 
         return response()->json([
             'deleted' => $deleted,
@@ -354,6 +371,11 @@ class AccountingController extends Controller
             'current_password' => ['required', 'current_password'],
             'confirmation'     => ['required', 'in:ELIMINAR'],
         ]);
+
+        MonthCloseGuard::assertNoCloses(
+            $request->user()->id,
+            'Hay meses cerrados. Reabrilos desde Historial de cierres antes de borrar todos los movimientos.',
+        );
 
         $deleted = Accounting::query()
             ->where('user_id', $request->user()->id)

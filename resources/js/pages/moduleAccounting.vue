@@ -1227,7 +1227,10 @@ export default {
           closeOnClick: true,
         })
       } catch (error) {
-        console.log(error)
+        const msg = error.response?.data?.message
+          || error.response?.data?.errors?.date?.[0]
+          || 'No se pudo guardar el movimiento.'
+        this.$toast.error(msg, { timeout: 3500, closeOnClick: true })
       } finally {
         this.saving = false
       }
@@ -1519,7 +1522,11 @@ export default {
           this.$toast.success('Movimiento eliminado', { timeout: 2000, closeOnClick: true })
         }
       } catch (error) {
-        console.log(error)
+        const msg = error.response?.data?.message
+          || error.response?.data?.errors?.date?.[0]
+          || error.response?.data?.errors?.month?.[0]
+          || 'No se pudo eliminar.'
+        this.$toast.error(msg, { timeout: 3500, closeOnClick: true })
       } finally {
         this.deleting = false
       }

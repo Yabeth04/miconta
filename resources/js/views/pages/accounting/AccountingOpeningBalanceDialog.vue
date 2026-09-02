@@ -136,8 +136,8 @@
 </template>
 
 <script>
-import { parseAmount } from '@core/utils/formatters';
 import { axios } from '@/plugins/axios';
+import { parseAmount } from '@core/utils/formatters';
 
 export default {
   name: 'AccountingOpeningBalanceDialog',
@@ -242,7 +242,10 @@ export default {
         this.$emit('saved')
         this.$toast.success('Saldo inicial guardado', { timeout: 2000, closeOnClick: true })
       } catch (error) {
-        console.log(error)
+        const msg = error.response?.data?.message
+          || error.response?.data?.errors?.month?.[0]
+          || 'No se pudo guardar el saldo inicial.'
+        this.$toast.error(msg, { timeout: 4000, closeOnClick: true })
       } finally {
         this.saving = false
       }

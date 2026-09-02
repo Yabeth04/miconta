@@ -142,11 +142,11 @@
 
 <script>
 import submittedVuelidateForm from '@/mixins/submittedVuelidateForm'
+import { axios } from '@/plugins/axios'
+import AccountingConceptCombobox from '@/views/pages/accounting/AccountingConceptCombobox.vue'
 import { parseAmount } from '@core/utils/formatters'
 import { useVuelidate } from '@vuelidate/core'
 import { helpers, required } from '@vuelidate/validators'
-import { axios } from '@/plugins/axios'
-import AccountingConceptCombobox from '@/views/pages/accounting/AccountingConceptCombobox.vue'
 
 export default {
   name: 'AccountingEditDialog',
@@ -292,7 +292,10 @@ export default {
         this.$emit('saved')
         this.$toast.success('Movimiento actualizado', { timeout: 2000, closeOnClick: true })
       } catch (error) {
-        console.log(error)
+        const msg = error.response?.data?.message
+          || error.response?.data?.errors?.date?.[0]
+          || 'No se pudo actualizar el movimiento.'
+        this.$toast.error(msg, { timeout: 3500, closeOnClick: true })
       } finally {
         this.saving = false
       }

@@ -5,6 +5,7 @@ use App\Http\Controllers\AccountingConceptController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\FixedPaymentController;
+use App\Http\Controllers\MonthCloseController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectionController;
 use App\Http\Controllers\StudyPlanController;
@@ -42,6 +43,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('projection', [ProjectionController::class, 'show']);
     Route::put('projection/settings', [ProjectionController::class, 'updateSettings']);
+
+    Route::get('month-closes', [MonthCloseController::class, 'index']);
+    Route::get('month-closes/preview', [MonthCloseController::class, 'preview']);
+    Route::post('month-closes', [MonthCloseController::class, 'store']);
+    Route::delete('month-closes/{monthClose}', [MonthCloseController::class, 'destroy']);
 
     Route::middleware('sysadmin')->group(function () {
         Route::get('users', [AdminUserController::class, 'index']);

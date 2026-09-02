@@ -1,6 +1,7 @@
 <?php
 namespace App\Imports;
 
+use App\Support\MonthCloseGuard;
 use Carbon\Carbon;
 use DateTimeInterface;
 use Illuminate\Support\Collection;
@@ -42,6 +43,7 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
         $deferred      = [];
         $lastKnownDate = null;
         $now           = now();
+        $closedKeys    = MonthCloseGuard::closedKeys($this->userId);
 
         foreach ($rows as $index => $row) {
             $excelRow = $index + 2;
@@ -62,7 +64,7 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
                 }
 
                 $concept = $this->stringOrNull($this->valueAt($row, ['concepto', 'concept', 'descripcion', 'descripción'], 1));
-                $debit       = $this->parseAmount($this->valueAt($row, [
+                $debit   = $this->parseAmount($this->valueAt($row, [
                     'debito_salida', 'debito', 'débito_salida', 'debe', 'gasto', 'salida',
                 ], 2));
                 $credit = $this->parseAmount($this->valueAt($row, [
@@ -100,6 +102,16 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
                         continue;
                     }
 
+                    $periodKey = Carbon::parse($date)->format('Y-m');
+                    if (isset($closedKeys[$periodKey])) {
+                        $carbon   = Carbon::parse($date);
+                        $errors[] = "Fila {$excelRow}: " . MonthCloseGuard::closedMessage(
+                            (int) $carbon->year,
+                            (int) $carbon->month,
+                        );
+                        continue;
+                    }
+
                     $lastKnownDate = $date;
                     $batch[]       = array_merge($payload, ['date' => $date]);
 
@@ -123,14 +135,23 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
 
         if ($deferred !== []) {
             $fallbackDate = $lastKnownDate ?? $now->toDateString();
+            $fallbackKey  = Carbon::parse($fallbackDate)->format('Y-m');
 
-            foreach (array_chunk($deferred, 100) as $chunk) {
-                $rowsToInsert  = array_map(
-                    static fn(array $item) => array_merge($item, ['date' => $fallbackDate]),
-                    $chunk
-                );
-                DB::table('accounting_movements')->insert($rowsToInsert);
-                $imported += count($rowsToInsert);
+            if (isset($closedKeys[$fallbackKey])) {
+                $carbon   = Carbon::parse($fallbackDate);
+                $errors[] = MonthCloseGuard::closedMessage(
+                    (int) $carbon->year,
+                    (int) $carbon->month,
+                ) . ' No se importaron filas sin fecha concreta.';
+            } else {
+                foreach (array_chunk($deferred, 100) as $chunk) {
+                    $rowsToInsert  = array_map(
+                        static fn(array $item) => array_merge($item, ['date' => $fallbackDate]),
+                        $chunk
+                    );
+                    DB::table('accounting_movements')->insert($rowsToInsert);
+                    $imported += count($rowsToInsert);
+                }
             }
         }
 

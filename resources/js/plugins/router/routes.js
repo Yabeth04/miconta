@@ -36,6 +36,11 @@ export const routes = [
         meta: { auth: true },
       },
       {
+        path: 'cierres',
+        component: () => import('@/pages/moduleMonthCloses.vue'),
+        meta: { auth: true },
+      },
+      {
         path: 'plan-estudios',
         component: () => import('@/pages/moduleStudyPlan.vue'),
         meta: { auth: true, role: 'sysAdmin' },
