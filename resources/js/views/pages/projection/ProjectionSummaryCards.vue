@@ -83,10 +83,6 @@ export default {
       type: Object,
       default: () => ({}),
     },
-    monthlySalaryInput: {
-      type: String,
-      default: '',
-    },
   },
 
   computed: {
@@ -116,8 +112,8 @@ export default {
           {
             title: 'Salario proyectado',
             value: this.$formatAmount(s.total_salary_in),
-            subtitle: `Quincena ${this.$formatAmount((this.$parseAmount(this.monthlySalaryInput) || this.sources.monthly_salary || 0) / 2)}`,
-            tooltip: 'Suma del salario de ambos pagos (1 y 15) en todos los meses del rango.',
+            subtitle: `Quincena ${this.$formatAmount((this.sources.monthly_salary || 0) / 2)}`,
+            tooltip: 'Suma del salario de ambos pagos (1 y 15) en todos los meses del rango. Viene de Pagos fijos.',
             icon: 'ri-money-dollar-circle-line',
             color: 'info',
             valueClass: '',

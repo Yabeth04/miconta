@@ -9,23 +9,23 @@ const props = defineProps({
 const route = useRoute()
 const isOpen = ref(false)
 
-const routePrefix = computed(() => {
+const routePrefixes = computed(() => {
+  if (Array.isArray(props.item.routePrefixes) && props.item.routePrefixes.length)
+    return props.item.routePrefixes
+
   if (props.item.routePrefix)
-    return props.item.routePrefix
+    return [props.item.routePrefix]
 
   if (typeof props.item.to === 'string')
-    return props.item.to
+    return [props.item.to]
 
-  return null
+  return []
 })
 
 const isActive = computed(() => {
-  const prefix = routePrefix.value
+  const path = route.path
 
-  if (!prefix)
-    return false
-
-  return route.path === prefix || route.path.startsWith(`${prefix}/`)
+  return routePrefixes.value.some(prefix => path === prefix || path.startsWith(`${prefix}/`))
 })
 
 watch(isActive, value => {

@@ -197,7 +197,7 @@
               <div class="projection-form__params-row">
                 <span class="text-caption text-medium-emphasis">Salario al mes</span>
                 <span class="text-body-2 font-weight-medium projection__num">
-                  {{ $formatAmount($parseAmount(monthlySalaryInput) || sources.monthly_salary || 0) }}
+                  {{ $formatAmount(sources.monthly_salary || 0) }}
                 </span>
               </div>
             </template>
@@ -303,46 +303,6 @@
                   : 'Se suma en meses sin pago U'"
                 persistent-hint
               />
-            </VCol>
-            <VCol
-              v-if="projectionMode === 'real'"
-              cols="12"
-              md="4"
-              class="projection-form__field"
-            >
-              <VTextField
-                v-currency-live
-                v-model="monthlySalaryInput"
-                class="monto-with-action"
-                type="text"
-                inputmode="decimal"
-                autocomplete="off"
-                label="Salario al mes"
-                variant="outlined"
-                rounded="lg"
-                hide-details="auto"
-                :hint="salaryHint"
-                persistent-hint
-              >
-                <template #append-inner>
-                  <VBtn
-                    color="primary"
-                    variant="flat"
-                    class="monto-with-action__btn rounded-s-0 rounded-e-lg"
-                    :disabled="loading || saving"
-                    aria-label="Usar salario registrado"
-                    title="Usar salario registrado"
-                    type="button"
-                    tabindex="-1"
-                    @click="useRegisteredSalary"
-                  >
-                    <VIcon
-                      icon="ri-calendar-check-line"
-                      size="22"
-                    />
-                  </VBtn>
-                </template>
-              </VTextField>
             </VCol>
             <VCol
               cols="12"
@@ -463,41 +423,6 @@
           </VTextField>
 
           <VTextField
-            v-if="projectionMode === 'real'"
-            v-currency-live
-            v-model="monthlySalaryInput"
-            class="monto-with-action mb-4"
-            type="text"
-            inputmode="decimal"
-            autocomplete="off"
-            label="Salario al mes"
-            variant="outlined"
-            rounded="lg"
-            hide-details="auto"
-            :hint="salaryHint"
-            persistent-hint
-          >
-            <template #append-inner>
-              <VBtn
-                color="primary"
-                variant="flat"
-                class="monto-with-action__btn rounded-s-0 rounded-e-lg"
-                :disabled="loading || saving"
-                aria-label="Usar salario registrado"
-                title="Usar salario registrado"
-                type="button"
-                tabindex="-1"
-                @click="useRegisteredSalary"
-              >
-                <VIcon
-                  icon="ri-calendar-check-line"
-                  size="22"
-                />
-              </VBtn>
-            </template>
-          </VTextField>
-
-          <VTextField
             v-currency-live
             v-model="universityFeeInput"
             class="mb-4"
@@ -566,7 +491,6 @@
       :summary="summary"
       :starting-balance="startingBalance"
       :sources="sources"
-      :monthly-salary-input="monthlySalaryInput"
     />
 
     <ProjectionMonthsDetail
@@ -633,7 +557,6 @@ export default {
       monthlyRemainingInput: '',
       universityFeeInput: '',
       startingBalanceInput: '',
-      monthlySalaryInput: '',
       settings: {
         university_fee: 110000,
         monthly_remaining: 0,
@@ -679,15 +602,6 @@ export default {
       }
 
       return `Saldo en cuenta hoy: ${this.$formatAmount(this.sources.account_balance)}`
-    },
-
-    salaryHint() {
-      const payday = this.$parseAmount(this.monthlySalaryInput)
-      const quincena = payday === '' || Number.isNaN(payday)
-        ? (this.sources.payday_amount || 0)
-        : payday / 2
-
-      return `Quincena: ${this.$formatAmount(quincena)} · registrado: ${this.$formatAmount(this.sources.monthly_salary || 0)}`
     },
 
     periodLabel() {
@@ -814,7 +728,6 @@ export default {
     },
     projectionMode(mode) {
       this.startingBalanceInput = ''
-      this.monthlySalaryInput = ''
 
       if (mode === 'fixed') {
         this.rangeMode = 'year'
@@ -871,7 +784,6 @@ export default {
 
       const range = this.effectiveRange()
       const starting = this.$parseAmount(this.startingBalanceInput)
-      const monthlySalary = this.$parseAmount(this.monthlySalaryInput)
       const params = {
         mode: this.projectionMode,
         year: range.from_year,
@@ -884,15 +796,11 @@ export default {
       if (starting !== '' && !Number.isNaN(starting))
         params.starting_balance = starting
 
-      if (this.projectionMode === 'real' && monthlySalary !== '' && !Number.isNaN(monthlySalary))
-        params.monthly_salary = monthlySalary
-
       return axios
         .get('/api/projection', { params })
         .then(response => {
           this.applyResponse(response.data, {
             preserveStartingInput: starting !== '' && !Number.isNaN(starting),
-            preserveSalaryInput: monthlySalary !== '' && !Number.isNaN(monthlySalary),
           })
         })
         .catch(error => {
@@ -903,7 +811,7 @@ export default {
         })
     },
 
-    applyResponse(data, { preserveStartingInput = false, preserveSalaryInput = false } = {}) {
+    applyResponse(data, { preserveStartingInput = false } = {}) {
       this.projectionMode = data.mode || this.projectionMode
       this.settings = {
         university_fee: data.settings.university_fee,
@@ -940,19 +848,10 @@ export default {
         const anchor = data.sources.anchor_balance ?? data.sources.account_balance ?? data.starting_balance
         this.startingBalanceInput = this.$formatAmountValue(anchor)
       }
-
-      if (!preserveSalaryInput) {
-        const salary = data.monthly_salary ?? data.sources.monthly_salary ?? 0
-        this.monthlySalaryInput = this.$formatAmountValue(salary)
-      }
     },
 
     useAccountBalance() {
       this.startingBalanceInput = this.$formatAmountValue(this.sources.account_balance)
-    },
-
-    useRegisteredSalary() {
-      this.monthlySalaryInput = this.$formatAmountValue(this.sources.monthly_salary || 0)
     },
 
     useFixedRemaining() {
