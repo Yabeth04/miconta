@@ -692,7 +692,7 @@
             <th class="accounting-table__th text-end accounting-table__th--amount">
               Haber / Ingreso
             </th>
-            <th class="accounting-table__th text-start accounting-table__th--narrow">
+            <th class="accounting-table__th text-end accounting-table__th--narrow">
               Tipo de pago
             </th>
             <th class="accounting-table__th accounting-table__th--actions" />
@@ -721,7 +721,7 @@
                 readonly
               />
             </td>
-            <td class="text-body-2 text-medium-emphasis">
+            <td class="text-body-2 text-medium-emphasis accounting-table__date">
               {{ item.date }}
             </td>
             <td class="text-body-2 accounting-table__concept">
@@ -761,15 +761,17 @@
             >
               {{ item.movement_type === 'haber' ? $formatAmount(item.amount) : '—' }}
             </td>
-            <td>
-              <VChip
-                size="small"
-                variant="tonal"
-                color="primary"
-                class="text-caption font-weight-medium"
-              >
-                {{ paymentTypeLabel(item.payment_type) }}
-              </VChip>
+            <td class="accounting-table__payment">
+              <div class="d-flex justify-end">
+                <VChip
+                  size="small"
+                  variant="tonal"
+                  color="primary"
+                  class="text-caption font-weight-medium"
+                >
+                  {{ paymentTypeLabel(item.payment_type) }}
+                </VChip>
+              </div>
             </td>
             <td class="accounting-table__actions text-end">
               <AccountingMovementMenu
@@ -1674,7 +1676,7 @@ export default {
 
 .accounting-table__th--concept,
 .accounting-table__concept {
-  width: 22%;
+  width: 17%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1682,7 +1684,7 @@ export default {
 
 .accounting-table__th--detail,
 .accounting-table__detail {
-  width: 28%;
+  width: 24%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1718,13 +1720,25 @@ export default {
   white-space: nowrap;
 }
 
-.accounting-table__th--date {
-  width: 9%;
+.accounting-table__th--date,
+.accounting-table__date {
+  width: 7.5%;
   white-space: nowrap;
+  padding-inline-end: 0.25rem !important;
+}
+
+.accounting-table__th--concept,
+.accounting-table__concept {
+  padding-inline-start: 0.25rem !important;
+}
+
+.accounting-table__th--detail,
+.accounting-table__detail {
+  padding-inline-end: 0.5rem !important;
 }
 
 .accounting-table__th--narrow {
-  width: 12%;
+  width: 10%;
   white-space: nowrap;
 }
 
@@ -1836,15 +1850,21 @@ export default {
 /* Montos compactos y juntos a la derecha */
 .accounting-table__th--amount,
 .accounting-table__amount {
-  width: 11%;
+  width: 9.5%;
   white-space: nowrap;
   font-size: 14px;
-  padding-inline: 0.75rem !important;
+  padding-inline: 0.25rem !important;
 }
 
 .accounting-table__th--amount + .accounting-table__th--amount,
 .accounting-table__amount + .accounting-table__amount {
-  padding-inline-start: 0.5rem !important;
+  padding-inline-start: 0.125rem !important;
+}
+
+.accounting-table__th--narrow,
+.accounting-table__payment {
+  padding-inline-start: 0.125rem !important;
+  padding-inline-end: 0.35rem !important;
 }
 
 .accounting-amount--debe {
@@ -1890,7 +1910,7 @@ export default {
 .accounting-totals__desktop-grid {
   display: grid;
   grid-template-columns: 120px 1fr auto auto auto;
-  column-gap: 0.5rem;
+  column-gap: 0.25rem;
   align-items: center;
 }
 
@@ -1925,7 +1945,7 @@ export default {
   flex-direction: column;
   align-items: flex-end;
   justify-content: center;
-  padding: 0.25rem 0.5rem;
+  padding: 0.25rem 0.35rem;
   border-radius: 6px;
   background: rgba(var(--v-theme-on-surface), 0.025);
   border: thin solid rgba(var(--v-theme-on-surface), 0.06);
