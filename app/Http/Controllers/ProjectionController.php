@@ -135,11 +135,11 @@ class ProjectionController extends Controller
         array $range,
         array $validated,
     ) {
-        $userId  = $request->user()->id;
+        $userId        = $request->user()->id;
         $paymentMonths = $this->universityPaymentMonths();
         $paymentDay    = (int) config('projection.payment_day', 15);
 
-        $baseSources = $this->resolveFixedSources($request, $settings, $range['from_year']);
+        $baseSources     = $this->resolveFixedSources($request, $settings, $range['from_year']);
         $startingBalance = array_key_exists('starting_balance', $validated)
             ? (float) $validated['starting_balance']
             : $baseSources['account_balance'];
@@ -150,25 +150,25 @@ class ProjectionController extends Controller
         $totalFree   = 0.0;
 
         foreach ($range['periods'] as $period) {
-            $year  = $period['year'];
-            $month = $period['month'];
+            $year    = $period['year'];
+            $month   = $period['month'];
             $sources = $this->resolveFixedSources($request, $settings, $year);
 
-            $paysUniversity = in_array($month, $paymentMonths, true);
-            $remaining      = $sources['monthly_remaining'];
-            $freed          = $paysUniversity ? 0.0 : $sources['university_fee'];
-            $delta          = $remaining + $freed;
-            $running       += $delta;
-            $totalRemain   += $remaining;
-            $totalFree     += $freed;
+            $paysUniversity  = in_array($month, $paymentMonths, true);
+            $remaining       = $sources['monthly_remaining'];
+            $freed           = $paysUniversity ? 0.0 : $sources['university_fee'];
+            $delta           = $remaining + $freed;
+            $running        += $delta;
+            $totalRemain    += $remaining;
+            $totalFree      += $freed;
 
             $months[] = [
-                'year'              => $year,
-                'month'             => $month,
-                'label'             => $this->monthLabel($year, $month, $range['span_years']),
-                'pays_university'   => $paysUniversity,
-                'kind'              => $paysUniversity ? 'pago' : 'libre',
-                'kind_label'        => $paysUniversity
+                'year'            => $year,
+                'month'           => $month,
+                'label'           => $this->monthLabel($year, $month, $range['span_years']),
+                'pays_university' => $paysUniversity,
+                'kind'            => $paysUniversity ? 'pago' : 'libre',
+                'kind_label'      => $paysUniversity
                     ? "Pago U ({$paymentDay})"
                     : 'Sin pago U',
                 'monthly_remaining' => round($remaining, 2),
@@ -222,6 +222,12 @@ class ProjectionController extends Controller
         $today   = Carbon::today();
         $sources = $this->resolveRealSources($request, $settings, $range['from_year']);
 
+        $priorMonthBalance = $this->accountBalanceBefore(
+            $request->user()->id,
+            $range['from_year'],
+            $range['from_month'],
+        );
+
         $startingBalance = array_key_exists('starting_balance', $validated)
             ? (float) $validated['starting_balance']
             : $sources['account_balance'];
@@ -234,11 +240,11 @@ class ProjectionController extends Controller
         $paymentDay    = (int) config('projection.payment_day', 15);
         $skipPast      = true;
 
-        $months      = [];
-        $running     = $startingBalance;
-        $totalIn     = 0.0;
-        $totalOut    = 0.0;
-        $totalDelta  = 0.0;
+        $months     = [];
+        $running    = $startingBalance;
+        $totalIn    = 0.0;
+        $totalOut   = 0.0;
+        $totalDelta = 0.0;
 
         foreach ($range['periods'] as $period) {
             $year  = $period['year'];
@@ -283,45 +289,58 @@ class ProjectionController extends Controller
             );
             $running = $day15['balance'];
 
-            $income = $day1['income'] + $day15['income'];
-            $expense = $day1['expense'] + $day15['expense'];
-            $delta  = $income - $expense;
-            $totalIn += $income;
-            $totalOut += $expense;
+            $income      = $day1['income'] + $day15['income'];
+            $expense     = $day1['expense'] + $day15['expense'];
+            $delta       = $income - $expense;
+            $totalIn    += $income;
+            $totalOut   += $expense;
             $totalDelta += $delta;
 
+            $fullSalary   = round($paydayAmount * 2, 2);
+            $fullExpenses = round($primeroOut + $segundoOut, 2);
+
             $months[] = [
-                'year'             => $year,
-                'month'            => $month,
-                'label'            => $this->monthLabel($year, $month, $range['span_years']),
-                'pays_university'  => $paysUniversity,
-                'kind'             => $paysUniversity ? 'pago' : 'libre',
-                'kind_label'       => $paysUniversity
+                'year'            => $year,
+                'month'           => $month,
+                'label'           => $this->monthLabel($year, $month, $range['span_years']),
+                'pays_university' => $paysUniversity,
+                'kind'            => $paysUniversity ? 'pago' : 'libre',
+                'kind_label'      => $paysUniversity
                     ? "Pago U ({$paymentDay})"
                     : 'Sin pago U',
-                'salary_in'        => round($income, 2),
-                'expenses_out'     => round($expense, 2),
+                // Mes completo (para leer la proyección del mes)
+                'salary_in'        => $fullSalary,
+                'expenses_out'     => $fullExpenses,
+                // Lo que aún mueve el saldo desde hoy
+                'projected_salary_in'    => round($income, 2),
+                'projected_expenses_out' => round($expense, 2),
                 'university_freed' => round($paysUniversity ? 0.0 : (
                     $yearSources['university_in_segundo'] ? $yearSources['university_fee'] : 0.0
                 ), 2),
                 'primero'          => [
                     'applied' => $day1['applied'],
-                    'income'  => round($day1['income'], 2),
-                    'expense' => round($day1['expense'], 2),
+                    'income'  => round($day1['applied'] ? $paydayAmount : 0.0, 2),
+                    'expense' => round($day1['applied'] ? $primeroOut : 0.0, 2),
+                    'full_income'  => round($paydayAmount, 2),
+                    'full_expense' => round($primeroOut, 2),
                     'skipped' => $day1['skipped'],
                 ],
                 'segundo'          => [
                     'applied' => $day15['applied'],
-                    'income'  => round($day15['income'], 2),
-                    'expense' => round($day15['expense'], 2),
+                    'income'  => round($day15['applied'] ? $paydayAmount : 0.0, 2),
+                    'expense' => round($day15['applied'] ? $segundoOut : 0.0, 2),
+                    'full_income'  => round($paydayAmount, 2),
+                    'full_expense' => round($segundoOut, 2),
                     'skipped' => $day15['skipped'],
                 ],
+                'partial'          => $day1['skipped'] || $day15['skipped'],
                 'delta'            => round($delta, 2),
                 'balance'          => round($running, 2),
             ];
         }
 
         $displayPayday = $salaryOverride ?? $sources['payday_amount'];
+        $priorLabel    = $this->priorMonthLabel($range['from_year'], $range['from_month']);
 
         return response()->json([
             'mode'                      => 'real',
@@ -337,6 +356,8 @@ class ProjectionController extends Controller
             ],
             'sources'                   => [
                 'account_balance'       => $sources['account_balance'],
+                'prior_month_balance'   => round($priorMonthBalance, 2),
+                'prior_month_label'     => $priorLabel,
                 'payday_amount'         => $sources['payday_amount'],
                 'monthly_salary'        => $sources['monthly_salary'],
                 'primero_expenses'      => $sources['primero_expenses'],
@@ -364,6 +385,13 @@ class ProjectionController extends Controller
         $name = self::MONTH_NAMES[$month];
 
         return $spanYears ? "{$name} {$year}" : $name;
+    }
+
+    private function priorMonthLabel(int $fromYear, int $fromMonth): string
+    {
+        $prior = Carbon::create($fromYear, $fromMonth, 1)->subMonth();
+
+        return self::MONTH_NAMES[(int) $prior->month].' '.$prior->year;
     }
 
     private function applyPayday(
@@ -438,7 +466,7 @@ class ProjectionController extends Controller
     private function universityPaymentMonths(): array
     {
         return collect(config('projection.university_payment_months', []))
-            ->map(fn ($m) => (int) $m)
+            ->map(fn($m) => (int) $m)
             ->all();
     }
 
@@ -460,10 +488,35 @@ class ProjectionController extends Controller
             - (float) ($global->total_debe ?? 0);
     }
 
+    /**
+     * Saldo contable al cierre del mes anterior al periodo de inicio
+     * (movimientos con fecha < primer día de from_year/from_month).
+     */
+    private function accountBalanceBefore(int $userId, int $year, int $month): float
+    {
+        $opening = (float) AccountingSetting::query()->firstOrCreate(
+            ['user_id' => $userId],
+            ['opening_balance_main' => 0],
+        )->opening_balance_main;
+
+        $before = Carbon::create($year, $month, 1)->startOfDay()->toDateString();
+
+        $global = DB::table((new Accounting)->getTable())
+            ->where('user_id', $userId)
+            ->whereDate('date', '<', $before)
+            ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'debe' THEN amount ELSE 0 END), 0) as total_debe")
+            ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'haber' THEN amount ELSE 0 END), 0) as total_haber")
+            ->first();
+
+        return $opening
+            + (float) ($global->total_haber ?? 0)
+            - (float) ($global->total_debe ?? 0);
+    }
+
     private function resolveFixedSources(Request $request, ProjectionSetting $settings, int $year): array
     {
-        $userId = $request->user()->id;
-        $salary = AnnualSalaryResolver::forUserYear($userId, $year);
+        $userId  = $request->user()->id;
+        $salary  = AnnualSalaryResolver::forUserYear($userId, $year);
         $monthly = $salary->monthlyAmount();
 
         $expenses = (float) FixedPayment::query()
@@ -471,7 +524,7 @@ class ProjectionController extends Controller
             ->where('is_active', true)
             ->sum('amount');
 
-        $fixedRemaining = $monthly - $expenses;
+        $fixedRemaining   = $monthly - $expenses;
         $monthlyRemaining = $settings->monthly_remaining !== null
             ? (float) $settings->monthly_remaining
             : $fixedRemaining;
@@ -489,8 +542,8 @@ class ProjectionController extends Controller
     private function resolveRealSources(Request $request, ProjectionSetting $settings, int $year): array
     {
         $userId = $request->user()->id;
-        $salary  = AnnualSalaryResolver::forUserYear($userId, $year);
-        $fee     = (float) $settings->university_fee;
+        $salary = AnnualSalaryResolver::forUserYear($userId, $year);
+        $fee    = (float) $settings->university_fee;
 
         $items = FixedPayment::query()
             ->where('user_id', $userId)
@@ -504,17 +557,17 @@ class ProjectionController extends Controller
             ->where('payment_group', 'segundo')
             ->contains(function (FixedPayment $item) use ($fee) {
                 return abs(((float) $item->amount) - $fee) < 0.01
-                    || str_contains(mb_strtolower($item->description), 'univers');
+                || str_contains(mb_strtolower($item->description), 'univers');
             });
 
         return [
-            'university_fee'          => $fee,
-            'account_balance'         => $this->accountBalance($userId),
-            'payday_amount'           => (float) $salary->payday_amount,
-            'monthly_salary'          => $salary->monthlyAmount(),
-            'primero_expenses'        => $primero,
-            'segundo_expenses'        => $segundo,
-            'university_in_segundo'   => $universityInSegundo,
+            'university_fee'        => $fee,
+            'account_balance'       => $this->accountBalance($userId),
+            'payday_amount'         => (float) $salary->payday_amount,
+            'monthly_salary'        => $salary->monthlyAmount(),
+            'primero_expenses'      => $primero,
+            'segundo_expenses'      => $segundo,
+            'university_in_segundo' => $universityInSegundo,
         ];
     }
 }

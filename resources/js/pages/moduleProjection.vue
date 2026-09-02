@@ -7,7 +7,7 @@
         </h1>
         <p class="text-body-2 text-medium-emphasis mb-0">
           {{ projectionMode === 'real'
-            ? 'Flujo real desde hoy: salario (1 y 15), pagos fijos y meses sin U'
+            ? 'Flujo real desde hoy: solo quincenas que faltan, pagos fijos y meses sin U'
             : 'Escenario fijo: lo que te queda al mes y meses sin pago de universidad' }}
         </p>
       </div>
@@ -585,8 +585,23 @@
               />
             </VAvatar>
             <div class="min-w-0">
-              <p class="text-caption text-medium-emphasis mb-1">
+              <p class="text-caption text-medium-emphasis mb-1 d-inline-flex align-center gap-1">
                 {{ card.title }}
+                <VTooltip
+                  v-if="card.tooltip"
+                  location="top"
+                  max-width="280"
+                >
+                  <template #activator="{ props: tipProps }">
+                    <VIcon
+                      v-bind="tipProps"
+                      icon="ri-information-line"
+                      size="14"
+                      class="text-medium-emphasis"
+                    />
+                  </template>
+                  <span>{{ card.tooltip }}</span>
+                </VTooltip>
               </p>
               <p
                 class="text-h5 font-weight-semibold mb-0 projection__num"
@@ -648,6 +663,15 @@
             >
               {{ row.kind_label }}
             </VChip>
+            <VChip
+              v-if="projectionMode === 'real' && row.partial"
+              size="small"
+              rounded="lg"
+              color="warning"
+              variant="tonal"
+            >
+              Parcial
+            </VChip>
           </div>
 
           <div class="projection-month-card__grid">
@@ -656,8 +680,8 @@
                 <span class="text-caption text-medium-emphasis d-inline-flex align-center gap-1">
                   Salario in
                   <VTooltip
-                    v-if="isPartialSalaryMonth(row)"
                     location="top"
+                    max-width="320"
                   >
                     <template #activator="{ props: tipProps }">
                       <VIcon
@@ -675,7 +699,23 @@
                 </span>
               </div>
               <div class="projection-month-card__cell">
-                <span class="text-caption text-medium-emphasis">Gastos out</span>
+                <span class="text-caption text-medium-emphasis d-inline-flex align-center gap-1">
+                  Gastos out
+                  <VTooltip
+                    location="top"
+                    max-width="280"
+                  >
+                    <template #activator="{ props: tipProps }">
+                      <VIcon
+                        v-bind="tipProps"
+                        icon="ri-information-line"
+                        size="14"
+                        class="text-medium-emphasis"
+                      />
+                    </template>
+                    <span>{{ expensesOutTooltip(row) }}</span>
+                  </VTooltip>
+                </span>
                 <span class="text-body-2 projection__num">
                   {{ $formatAmount(row.expenses_out) }}
                 </span>
@@ -683,13 +723,45 @@
             </template>
             <template v-else>
               <div class="projection-month-card__cell">
-                <span class="text-caption text-medium-emphasis">Queda</span>
+                <span class="text-caption text-medium-emphasis d-inline-flex align-center gap-1">
+                  Queda
+                  <VTooltip
+                    location="top"
+                    max-width="280"
+                  >
+                    <template #activator="{ props: tipProps }">
+                      <VIcon
+                        v-bind="tipProps"
+                        icon="ri-information-line"
+                        size="14"
+                        class="text-medium-emphasis"
+                      />
+                    </template>
+                    <span>{{ columnTooltips.remaining }}</span>
+                  </VTooltip>
+                </span>
                 <span class="text-body-2 projection__num">
                   {{ $formatAmount(row.monthly_remaining) }}
                 </span>
               </div>
               <div class="projection-month-card__cell">
-                <span class="text-caption text-medium-emphasis">Libre U</span>
+                <span class="text-caption text-medium-emphasis d-inline-flex align-center gap-1">
+                  Libre U
+                  <VTooltip
+                    location="top"
+                    max-width="280"
+                  >
+                    <template #activator="{ props: tipProps }">
+                      <VIcon
+                        v-bind="tipProps"
+                        icon="ri-information-line"
+                        size="14"
+                        class="text-medium-emphasis"
+                      />
+                    </template>
+                    <span>{{ columnTooltips.universityFreed }}</span>
+                  </VTooltip>
+                </span>
                 <span
                   class="text-body-2 projection__num"
                   :class="{ 'projection__freed': row.university_freed > 0 }"
@@ -699,13 +771,45 @@
               </div>
             </template>
             <div class="projection-month-card__cell">
-              <span class="text-caption text-medium-emphasis">Δ mes</span>
+              <span class="text-caption text-medium-emphasis d-inline-flex align-center gap-1">
+                Δ mes
+                <VTooltip
+                  location="top"
+                  max-width="280"
+                >
+                  <template #activator="{ props: tipProps }">
+                    <VIcon
+                      v-bind="tipProps"
+                      icon="ri-information-line"
+                      size="14"
+                      class="text-medium-emphasis"
+                    />
+                  </template>
+                  <span>{{ columnTooltips.delta }}</span>
+                </VTooltip>
+              </span>
               <span class="text-body-2 projection__num projection__delta">
                 {{ $formatAmount(row.delta) }}
               </span>
             </div>
             <div class="projection-month-card__cell">
-              <span class="text-caption text-medium-emphasis">Saldo</span>
+              <span class="text-caption text-medium-emphasis d-inline-flex align-center gap-1">
+                Saldo
+                <VTooltip
+                  location="top"
+                  max-width="280"
+                >
+                  <template #activator="{ props: tipProps }">
+                    <VIcon
+                      v-bind="tipProps"
+                      icon="ri-information-line"
+                      size="14"
+                      class="text-medium-emphasis"
+                    />
+                  </template>
+                  <span>{{ columnTooltips.balance }}</span>
+                </VTooltip>
+              </span>
               <span class="text-body-2 font-weight-semibold projection__num">
                 {{ $formatAmount(row.balance) }}
               </span>
@@ -731,31 +835,127 @@
               v-if="projectionMode === 'real'"
               class="text-right"
             >
-              Salario
+              <span class="d-inline-flex align-center justify-end gap-1">
+                Salario
+                <VTooltip
+                  location="top"
+                  max-width="280"
+                >
+                  <template #activator="{ props: tipProps }">
+                    <VIcon
+                      v-bind="tipProps"
+                      icon="ri-information-line"
+                      size="16"
+                      class="text-medium-emphasis"
+                    />
+                  </template>
+                  <span>{{ columnTooltips.salary }}</span>
+                </VTooltip>
+              </span>
             </th>
             <th
               v-if="projectionMode === 'real'"
               class="text-right"
             >
-              Gastos
+              <span class="d-inline-flex align-center justify-end gap-1">
+                Gastos
+                <VTooltip
+                  location="top"
+                  max-width="280"
+                >
+                  <template #activator="{ props: tipProps }">
+                    <VIcon
+                      v-bind="tipProps"
+                      icon="ri-information-line"
+                      size="16"
+                      class="text-medium-emphasis"
+                    />
+                  </template>
+                  <span>{{ columnTooltips.expenses }}</span>
+                </VTooltip>
+              </span>
             </th>
             <th
               v-if="projectionMode === 'fixed'"
               class="text-right"
             >
-              Queda
+              <span class="d-inline-flex align-center justify-end gap-1">
+                Queda
+                <VTooltip
+                  location="top"
+                  max-width="280"
+                >
+                  <template #activator="{ props: tipProps }">
+                    <VIcon
+                      v-bind="tipProps"
+                      icon="ri-information-line"
+                      size="16"
+                      class="text-medium-emphasis"
+                    />
+                  </template>
+                  <span>{{ columnTooltips.remaining }}</span>
+                </VTooltip>
+              </span>
             </th>
             <th
               v-if="projectionMode === 'fixed'"
               class="text-right"
             >
-              Libre U
+              <span class="d-inline-flex align-center justify-end gap-1">
+                Libre U
+                <VTooltip
+                  location="top"
+                  max-width="280"
+                >
+                  <template #activator="{ props: tipProps }">
+                    <VIcon
+                      v-bind="tipProps"
+                      icon="ri-information-line"
+                      size="16"
+                      class="text-medium-emphasis"
+                    />
+                  </template>
+                  <span>{{ columnTooltips.universityFreed }}</span>
+                </VTooltip>
+              </span>
             </th>
             <th class="text-right">
-              Δ mes
+              <span class="d-inline-flex align-center justify-end gap-1">
+                Δ mes
+                <VTooltip
+                  location="top"
+                  max-width="280"
+                >
+                  <template #activator="{ props: tipProps }">
+                    <VIcon
+                      v-bind="tipProps"
+                      icon="ri-information-line"
+                      size="16"
+                      class="text-medium-emphasis"
+                    />
+                  </template>
+                  <span>{{ columnTooltips.delta }}</span>
+                </VTooltip>
+              </span>
             </th>
             <th class="text-right">
-              Saldo
+              <span class="d-inline-flex align-center justify-end gap-1">
+                Saldo
+                <VTooltip
+                  location="top"
+                  max-width="280"
+                >
+                  <template #activator="{ props: tipProps }">
+                    <VIcon
+                      v-bind="tipProps"
+                      icon="ri-information-line"
+                      size="16"
+                      class="text-medium-emphasis"
+                    />
+                  </template>
+                  <span>{{ columnTooltips.balance }}</span>
+                </VTooltip>
+              </span>
             </th>
           </tr>
         </thead>
@@ -769,14 +969,25 @@
               {{ row.label }}
             </td>
             <td>
-              <VChip
-                size="small"
-                rounded="lg"
-                :color="row.pays_university ? 'info' : 'success'"
-                variant="tonal"
-              >
-                {{ row.kind_label }}
-              </VChip>
+              <div class="d-flex flex-wrap align-center gap-2">
+                <VChip
+                  size="small"
+                  rounded="lg"
+                  :color="row.pays_university ? 'info' : 'success'"
+                  variant="tonal"
+                >
+                  {{ row.kind_label }}
+                </VChip>
+                <VChip
+                  v-if="projectionMode === 'real' && row.partial"
+                  size="small"
+                  rounded="lg"
+                  color="warning"
+                  variant="tonal"
+                >
+                  Parcial
+                </VChip>
+              </div>
             </td>
             <td
               v-if="projectionMode === 'real'"
@@ -784,8 +995,8 @@
             >
               <span class="d-inline-flex align-center justify-end gap-1">
                 <VTooltip
-                  v-if="isPartialSalaryMonth(row)"
                   location="top"
+                  max-width="320"
                 >
                   <template #activator="{ props: tipProps }">
                     <VIcon
@@ -804,7 +1015,23 @@
               v-if="projectionMode === 'real'"
               class="text-right projection__num"
             >
-              {{ $formatAmount(row.expenses_out) }}
+              <span class="d-inline-flex align-center justify-end gap-1">
+                <VTooltip
+                  location="top"
+                  max-width="280"
+                >
+                  <template #activator="{ props: tipProps }">
+                    <VIcon
+                      v-bind="tipProps"
+                      icon="ri-information-line"
+                      size="16"
+                      class="text-medium-emphasis"
+                    />
+                  </template>
+                  <span>{{ expensesOutTooltip(row) }}</span>
+                </VTooltip>
+                <span>{{ $formatAmount(row.expenses_out) }}</span>
+              </span>
             </td>
             <td
               v-if="projectionMode === 'fixed'"
@@ -835,10 +1062,9 @@
         class="pt-4 text-body-2 text-medium-emphasis"
       >
         <template v-if="projectionMode === 'real'">
-          Simula el 1 y el 15: entra el salario quincenal y salen los pagos fijos.
-          El saldo inicial es el de hoy (ya incluye quincenas pasadas).
-          En el año actual solo proyecta quincenas que faltan — por eso septiembre puede verse en 221 (el 15), no 443.
-          En meses sin U no descuenta la cuota.
+          Cada mes muestra salario y gastos completos (ambas quincenas; sin U si el mes es libre).
+          El saldo parte de hoy: lo ya pasado del mes en curso no se vuelve a sumar.
+          Ejemplo sept: 80 + 221 − 100 (casa; U no se paga) ≈ 201. Gastos del mes ≈ 294 (sin los 110 de U).
         </template>
         <template v-else>
           En meses con pago U solo suma lo que te queda.
@@ -904,6 +1130,8 @@ export default {
       },
       sources: {
         account_balance: 0,
+        prior_month_balance: 0,
+        prior_month_label: '',
         fixed_payments_remaining: 0,
         payday_amount: 0,
         monthly_salary: 0,
@@ -934,6 +1162,10 @@ export default {
     },
 
     startingBalanceHint() {
+      if (this.projectionMode === 'real' && this.sources.prior_month_label) {
+        return `Saldo hoy: ${this.$formatAmount(this.sources.account_balance)} · cierre ${this.sources.prior_month_label}: ${this.$formatAmount(this.sources.prior_month_balance)}`
+      }
+
       return `Saldo en cuenta hoy: ${this.$formatAmount(this.sources.account_balance)}`
     },
 
@@ -976,6 +1208,24 @@ export default {
       return from > to
     },
 
+    columnTooltips() {
+      if (this.projectionMode === 'real') {
+        return {
+          salary: 'Salario del mes completo (quincena del 1 + quincena del 15). Si el mes es parcial, el saldo de hoy ya incluye lo del 1; el Δ solo suma lo que falta.',
+          expenses: 'Pagos fijos del mes (primero + segundo). En meses sin U no cuenta la cuota de universidad.',
+          delta: 'Lo que aún mueve el saldo desde hoy: quincenas pendientes − sus gastos. En un mes completo coincide con salario − gastos.',
+          balance: 'Saldo acumulado al cierre del mes. En el mes en curso: saldo de hoy + Δ pendiente (ej. 80 + 221 − 100 ≈ 201).',
+        }
+      }
+
+      return {
+        remaining: 'Monto “queda al mes” (salario − pagos fijos, o el valor guardado en proyección).',
+        universityFreed: 'En meses sin pago U se suma la cuota, porque esa plata no sale de la cuenta.',
+        delta: 'Queda al mes + liberado por U (si el mes es libre).',
+        balance: 'Saldo acumulado partiendo del saldo inicial + Δ de cada mes.',
+      }
+    },
+
     summaryCards() {
       const s = this.summary || {
         total_monthly_remaining: 0,
@@ -994,6 +1244,7 @@ export default {
             title: 'Saldo al final',
             value: this.$formatAmount(s.ending_balance),
             subtitle: `Partiendo de ${this.$formatAmount(this.startingBalance)}`,
+            tooltip: 'Saldo inicial + salario proyectado − gastos proyectados en el rango.',
             icon: 'ri-wallet-3-line',
             color: 'primary',
             valueClass: 'text-primary',
@@ -1002,6 +1253,7 @@ export default {
             title: 'Salario proyectado',
             value: this.$formatAmount(s.total_salary_in),
             subtitle: `Quincena ${this.$formatAmount((this.$parseAmount(this.monthlySalaryInput) || this.sources.monthly_salary || 0) / 2)}`,
+            tooltip: 'Suma de lo que aún entra desde hoy (quincenas pendientes). El detalle mes a mes muestra el salario completo del mes.',
             icon: 'ri-money-dollar-circle-line',
             color: 'info',
             valueClass: '',
@@ -1010,6 +1262,7 @@ export default {
             title: 'Gastos proyectados',
             value: this.$formatAmount(s.total_expenses_out),
             subtitle: `${s.free_months_count} mes(es) sin U`,
+            tooltip: 'Suma de lo que aún sale desde hoy. En cada mes, la columna Gastos muestra el mes completo (sin U si aplica).',
             icon: 'ri-bill-line',
             color: 'error',
             valueClass: '',
@@ -1018,6 +1271,7 @@ export default {
             title: 'Δ total',
             value: this.$formatAmount(s.total_delta),
             subtitle: 'Ingresos − gastos',
+            tooltip: 'Salario proyectado − gastos proyectados en todo el rango.',
             icon: 'ri-line-chart-line',
             color: 'warning',
             valueClass: 'projection__delta',
@@ -1030,6 +1284,7 @@ export default {
           title: 'Saldo al final',
           value: this.$formatAmount(s.ending_balance),
           subtitle: `Partiendo de ${this.$formatAmount(this.startingBalance)}`,
+          tooltip: 'Saldo inicial + suma de “queda” + liberado por U en el rango.',
           icon: 'ri-wallet-3-line',
           color: 'primary',
           valueClass: 'text-primary',
@@ -1038,6 +1293,7 @@ export default {
           title: 'Suma de “quedan libres al mes”',
           value: this.$formatAmount(s.total_monthly_remaining),
           subtitle: `${s.payment_months_count + s.free_months_count} meses`,
+          tooltip: '“Queda al mes” × cantidad de meses del rango (salario − fijos, o el monto guardado).',
           icon: 'ri-stack-line',
           color: 'info',
           valueClass: '',
@@ -1046,6 +1302,7 @@ export default {
           title: 'Liberado por U',
           value: this.$formatAmount(s.total_university_freed),
           subtitle: `${s.free_months_count} mes(es) sin pago`,
+          tooltip: 'Cuota U × meses sin pago. Esa plata se queda en la cuenta.',
           icon: 'ri-gift-line',
           color: 'success',
           valueClass: 'projection__freed',
@@ -1054,6 +1311,7 @@ export default {
           title: 'Total proyectado',
           value: this.$formatAmount(s.total_delta),
           subtitle: 'Queda + liberado U',
+          tooltip: 'Suma de lo que queda cada mes más lo liberado en meses sin U.',
           icon: 'ri-line-chart-line',
           color: 'warning',
           valueClass: 'projection__delta',
@@ -1170,6 +1428,8 @@ export default {
       }
       this.sources = {
         account_balance: data.sources.account_balance ?? 0,
+        prior_month_balance: data.sources.prior_month_balance ?? data.sources.account_balance ?? 0,
+        prior_month_label: data.sources.prior_month_label ?? '',
         fixed_payments_remaining: data.sources.fixed_payments_remaining ?? 0,
         payday_amount: data.sources.payday_amount ?? 0,
         monthly_salary: data.sources.monthly_salary ?? 0,
@@ -1213,29 +1473,39 @@ export default {
     },
 
     salaryInTooltip(row) {
-      const day1 = row?.primero?.applied
-      const day15 = row?.segundo?.applied
+      const q = this.$formatAmount(row?.primero?.full_income || row?.segundo?.full_income || 0)
+      const full = this.$formatAmount(row.salary_in)
+      const pending = this.$formatAmount(row.projected_salary_in ?? 0)
 
-      if (day1 && day15) {
-        return 'Salario que entra este mes: quincenas del 1 y del 15.'
+      if (row.partial && row?.primero?.skipped && row?.segundo?.applied) {
+        return `Mes completo: ${full} (2 × ${q}). El saldo de hoy ya incluye el 1. Desde hoy solo suma el 15: ${pending}.`
       }
 
-      if (!day1 && day15) {
-        return 'Solo cuenta la quincena del 15. La del 1 ya pasó y está incluida en el saldo inicial.'
+      if (row.partial) {
+        return `Mes completo: ${full}. Pendiente desde hoy: ${pending}.`
       }
 
-      if (day1 && !day15) {
-        return 'Solo cuenta la quincena del 1. La del 15 ya pasó o no aplica en este corte.'
-      }
-
-      return 'No quedan quincenas por sumar este mes: ya estaban reflejadas en el saldo inicial.'
+      return `Salario del mes: ${full} (quincenas del 1 y del 15).`
     },
 
-    isPartialSalaryMonth(row) {
-      const day1 = Boolean(row?.primero?.applied)
-      const day15 = Boolean(row?.segundo?.applied)
+    expensesOutTooltip(row) {
+      const p = this.$formatAmount(row?.primero?.full_expense || 0)
+      const s = this.$formatAmount(row?.segundo?.full_expense || 0)
+      const full = this.$formatAmount(row.expenses_out)
+      const pending = this.$formatAmount(row.projected_expenses_out ?? 0)
+      const freed = row.university_freed > 0
+        ? ` Sin U este mes (−${this.$formatAmount(row.university_freed)}).`
+        : ''
 
-      return !(day1 && day15)
+      if (row.partial && row?.primero?.skipped && row?.segundo?.applied) {
+        return `Mes completo: ${full} = primero ${p} + segundo ${s}.${freed} El 1 ya está en el saldo de hoy. Desde hoy solo sale el 15: ${pending}. Fin de mes ≈ saldo hoy + ${this.$formatAmount(row.projected_salary_in)} − ${pending}.`
+      }
+
+      if (row.partial) {
+        return `Mes completo: ${full}.${freed} Pendiente desde hoy: ${pending}.`
+      }
+
+      return `Gastos del mes: ${full} = primero ${p} + segundo ${s}.${freed}`
     },
 
     saveAndReload({ clearRemainingOverride = false, closeSheet = false } = {}) {
