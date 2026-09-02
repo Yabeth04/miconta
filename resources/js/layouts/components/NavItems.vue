@@ -48,6 +48,14 @@ const { isSysAdmin } = storeToRefs(auth)
         child: true,
       }"
     />
+    <VerticalNavLink
+      :item="{
+        title: 'Proyección',
+        icon: 'ri-line-chart-line',
+        to: '/proyeccion',
+        child: true,
+      }"
+    />
   </VerticalNavGroup>
 
   <VerticalNavLink

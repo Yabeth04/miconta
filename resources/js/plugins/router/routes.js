@@ -31,6 +31,11 @@ export const routes = [
         meta: { auth: true },
       },
       {
+        path: 'proyeccion',
+        component: () => import('@/pages/moduleProjection.vue'),
+        meta: { auth: true },
+      },
+      {
         path: 'plan-estudios',
         component: () => import('@/pages/moduleStudyPlan.vue'),
         meta: { auth: true, role: 'sysAdmin' },

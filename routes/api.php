@@ -6,6 +6,7 @@ use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\FixedPaymentController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProjectionController;
 use App\Http\Controllers\StudyPlanController;
 use Illuminate\Support\Facades\Route;
 
@@ -38,6 +39,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('fixed-payments', [FixedPaymentController::class, 'store']);
     Route::put('fixed-payments/{fixedPayment}', [FixedPaymentController::class, 'update']);
     Route::delete('fixed-payments/{fixedPayment}', [FixedPaymentController::class, 'destroy']);
+
+    Route::get('projection', [ProjectionController::class, 'show']);
+    Route::put('projection/settings', [ProjectionController::class, 'updateSettings']);
 
     Route::middleware('sysadmin')->group(function () {
         Route::get('users', [AdminUserController::class, 'index']);
