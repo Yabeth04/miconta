@@ -22,6 +22,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('accounting/import', [AccountingController::class, 'import']);
     Route::post('accounting/bulk-update', [AccountingController::class, 'bulkUpdate']);
     Route::post('accounting/bulk-destroy', [AccountingController::class, 'bulkDestroy']);
+    Route::post('accounting/destroy-all', [AccountingController::class, 'destroyAll']);
     Route::get('accounting/settings', [AccountingController::class, 'showSettings']);
     Route::put('accounting/settings', [AccountingController::class, 'updateSettings']);
 

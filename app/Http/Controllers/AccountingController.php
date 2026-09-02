@@ -348,6 +348,23 @@ class AccountingController extends Controller
         ], 200);
     }
 
+    public function destroyAll(Request $request)
+    {
+        $request->validate([
+            'current_password' => ['required', 'current_password'],
+            'confirmation'     => ['required', 'in:ELIMINAR'],
+        ]);
+
+        $deleted = Accounting::query()
+            ->where('user_id', $request->user()->id)
+            ->delete();
+
+        return response()->json([
+            'deleted' => $deleted,
+            'message' => 'Movimientos eliminados.',
+        ], 200);
+    }
+
     private function bulkUpdatePayload(Request $request, array $input): array
     {
         $payload = [];

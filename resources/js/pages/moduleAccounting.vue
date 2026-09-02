@@ -1,26 +1,4 @@
 <template>
-  <div
-    v-if="mdAndUp"
-    class="d-flex flex-wrap align-center justify-space-between gap-3 mb-4"
-  >
-    <div>
-      <h1 class="text-h4 font-weight-medium mb-1">
-        Contabilidad
-      </h1>
-      <p class="text-body-2 text-medium-emphasis mb-0">
-        Registrá y consultá tus movimientos
-      </p>
-    </div>
-    <VBtn
-      variant="tonal"
-      rounded="lg"
-      prepend-icon="ri-price-tag-3-line"
-      to="/contabilidad/conceptos"
-    >
-      Conceptos
-    </VBtn>
-  </div>
-
   <!-- Móvil: registrar + filtros + buscador -->
   <template v-if="mdAndDown">
     <AccountingMobileFormSheet
@@ -104,6 +82,14 @@
               prepend-icon="ri-checkbox-multiple-line"
               title="Seleccionar"
               @click="toggleSelectionMode"
+            />
+            <VDivider class="my-1" />
+            <VListItem
+              prepend-icon="ri-delete-bin-7-line"
+              title="Limpiar movimientos"
+              base-color="error"
+              :disabled="!totalCount"
+              @click="openClearAllDialog"
             />
           </VList>
         </VMenu>
@@ -263,7 +249,131 @@
     </VCard>
   </VDialog>
 
-  <VContainer :class="mdAndDown ? 'pa-0 mt-4' : ''">
+  <VDialog
+    v-model="clearAllDialog"
+    max-width="480"
+    persistent
+  >
+    <VCard rounded="lg">
+      <VCardTitle class="text-h6 px-5 pt-5 pb-3">
+        Limpiar todos los movimientos
+      </VCardTitle>
+
+      <VDivider />
+
+      <VCardText class="pa-5 d-flex flex-column gap-4">
+        <VAlert
+          type="warning"
+          variant="tonal"
+          rounded="lg"
+        >
+          Se eliminarán <strong>{{ totalCount }}</strong> movimiento{{ totalCount === 1 ? '' : 's' }}.
+          Esta acción no se puede deshacer. El saldo inicial se mantiene.
+        </VAlert>
+
+        <VAlert
+          v-if="clearAllError"
+          type="error"
+          variant="tonal"
+          rounded="lg"
+        >
+          {{ clearAllError }}
+        </VAlert>
+
+        <VCheckbox
+          v-model="clearAllAcknowledged"
+          hide-details
+          label="Entiendo que se borrarán todos mis movimientos"
+        />
+
+        <VTextField
+          v-model="clearAllConfirmation"
+          label='Escribí "ELIMINAR" para confirmar'
+          placeholder="ELIMINAR"
+          variant="outlined"
+          rounded="lg"
+          hide-details="auto"
+          :error-messages="clearAllFieldError('confirmation')"
+        />
+
+        <VTextField
+          v-model="clearAllPassword"
+          label="Contraseña actual"
+          placeholder="············"
+          :type="clearAllPasswordVisible ? 'text' : 'password'"
+          :append-inner-icon="clearAllPasswordVisible ? 'ri-eye-off-line' : 'ri-eye-line'"
+          autocomplete="current-password"
+          variant="outlined"
+          rounded="lg"
+          hide-details="auto"
+          :error-messages="clearAllFieldError('current_password')"
+          @click:append-inner="clearAllPasswordVisible = !clearAllPasswordVisible"
+        />
+      </VCardText>
+
+      <VCardActions class="px-5 pb-5">
+        <VSpacer />
+        <VBtn
+          variant="text"
+          rounded="lg"
+          :disabled="clearingAll"
+          @click="closeClearAllDialog"
+        >
+          Cancelar
+        </VBtn>
+        <VBtn
+          color="error"
+          variant="flat"
+          rounded="lg"
+          :loading="clearingAll"
+          :disabled="!canConfirmClearAll"
+          @click="confirmClearAll"
+        >
+          Eliminar todo
+        </VBtn>
+      </VCardActions>
+    </VCard>
+  </VDialog>
+
+  <VContainer
+    fluid
+    class="accounting-module"
+    :class="mdAndDown ? 'pa-0 mt-4' : ''"
+  >
+    <div
+      v-if="mdAndUp"
+      class="d-flex flex-wrap align-center justify-space-between gap-3 mb-4"
+    >
+      <div>
+        <h1 class="text-h4 font-weight-medium mb-1">
+          Contabilidad
+        </h1>
+        <p class="text-body-2 text-medium-emphasis mb-0">
+          Registrá y consultá tus movimientos
+        </p>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <VBtn
+          variant="tonal"
+          rounded="lg"
+          prepend-icon="ri-price-tag-3-line"
+          to="/contabilidad/conceptos"
+        >
+          Conceptos
+        </VBtn>
+        <VBtn
+          variant="outlined"
+          color="error"
+          rounded="lg"
+          prepend-icon="ri-delete-bin-7-line"
+          :disabled="!totalCount"
+          @click="openClearAllDialog"
+        >
+          Limpiar movimientos
+        </VBtn>
+      </div>
+    </div>
+
     <!-- Escritorio: alta en una sola fila -->
     <VForm
       v-if="mdAndUp"
@@ -566,8 +676,7 @@
               />
             </th>
             <th
-              class="accounting-table__th text-start"
-              width="120px"
+              class="accounting-table__th text-start accounting-table__th--date"
             >
               Fecha
             </th>
@@ -1037,6 +1146,14 @@ export default {
       selectedIds: [],
       bulkEditDialog: false,
       mobileSearchOpen: false,
+      clearAllDialog: false,
+      clearAllAcknowledged: false,
+      clearAllConfirmation: '',
+      clearAllPassword: '',
+      clearAllPasswordVisible: false,
+      clearingAll: false,
+      clearAllError: '',
+      clearAllFieldErrors: {},
     }
   },
   computed: {
@@ -1064,6 +1181,13 @@ export default {
       }
 
       return '¿Eliminar este movimiento? No se puede deshacer.'
+    },
+    canConfirmClearAll() {
+      return this.clearAllAcknowledged
+        && this.clearAllConfirmation.trim().toUpperCase() === 'ELIMINAR'
+        && Boolean(this.clearAllPassword)
+        && this.totalCount > 0
+        && !this.clearingAll
     },
     hasSheetFilters() {
       const range = this.filterDateRange
@@ -1362,6 +1486,56 @@ export default {
       this.deleteMode = 'bulk'
       this.deleteDialog = true
     },
+    openClearAllDialog() {
+      if (!this.totalCount)
+        return
+
+      this.clearAllAcknowledged = false
+      this.clearAllConfirmation = ''
+      this.clearAllPassword = ''
+      this.clearAllPasswordVisible = false
+      this.clearAllError = ''
+      this.clearAllFieldErrors = {}
+      this.clearAllDialog = true
+    },
+    closeClearAllDialog() {
+      if (this.clearingAll)
+        return
+
+      this.clearAllDialog = false
+    },
+    clearAllFieldError(field) {
+      return this.clearAllFieldErrors[field]?.[0] || null
+    },
+    async confirmClearAll() {
+      if (!this.canConfirmClearAll || this.clearingAll)
+        return
+
+      this.clearingAll = true
+      this.clearAllError = ''
+      this.clearAllFieldErrors = {}
+
+      try {
+        const response = await axios.post('/api/accounting/destroy-all', {
+          current_password: this.clearAllPassword,
+          confirmation: this.clearAllConfirmation.trim().toUpperCase(),
+        })
+
+        this.clearAllDialog = false
+        this.selectionMode = false
+        this.clearSelection()
+        this.refreshAccounting()
+        this.$toast.success(
+          `Eliminados ${response.data.deleted} movimiento${response.data.deleted === 1 ? '' : 's'}`,
+          { timeout: 2500, closeOnClick: true },
+        )
+      } catch (error) {
+        this.clearAllError = error.response?.data?.message || 'No se pudieron eliminar los movimientos.'
+        this.clearAllFieldErrors = error.response?.data?.errors || {}
+      } finally {
+        this.clearingAll = false
+      }
+    },
     openBulkEdit() {
       if (!this.selectedIds.length)
         return
@@ -1476,6 +1650,11 @@ export default {
 </script>
 
 <style scoped>
+.accounting-module {
+  width: 100%;
+  max-width: 100%;
+}
+
 .accounting-form-card,
 .accounting-table-card {
   border-color: rgba(var(--v-theme-on-surface), 0.08);
@@ -1483,14 +1662,19 @@ export default {
 
 .accounting-form-grid {
   display: grid;
-  grid-template-columns: minmax(140px, 0.9fr) minmax(180px, 1.4fr) minmax(120px, 0.9fr) minmax(120px, 0.9fr) minmax(160px, 1fr);
+  grid-template-columns: minmax(140px, 1fr) minmax(200px, 1.6fr) minmax(120px, 1fr) minmax(120px, 1fr) minmax(160px, 1.1fr);
   gap: 0.75rem;
   align-items: start;
 }
 
+.accounting-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
 .accounting-table__th--concept,
 .accounting-table__concept {
-  max-width: 140px;
+  width: 22%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1498,7 +1682,7 @@ export default {
 
 .accounting-table__th--detail,
 .accounting-table__detail {
-  max-width: 220px;
+  width: 28%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1534,8 +1718,13 @@ export default {
   white-space: nowrap;
 }
 
+.accounting-table__th--date {
+  width: 9%;
+  white-space: nowrap;
+}
+
 .accounting-table__th--narrow {
-  width: 1%;
+  width: 12%;
   white-space: nowrap;
 }
 
@@ -1647,7 +1836,7 @@ export default {
 /* Montos compactos y juntos a la derecha */
 .accounting-table__th--amount,
 .accounting-table__amount {
-  width: 1%;
+  width: 11%;
   white-space: nowrap;
   font-size: 14px;
   padding-inline: 0.75rem !important;
