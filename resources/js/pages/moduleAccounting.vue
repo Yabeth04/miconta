@@ -249,91 +249,11 @@
     </VCard>
   </VDialog>
 
-  <VDialog
+  <AccountingClearAllDialog
     v-model="clearAllDialog"
-    max-width="480"
-    persistent
-  >
-    <VCard rounded="lg">
-      <VCardTitle class="text-h6 px-5 pt-5 pb-3">
-        Limpiar todos los movimientos
-      </VCardTitle>
-
-      <VDivider />
-
-      <VCardText class="pa-5 d-flex flex-column gap-4">
-        <VAlert
-          type="warning"
-          variant="tonal"
-          rounded="lg"
-        >
-          Se eliminarán <strong>{{ totalCount }}</strong> movimiento{{ totalCount === 1 ? '' : 's' }}.
-          Esta acción no se puede deshacer. El saldo inicial se mantiene.
-        </VAlert>
-
-        <VAlert
-          v-if="clearAllError"
-          type="error"
-          variant="tonal"
-          rounded="lg"
-        >
-          {{ clearAllError }}
-        </VAlert>
-
-        <VCheckbox
-          v-model="clearAllAcknowledged"
-          hide-details
-          label="Entiendo que se borrarán todos mis movimientos"
-        />
-
-        <VTextField
-          v-model="clearAllConfirmation"
-          label='Escribí "ELIMINAR" para confirmar'
-          placeholder="ELIMINAR"
-          variant="outlined"
-          rounded="lg"
-          hide-details="auto"
-          :error-messages="clearAllFieldError('confirmation')"
-        />
-
-        <VTextField
-          v-model="clearAllPassword"
-          label="Contraseña actual"
-          placeholder="············"
-          :type="clearAllPasswordVisible ? 'text' : 'password'"
-          :append-inner-icon="clearAllPasswordVisible ? 'ri-eye-off-line' : 'ri-eye-line'"
-          autocomplete="current-password"
-          variant="outlined"
-          rounded="lg"
-          hide-details="auto"
-          :error-messages="clearAllFieldError('current_password')"
-          @click:append-inner="clearAllPasswordVisible = !clearAllPasswordVisible"
-        />
-      </VCardText>
-
-      <VCardActions class="px-5 pb-5">
-        <VSpacer />
-        <VBtn
-          variant="text"
-          rounded="lg"
-          :disabled="clearingAll"
-          @click="closeClearAllDialog"
-        >
-          Cancelar
-        </VBtn>
-        <VBtn
-          color="error"
-          variant="flat"
-          rounded="lg"
-          :loading="clearingAll"
-          :disabled="!canConfirmClearAll"
-          @click="confirmClearAll"
-        >
-          Eliminar todo
-        </VBtn>
-      </VCardActions>
-    </VCard>
-  </VDialog>
+    :total-count="totalCount"
+    @cleared="onAllMovementsCleared"
+  />
 
   <VContainer
     fluid
@@ -1062,6 +982,7 @@
 import submittedVuelidateForm from '@/mixins/submittedVuelidateForm'
 import { axios } from '@/plugins/axios'
 import AccountingBulkEditDialog from '@/views/pages/accounting/AccountingBulkEditDialog.vue'
+import AccountingClearAllDialog from '@/views/pages/accounting/AccountingClearAllDialog.vue'
 import AccountingConceptCombobox from '@/views/pages/accounting/AccountingConceptCombobox.vue'
 import AccountingEditDialog from '@/views/pages/accounting/AccountingEditDialog.vue'
 import AccountingMobileEditSheet from '@/views/pages/accounting/AccountingMobileEditSheet.vue'
@@ -1078,6 +999,7 @@ export default {
   name: 'ModuleAccounting',
   components: {
     AccountingBulkEditDialog,
+    AccountingClearAllDialog,
     AccountingConceptCombobox,
     AccountingEditDialog,
     AccountingMobileEditSheet,
@@ -1149,13 +1071,6 @@ export default {
       bulkEditDialog: false,
       mobileSearchOpen: false,
       clearAllDialog: false,
-      clearAllAcknowledged: false,
-      clearAllConfirmation: '',
-      clearAllPassword: '',
-      clearAllPasswordVisible: false,
-      clearingAll: false,
-      clearAllError: '',
-      clearAllFieldErrors: {},
     }
   },
   computed: {
@@ -1183,13 +1098,6 @@ export default {
       }
 
       return '¿Eliminar este movimiento? No se puede deshacer.'
-    },
-    canConfirmClearAll() {
-      return this.clearAllAcknowledged
-        && this.clearAllConfirmation.trim().toUpperCase() === 'ELIMINAR'
-        && Boolean(this.clearAllPassword)
-        && this.totalCount > 0
-        && !this.clearingAll
     },
     hasSheetFilters() {
       const range = this.filterDateRange
@@ -1489,54 +1397,16 @@ export default {
       this.deleteDialog = true
     },
     openClearAllDialog() {
-      if (!this.totalCount)
+      if (!this.totalCount) {
         return
+      }
 
-      this.clearAllAcknowledged = false
-      this.clearAllConfirmation = ''
-      this.clearAllPassword = ''
-      this.clearAllPasswordVisible = false
-      this.clearAllError = ''
-      this.clearAllFieldErrors = {}
       this.clearAllDialog = true
     },
-    closeClearAllDialog() {
-      if (this.clearingAll)
-        return
-
-      this.clearAllDialog = false
-    },
-    clearAllFieldError(field) {
-      return this.clearAllFieldErrors[field]?.[0] || null
-    },
-    async confirmClearAll() {
-      if (!this.canConfirmClearAll || this.clearingAll)
-        return
-
-      this.clearingAll = true
-      this.clearAllError = ''
-      this.clearAllFieldErrors = {}
-
-      try {
-        const response = await axios.post('/api/accounting/destroy-all', {
-          current_password: this.clearAllPassword,
-          confirmation: this.clearAllConfirmation.trim().toUpperCase(),
-        })
-
-        this.clearAllDialog = false
-        this.selectionMode = false
-        this.clearSelection()
-        this.refreshAccounting()
-        this.$toast.success(
-          `Eliminados ${response.data.deleted} movimiento${response.data.deleted === 1 ? '' : 's'}`,
-          { timeout: 2500, closeOnClick: true },
-        )
-      } catch (error) {
-        this.clearAllError = error.response?.data?.message || 'No se pudieron eliminar los movimientos.'
-        this.clearAllFieldErrors = error.response?.data?.errors || {}
-      } finally {
-        this.clearingAll = false
-      }
+    onAllMovementsCleared() {
+      this.selectionMode = false
+      this.clearSelection()
+      this.refreshAccounting()
     },
     openBulkEdit() {
       if (!this.selectedIds.length)
@@ -1608,14 +1478,17 @@ export default {
       this.refreshAccounting()
     },
     async confirmDelete() {
-      if (this.deleting)
+      if (this.deleting) {
         return
+      }
 
-      if (this.deleteMode === 'single' && !this.deleteTarget?.id)
+      if (this.deleteMode === 'single' && !this.deleteTarget?.id) {
         return
+      }
 
-      if (this.deleteMode === 'bulk' && !this.selectedIds.length)
+      if (this.deleteMode === 'bulk' && !this.selectedIds.length) {
         return
+      }
 
       this.deleting = true
 
