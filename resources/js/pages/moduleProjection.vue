@@ -6,7 +6,9 @@
           Proyección
         </h1>
         <p class="text-body-2 text-medium-emphasis mb-0">
-          Saldo estimado según lo que te queda al mes y los meses sin pago de universidad
+          {{ projectionMode === 'real'
+            ? 'Flujo real desde hoy: salario (1 y 15), pagos fijos y meses sin U'
+            : 'Escenario fijo: lo que te queda al mes y meses sin pago de universidad' }}
         </p>
       </div>
     </div>
@@ -28,6 +30,19 @@
     >
       <VCardText class="projection-form">
         <VRow class="projection-form__row">
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <VSelect
+              v-model="projectionMode"
+              :items="projectionModeOptions"
+              label="Modo"
+              variant="outlined"
+              rounded="lg"
+              hide-details
+            />
+          </VCol>
           <VCol
             cols="6"
             md="3"
@@ -89,12 +104,22 @@
           <VDivider class="projection-form__divider" />
 
           <div class="projection-form__params">
-            <div class="projection-form__params-row">
-              <span class="text-caption text-medium-emphasis">Queda al mes</span>
-              <span class="text-body-2 font-weight-medium projection__num">
-                {{ $formatAmount(settings.monthly_remaining) }}
-              </span>
-            </div>
+            <template v-if="projectionMode === 'fixed'">
+              <div class="projection-form__params-row">
+                <span class="text-caption text-medium-emphasis">Queda al mes</span>
+                <span class="text-body-2 font-weight-medium projection__num">
+                  {{ $formatAmount(settings.monthly_remaining) }}
+                </span>
+              </div>
+            </template>
+            <template v-else>
+              <div class="projection-form__params-row">
+                <span class="text-caption text-medium-emphasis">Salario al mes</span>
+                <span class="text-body-2 font-weight-medium projection__num">
+                  {{ $formatAmount(sources.monthly_salary || 0) }}
+                </span>
+              </div>
+            </template>
             <div class="projection-form__params-row">
               <span class="text-caption text-medium-emphasis">Cuota U</span>
               <span class="text-body-2 font-weight-medium projection__num">
@@ -137,6 +162,7 @@
 
           <VRow class="projection-form__row">
             <VCol
+              v-if="projectionMode === 'fixed'"
               cols="12"
               md="4"
               class="projection-form__field"
@@ -190,8 +216,27 @@
                 variant="outlined"
                 rounded="lg"
                 hide-details="auto"
-                hint="Se suma en meses sin pago U"
+                :hint="projectionMode === 'real'
+                  ? 'No se descuenta en meses sin pago U'
+                  : 'Se suma en meses sin pago U'"
                 persistent-hint
+              />
+            </VCol>
+            <VCol
+              v-if="projectionMode === 'real'"
+              cols="12"
+              md="4"
+              class="projection-form__field"
+            >
+              <VTextField
+                :model-value="$formatAmountValue(sources.monthly_salary || 0)"
+                label="Salario al mes"
+                variant="outlined"
+                rounded="lg"
+                hide-details="auto"
+                :hint="`Quincena (1 y 15): ${$formatAmount(sources.payday_amount || 0)} · se edita en Pagos fijos`"
+                persistent-hint
+                readonly
               />
             </VCol>
             <VCol
@@ -277,6 +322,7 @@
 
         <div class="pa-4">
           <VTextField
+            v-if="projectionMode === 'fixed'"
             v-currency-live
             v-model="monthlyRemainingInput"
             class="monto-with-action mb-4"
@@ -309,6 +355,19 @@
               </VBtn>
             </template>
           </VTextField>
+
+          <VTextField
+            v-if="projectionMode === 'real'"
+            class="mb-4"
+            :model-value="$formatAmountValue(sources.monthly_salary || 0)"
+            label="Salario al mes"
+            variant="outlined"
+            rounded="lg"
+            hide-details="auto"
+            :hint="`Quincena: ${$formatAmount(sources.payday_amount || 0)} · se edita en Pagos fijos`"
+            persistent-hint
+            readonly
+          />
 
           <VTextField
             v-currency-live
@@ -463,21 +522,37 @@
           </div>
 
           <div class="projection-month-card__grid">
-            <div class="projection-month-card__cell">
-              <span class="text-caption text-medium-emphasis">Queda</span>
-              <span class="text-body-2 projection__num">
-                {{ $formatAmount(row.monthly_remaining) }}
-              </span>
-            </div>
-            <div class="projection-month-card__cell">
-              <span class="text-caption text-medium-emphasis">Libre U</span>
-              <span
-                class="text-body-2 projection__num"
-                :class="{ 'projection__freed': row.university_freed > 0 }"
-              >
-                {{ $formatAmount(row.university_freed) }}
-              </span>
-            </div>
+            <template v-if="projectionMode === 'real'">
+              <div class="projection-month-card__cell">
+                <span class="text-caption text-medium-emphasis">Salario in</span>
+                <span class="text-body-2 projection__num">
+                  {{ $formatAmount(row.salary_in) }}
+                </span>
+              </div>
+              <div class="projection-month-card__cell">
+                <span class="text-caption text-medium-emphasis">Gastos out</span>
+                <span class="text-body-2 projection__num">
+                  {{ $formatAmount(row.expenses_out) }}
+                </span>
+              </div>
+            </template>
+            <template v-else>
+              <div class="projection-month-card__cell">
+                <span class="text-caption text-medium-emphasis">Queda</span>
+                <span class="text-body-2 projection__num">
+                  {{ $formatAmount(row.monthly_remaining) }}
+                </span>
+              </div>
+              <div class="projection-month-card__cell">
+                <span class="text-caption text-medium-emphasis">Libre U</span>
+                <span
+                  class="text-body-2 projection__num"
+                  :class="{ 'projection__freed': row.university_freed > 0 }"
+                >
+                  {{ $formatAmount(row.university_freed) }}
+                </span>
+              </div>
+            </template>
             <div class="projection-month-card__cell">
               <span class="text-caption text-medium-emphasis">Δ mes</span>
               <span class="text-body-2 projection__num projection__delta">
@@ -507,10 +582,28 @@
             <th class="text-left">
               Tipo
             </th>
-            <th class="text-right">
+            <th
+              v-if="projectionMode === 'real'"
+              class="text-right"
+            >
+              Salario
+            </th>
+            <th
+              v-if="projectionMode === 'real'"
+              class="text-right"
+            >
+              Gastos
+            </th>
+            <th
+              v-if="projectionMode === 'fixed'"
+              class="text-right"
+            >
               Queda
             </th>
-            <th class="text-right">
+            <th
+              v-if="projectionMode === 'fixed'"
+              class="text-right"
+            >
               Libre U
             </th>
             <th class="text-right">
@@ -540,10 +633,28 @@
                 {{ row.kind_label }}
               </VChip>
             </td>
-            <td class="text-right projection__num">
+            <td
+              v-if="projectionMode === 'real'"
+              class="text-right projection__num"
+            >
+              {{ $formatAmount(row.salary_in) }}
+            </td>
+            <td
+              v-if="projectionMode === 'real'"
+              class="text-right projection__num"
+            >
+              {{ $formatAmount(row.expenses_out) }}
+            </td>
+            <td
+              v-if="projectionMode === 'fixed'"
+              class="text-right projection__num"
+            >
               {{ $formatAmount(row.monthly_remaining) }}
             </td>
-            <td class="text-right projection__num">
+            <td
+              v-if="projectionMode === 'fixed'"
+              class="text-right projection__num"
+            >
               <span :class="{ 'projection__freed': row.university_freed > 0 }">
                 {{ $formatAmount(row.university_freed) }}
               </span>
@@ -562,9 +673,15 @@
         v-if="summary"
         class="pt-4 text-body-2 text-medium-emphasis"
       >
-        En meses con pago U solo suma lo que te queda.
-        En meses sin pago U también suma la cuota ({{ $formatAmount(settings.university_fee) }}),
-        porque esa plata se queda en la cuenta.
+        <template v-if="projectionMode === 'real'">
+          Simula el 1 y el 15: entra el salario quincenal y salen los pagos fijos.
+          En el año actual omite quincenas ya pasadas. En meses sin U no descuenta la cuota.
+        </template>
+        <template v-else>
+          En meses con pago U solo suma lo que te queda.
+          En meses sin pago U también suma la cuota ({{ $formatAmount(settings.university_fee) }}),
+          porque esa plata se queda en la cuenta.
+        </template>
       </VCardText>
     </VCard>
   </div>
@@ -606,6 +723,7 @@ export default {
       saving: false,
       error: '',
       amountsSheet: false,
+      projectionMode: 'fixed',
       year: currentYear,
       rangeMode: 'year',
       fromMonth: 1,
@@ -621,6 +739,8 @@ export default {
       sources: {
         account_balance: 0,
         fixed_payments_remaining: 0,
+        payday_amount: 0,
+        monthly_salary: 0,
       },
       startingBalance: 0,
       months: [],
@@ -629,6 +749,10 @@ export default {
       rangeModeOptions: [
         { title: 'Anual', value: 'year' },
         { title: 'Mensual', value: 'custom' },
+      ],
+      projectionModeOptions: [
+        { title: 'Fija', value: 'fixed' },
+        { title: 'Real', value: 'real' },
       ],
       yearOptions: [currentYear - 1, currentYear, currentYear + 1, currentYear + 2],
     }
@@ -648,8 +772,15 @@ export default {
     },
 
     periodLabel() {
-      if (this.rangeMode === 'year')
+      if (this.rangeMode === 'year') {
+        if (this.projectionMode === 'real' && this.year === new Date().getFullYear()) {
+          const from = MONTH_OPTIONS.find(m => m.value === this.fromMonth)?.title || ''
+
+          return `${from} – Diciembre ${this.year}`
+        }
+
         return `Enero – Diciembre ${this.year}`
+      }
 
       const from = MONTH_OPTIONS.find(m => m.value === this.fromMonth)?.title || ''
       const to = MONTH_OPTIONS.find(m => m.value === this.toMonth)?.title || ''
@@ -661,10 +792,49 @@ export default {
       const s = this.summary || {
         total_monthly_remaining: 0,
         total_university_freed: 0,
+        total_salary_in: 0,
+        total_expenses_out: 0,
         total_delta: 0,
         ending_balance: 0,
         free_months_count: 0,
         payment_months_count: 0,
+      }
+
+      if (this.projectionMode === 'real') {
+        return [
+          {
+            title: 'Saldo al final',
+            value: this.$formatAmount(s.ending_balance),
+            subtitle: `Partiendo de ${this.$formatAmount(this.startingBalance)}`,
+            icon: 'ri-wallet-3-line',
+            color: 'primary',
+            valueClass: 'text-primary',
+          },
+          {
+            title: 'Salario proyectado',
+            value: this.$formatAmount(s.total_salary_in),
+            subtitle: `Quincena ${this.$formatAmount(this.sources.payday_amount || 0)}`,
+            icon: 'ri-money-dollar-circle-line',
+            color: 'info',
+            valueClass: '',
+          },
+          {
+            title: 'Gastos proyectados',
+            value: this.$formatAmount(s.total_expenses_out),
+            subtitle: `${s.free_months_count} mes(es) sin U`,
+            icon: 'ri-bill-line',
+            color: 'error',
+            valueClass: '',
+          },
+          {
+            title: 'Δ total',
+            value: this.$formatAmount(s.total_delta),
+            subtitle: 'Ingresos − gastos',
+            icon: 'ri-line-chart-line',
+            color: 'warning',
+            valueClass: 'projection__delta',
+          },
+        ]
       }
 
       return [
@@ -711,6 +881,10 @@ export default {
         this.toMonth = 12
       }
     },
+    projectionMode() {
+      this.startingBalanceInput = ''
+      this.loadProjection()
+    },
   },
 
   mounted() {
@@ -719,8 +893,15 @@ export default {
 
   methods: {
     effectiveRange() {
-      if (this.rangeMode === 'year')
+      if (this.rangeMode === 'year') {
+        const now = new Date()
+
+        if (this.projectionMode === 'real' && this.year === now.getFullYear()) {
+          return { from_month: now.getMonth() + 1, to_month: 12 }
+        }
+
         return { from_month: 1, to_month: 12 }
+      }
 
       return {
         from_month: this.fromMonth,
@@ -735,6 +916,7 @@ export default {
       const range = this.effectiveRange()
       const starting = this.$parseAmount(this.startingBalanceInput)
       const params = {
+        mode: this.projectionMode,
         year: this.year,
         from_month: range.from_month,
         to_month: range.to_month,
@@ -757,13 +939,29 @@ export default {
     },
 
     applyResponse(data, { preserveStartingInput = false } = {}) {
-      this.settings = data.settings
-      this.sources = data.sources
+      this.projectionMode = data.mode || this.projectionMode
+      this.settings = {
+        university_fee: data.settings.university_fee,
+        monthly_remaining: data.settings.monthly_remaining ?? this.settings.monthly_remaining,
+        uses_fixed_payments_remaining: data.settings.uses_fixed_payments_remaining ?? true,
+      }
+      this.sources = {
+        account_balance: data.sources.account_balance ?? 0,
+        fixed_payments_remaining: data.sources.fixed_payments_remaining ?? 0,
+        payday_amount: data.sources.payday_amount ?? 0,
+        monthly_salary: data.sources.monthly_salary ?? 0,
+      }
       this.startingBalance = data.starting_balance
       this.months = data.months || []
       this.summary = data.summary
+      this.fromMonth = data.from_month
+      this.toMonth = data.to_month
 
-      this.monthlyRemainingInput = this.$formatAmountValue(data.settings.monthly_remaining)
+      if (data.settings.monthly_remaining != null)
+        this.monthlyRemainingInput = this.$formatAmountValue(data.settings.monthly_remaining)
+      else if (data.sources.fixed_payments_remaining != null)
+        this.monthlyRemainingInput = this.$formatAmountValue(data.sources.fixed_payments_remaining)
+
       this.universityFeeInput = this.$formatAmountValue(data.settings.university_fee)
 
       if (!preserveStartingInput)
@@ -788,15 +986,15 @@ export default {
         return
       }
 
-      if (monthlyRemaining === '' || Number.isNaN(monthlyRemaining)) {
+      if (this.projectionMode === 'fixed' && (monthlyRemaining === '' || Number.isNaN(monthlyRemaining))) {
         this.error = 'Ingresa un monto de “queda al mes” válido.'
 
         return
       }
 
-      // Si el monto coincide con pagos fijos, guardar null para seguir sincronizado
       if (
-        !clearRemainingOverride
+        this.projectionMode === 'fixed'
+        && !clearRemainingOverride
         && Math.abs(monthlyRemaining - Number(this.sources.fixed_payments_remaining || 0)) < 0.005
       ) {
         clearRemainingOverride = true
@@ -807,7 +1005,9 @@ export default {
 
       const payload = {
         university_fee: universityFee,
-        monthly_remaining: clearRemainingOverride ? null : monthlyRemaining,
+        monthly_remaining: this.projectionMode === 'real'
+          ? (this.settings.uses_fixed_payments_remaining ? null : this.settings.monthly_remaining)
+          : (clearRemainingOverride ? null : monthlyRemaining),
       }
 
       axios

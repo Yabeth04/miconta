@@ -39,26 +39,37 @@
           :loading="loading"
         >
           <VCardText>
-            <p class="text-caption text-medium-emphasis mb-2">
+            <p class="text-caption text-medium-emphasis mb-3">
               Salario del mes
             </p>
-            <div class="d-flex flex-wrap align-end gap-2">
+
+            <div class="fixed-payments__salary-row">
+              <VSelect
+                v-model="salaryYear"
+                class="fixed-payments__salary-year"
+                :items="salaryYearOptions"
+                label="Año"
+                variant="outlined"
+                rounded="lg"
+                hide-details
+              />
               <VTextField
                 v-currency-live
                 v-model="salaryInput"
+                class="fixed-payments__salary-amount"
                 type="text"
                 inputmode="decimal"
                 autocomplete="off"
-                label="Monto"
+                label="Al mes"
                 variant="outlined"
                 rounded="lg"
-                hide-details="auto"
-                class="flex-grow-1"
+                hide-details
                 :disabled="savingSalary"
                 @blur="onSalaryBlur"
                 @keydown.enter.prevent="onSalaryBlur"
               />
               <VBtn
+                class="fixed-payments__salary-save"
                 variant="tonal"
                 rounded="lg"
                 :loading="savingSalary"
@@ -67,6 +78,10 @@
                 Guardar
               </VBtn>
             </div>
+
+            <p class="text-caption text-medium-emphasis mb-0 mt-2">
+              Quincena (1 y 15): {{ $formatAmount(paydayPreview) }}
+            </p>
           </VCardText>
         </VCard>
       </VCol>
@@ -337,10 +352,14 @@ export default {
   name: 'ModuleFixedPayments',
 
   data() {
+    const currentYear = new Date().getFullYear()
+
     return {
       loading: true,
       error: '',
-      settings: { monthly_salary: 0 },
+      salaryYear: currentYear,
+      salaryYearOptions: [currentYear - 1, currentYear, currentYear + 1, currentYear + 2],
+      settings: { year: currentYear, payday_amount: 0, monthly_salary: 0 },
       groups: { primero: [], segundo: [] },
       totals: { primero: 0, segundo: 0, expenses: 0, remaining: 0 },
       salaryInput: '',
@@ -385,6 +404,23 @@ export default {
     }
   },
 
+  computed: {
+    paydayPreview() {
+      const n = this.$parseAmount(this.salaryInput)
+
+      if (n === '' || Number.isNaN(n))
+        return this.settings.payday_amount || 0
+
+      return n / 2
+    },
+  },
+
+  watch: {
+    salaryYear() {
+      this.loadPlan()
+    },
+  },
+
   mounted() {
     this.loadPlan()
   },
@@ -395,11 +431,12 @@ export default {
       this.error = ''
 
       return axios
-        .get('/api/fixed-payments')
+        .get('/api/fixed-payments', { params: { year: this.salaryYear } })
         .then(response => {
           this.settings = response.data.settings
           this.groups = response.data.groups
           this.totals = response.data.totals
+          this.salaryYear = response.data.settings.year
           this.salaryInput = this.$formatAmountValue(this.settings.monthly_salary)
         })
         .catch(() => {
@@ -419,11 +456,16 @@ export default {
       this.savingSalary = true
 
       axios
-        .put('/api/fixed-payments/settings', { monthly_salary: amount })
+        .put('/api/fixed-payments/settings', {
+          year: this.salaryYear,
+          monthly_salary: amount,
+        })
         .then(response => {
+          this.settings.year = response.data.year
+          this.settings.payday_amount = response.data.payday_amount
           this.settings.monthly_salary = response.data.monthly_salary
           this.salaryInput = this.$formatAmountValue(response.data.monthly_salary)
-          this.totals.remaining = this.settings.monthly_salary - this.totals.expenses
+          this.totals.remaining = response.data.monthly_salary - this.totals.expenses
           this.$toast.success('Salario guardado', { timeout: 2000, closeOnClick: true })
         })
         .catch(() => {
@@ -542,6 +584,54 @@ export default {
 </script>
 
 <style scoped>
+.fixed-payments__salary-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fixed-payments__salary-year {
+  flex: 0 0 6.75rem;
+  width: 6.75rem;
+}
+
+.fixed-payments__salary-amount {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.fixed-payments__salary-save {
+  flex: 0 0 auto;
+  height: 56px !important;
+}
+
+@media (max-width: 599px) {
+  .fixed-payments__salary-row {
+    flex-wrap: wrap;
+  }
+
+  .fixed-payments__salary-year {
+    flex: 0 0 8rem;
+    width: 8rem;
+    max-width: 8rem;
+  }
+
+  .fixed-payments__salary-amount {
+    flex: 1 1 calc(100% - 8rem - 12px);
+    min-width: 0;
+  }
+
+  .fixed-payments__salary-year :deep(.v-select__selection-text) {
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .fixed-payments__salary-save {
+    width: 100%;
+    height: 44px !important;
+  }
+}
+
 .fixed-payments__num {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';

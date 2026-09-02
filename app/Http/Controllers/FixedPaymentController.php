@@ -2,7 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\FixedPayment;
-use App\Models\FixedPaymentSetting;
+use App\Support\AnnualSalaryResolver;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -10,8 +10,13 @@ class FixedPaymentController extends Controller
 {
     public function index(Request $request)
     {
-        $userId   = $request->user()->id;
-        $settings = $this->settings($request);
+        $validated = $request->validate([
+            'year' => ['nullable', 'integer', 'min:2000', 'max:2100'],
+        ]);
+
+        $userId = $request->user()->id;
+        $year   = (int) ($validated['year'] ?? now()->year);
+        $salary = AnnualSalaryResolver::forUserYear($userId, $year);
 
         $items = FixedPayment::query()
             ->where('user_id', $userId)
@@ -20,17 +25,19 @@ class FixedPaymentController extends Controller
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get()
-            ->map(fn(FixedPayment $item) => $this->serializeItem($item));
+            ->map(fn (FixedPayment $item) => $this->serializeItem($item));
 
         $grouped = $items->groupBy('payment_group');
         $primero = (float) collect($grouped->get('primero', []))->sum('amount');
         $segundo = (float) collect($grouped->get('segundo', []))->sum('amount');
         $total   = $primero + $segundo;
-        $salary  = (float) $settings->monthly_salary;
+        $monthly = $salary->monthlyAmount();
 
         return response()->json([
             'settings' => [
-                'monthly_salary' => $salary,
+                'year'           => $year,
+                'payday_amount'  => (float) $salary->payday_amount,
+                'monthly_salary' => $monthly,
             ],
             'groups'   => [
                 'primero' => $grouped->get('primero', collect())->values(),
@@ -40,7 +47,7 @@ class FixedPaymentController extends Controller
                 'primero'   => $primero,
                 'segundo'   => $segundo,
                 'expenses'  => $total,
-                'remaining' => $salary - $total,
+                'remaining' => $monthly - $total,
             ],
         ], 200);
     }
@@ -48,15 +55,33 @@ class FixedPaymentController extends Controller
     public function updateSettings(Request $request)
     {
         $validated = $request->validate([
-            'monthly_salary' => ['required', 'numeric', 'min:0'],
+            'year'           => ['nullable', 'integer', 'min:2000', 'max:2100'],
+            'payday_amount'  => ['nullable', 'numeric', 'min:0'],
+            'monthly_salary' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        $settings                 = $this->settings($request);
-        $settings->monthly_salary = $validated['monthly_salary'];
-        $settings->save();
+        $year = (int) ($validated['year'] ?? now()->year);
+
+        if (array_key_exists('payday_amount', $validated) && $validated['payday_amount'] !== null) {
+            $payday = (float) $validated['payday_amount'];
+        } elseif (array_key_exists('monthly_salary', $validated) && $validated['monthly_salary'] !== null) {
+            $payday = ((float) $validated['monthly_salary']) / 2;
+        } else {
+            return response()->json([
+                'message' => 'Indica payday_amount o monthly_salary.',
+            ], 422);
+        }
+
+        $salary = AnnualSalaryResolver::syncCurrentSettings(
+            $request->user()->id,
+            $payday,
+            $year,
+        );
 
         return response()->json([
-            'monthly_salary' => (float) $settings->monthly_salary,
+            'year'           => $year,
+            'payday_amount'  => (float) $salary->payday_amount,
+            'monthly_salary' => $salary->monthlyAmount(),
         ], 200);
     }
 
@@ -98,14 +123,6 @@ class FixedPaymentController extends Controller
         $fixedPayment->delete();
 
         return response()->json(['message' => 'Pago eliminado.'], 200);
-    }
-
-    private function settings(Request $request): FixedPaymentSetting
-    {
-        return FixedPaymentSetting::query()->firstOrCreate(
-            ['user_id' => $request->user()->id],
-            ['monthly_salary' => 0],
-        );
     }
 
     private function validateItem(Request $request, bool $partial = false): array
