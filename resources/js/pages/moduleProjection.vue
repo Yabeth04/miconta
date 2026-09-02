@@ -14,13 +14,13 @@
     </div>
 
     <VAlert
-      v-if="error"
+      v-if="error || isRangeInvalid"
       type="error"
       variant="tonal"
       rounded="lg"
       class="mb-4"
     >
-      {{ error }}
+      {{ isRangeInvalid ? 'El periodo inicial no puede ser posterior al final.' : error }}
     </VAlert>
 
     <VCard
@@ -89,64 +89,92 @@
 
         <VRow
           v-if="projectionMode === 'real' && rangeMode === 'custom'"
-          class="projection-form__row mt-3"
+          class="projection-form__row projection-form__range mt-3"
+          align="center"
         >
           <VCol
-            cols="6"
-            md="3"
+            cols="12"
+            md
           >
-            <VSelect
-              v-model="fromYear"
-              :items="yearOptions"
-              label="Desde año"
-              variant="outlined"
-              rounded="lg"
-              hide-details
+            <VRow class="projection-form__row">
+              <VCol
+                cols="6"
+                md="6"
+              >
+                <VSelect
+                  v-model="fromYear"
+                  :items="yearOptions"
+                  label="Desde año"
+                  variant="outlined"
+                  rounded="lg"
+                  hide-details
+                />
+              </VCol>
+              <VCol
+                cols="6"
+                md="6"
+              >
+                <VSelect
+                  v-model="fromMonth"
+                  :items="monthOptions"
+                  label="Mes"
+                  variant="outlined"
+                  rounded="lg"
+                  hide-details
+                />
+              </VCol>
+            </VRow>
+          </VCol>
+
+          <VCol
+            cols="12"
+            md="auto"
+            class="d-flex align-center justify-center py-0"
+          >
+            <VIcon
+              :icon="mdAndDown ? 'ri-arrow-down-line' : 'ri-arrow-right-line'"
+              size="22"
+              class="text-medium-emphasis"
             />
           </VCol>
+
           <VCol
-            cols="6"
-            md="3"
+            cols="12"
+            md
           >
-            <VSelect
-              v-model="fromMonth"
-              :items="monthOptions"
-              label="Mes"
-              variant="outlined"
-              rounded="lg"
-              hide-details
-            />
-          </VCol>
-          <VCol
-            cols="6"
-            md="3"
-          >
-            <VSelect
-              v-model="toYear"
-              :items="yearOptions"
-              label="Hasta año"
-              variant="outlined"
-              rounded="lg"
-              hide-details
-            />
-          </VCol>
-          <VCol
-            cols="6"
-            md="3"
-          >
-            <VSelect
-              v-model="toMonth"
-              :items="monthOptions"
-              label="Mes"
-              variant="outlined"
-              rounded="lg"
-              hide-details
-            />
+            <VRow class="projection-form__row">
+              <VCol
+                cols="6"
+                md="6"
+              >
+                <VSelect
+                  v-model="toYear"
+                  :items="yearOptions"
+                  label="Hasta año"
+                  variant="outlined"
+                  rounded="lg"
+                  hide-details
+                />
+              </VCol>
+              <VCol
+                cols="6"
+                md="6"
+              >
+                <VSelect
+                  v-model="toMonth"
+                  :items="monthOptions"
+                  label="Mes"
+                  variant="outlined"
+                  rounded="lg"
+                  hide-details
+                />
+              </VCol>
+            </VRow>
           </VCol>
         </VRow>
 
         <p
-          v-if="projectionMode === 'real'"
+          v-if="projectionMode === 'real' && !isRangeInvalid"
           class="text-caption text-medium-emphasis mb-0 mt-3"
         >
           Rango proyectado: {{ periodLabel }}
@@ -202,6 +230,7 @@
               rounded="lg"
               class="flex-grow-1"
               :loading="saving"
+              :disabled="isRangeInvalid"
               @click="saveAndReload"
             >
               Calcular
@@ -362,6 +391,7 @@
               rounded="lg"
               class="projection-form__submit"
               :loading="saving"
+              :disabled="isRangeInvalid"
               @click="saveAndReload"
             >
               Guardar y calcular
@@ -521,6 +551,7 @@
             rounded="lg"
             block
             :loading="saving"
+            :disabled="isRangeInvalid"
             @click="saveAndReload({ closeSheet: true })"
           >
             Guardar y calcular
@@ -935,6 +966,16 @@ export default {
       return `${from} ${this.fromYear} – ${to} ${this.toYear}`
     },
 
+    isRangeInvalid() {
+      if (this.projectionMode !== 'real' || this.rangeMode !== 'custom')
+        return false
+
+      const from = this.fromYear * 12 + this.fromMonth
+      const to = this.toYear * 12 + this.toMonth
+
+      return from > to
+    },
+
     summaryCards() {
       const s = this.summary || {
         total_monthly_remaining: 0,
@@ -1198,6 +1239,9 @@ export default {
     },
 
     saveAndReload({ clearRemainingOverride = false, closeSheet = false } = {}) {
+      if (this.isRangeInvalid)
+        return
+
       const universityFee = this.$parseAmount(this.universityFeeInput)
       let monthlyRemaining = this.$parseAmount(this.monthlyRemainingInput)
 
