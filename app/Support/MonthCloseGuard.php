@@ -98,6 +98,6 @@ class MonthCloseGuard
 
     public static function closedMessage(int $year, int $month): string
     {
-        return self::monthLabel($year, $month) . ' está cerrado. Reabrilo desde Historial de cierres para editar.';
+        return self::monthLabel($year, $month) . ' está cerrado. Reabrilo desde el modulo de cierres para registrar o editar.';
     }
 }

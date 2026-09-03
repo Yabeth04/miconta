@@ -2,14 +2,57 @@
   <div>
     <div class="d-flex flex-wrap align-center justify-space-between gap-3 mb-4">
       <div>
-        <h1 class="text-h4 font-weight-medium mb-1">
-          Proyección
-        </h1>
-        <p class="text-body-2 text-medium-emphasis mb-0">
-          Desde el mes actual hacia adelante: salario (1 y 15), pagos fijos y meses sin U
+        <div class="d-flex align-center gap-2">
+          <h1 class="text-h4 font-weight-medium mb-0">
+            Proyección
+          </h1>
+          <VBtn
+            icon
+            variant="text"
+            size="small"
+            aria-label="Ayuda"
+            @click="helpDialog = true"
+          >
+            <VIcon
+              icon="ri-question-line"
+              size="22"
+            />
+          </VBtn>
+        </div>
+        <p class="text-body-2 text-medium-emphasis mb-0 mt-1">
+          Adelanto de caja: salario y pagos fijos desde hoy
         </p>
       </div>
     </div>
+
+    <VDialog
+      v-model="helpDialog"
+      max-width="480"
+    >
+      <VCard rounded="lg">
+        <VCardTitle class="text-h6">
+          ¿Para qué es este módulo?
+        </VCardTitle>
+        <VCardText>
+          <p class="mb-3">
+            Parte del saldo de hoy y, cada 1 y 15, suma el salario y resta solo los pagos fijos (y la U cuando toca). Sirve para ver si cubrís esos compromisos y cuánto te quedaría.
+          </p>
+          <p class="mb-0">
+            No cuenta gastos extras. Lo “libre” del mes se deja como si no lo usaras. Un pantalón u otro gasto se registra en Movimientos; al recargar, arranca otra vez desde el saldo real.
+          </p>
+        </VCardText>
+        <VCardActions>
+          <VSpacer />
+          <VBtn
+            color="primary"
+            rounded="lg"
+            @click="helpDialog = false"
+          >
+            Entendido
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
 
     <VAlert
       v-if="error || isRangeInvalid"
@@ -43,7 +86,7 @@
           </VCol>
           <VCol
             v-if="rangeMode === 'year'"
-            cols="12"
+            cols="6"
             md="3"
           >
             <VSelect
@@ -426,6 +469,7 @@ export default {
       saving: false,
       error: '',
       amountsSheet: false,
+      helpDialog: false,
       year: currentYear,
       fromYear: currentYear,
       toYear: currentYear,
