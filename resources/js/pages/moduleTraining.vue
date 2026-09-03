@@ -491,21 +491,19 @@
             clearable
           />
           <div class="d-flex gap-3">
-            <VNumberInput
-              v-model="exerciseForm.reps"
-              :min="1"
-              :max="100"
-              control-variant="stacked"
+            <VTextField
+              v-model.number="exerciseForm.reps"
+              type="number"
+              inputmode="numeric"
               label="Reps"
               variant="outlined"
               rounded="lg"
               hide-details="auto"
             />
-            <VNumberInput
-              v-model="exerciseForm.sets"
-              :min="1"
-              :max="30"
-              control-variant="stacked"
+            <VTextField
+              v-model.number="exerciseForm.sets"
+              type="number"
+              inputmode="numeric"
               label="Series"
               variant="outlined"
               rounded="lg"
@@ -523,13 +521,11 @@
               rounded="lg"
               hide-details="auto"
             />
-            <VNumberInput
+            <VTextField
               v-if="exerciseForm.load_type !== 'bodyweight'"
-              v-model="exerciseForm.load_value"
-              :min="0"
-              :max="exerciseForm.load_type === 'level' ? 50 : 500"
-              :step="exerciseForm.load_type === 'level' ? 1 : 0.5"
-              control-variant="stacked"
+              v-model.number="exerciseForm.load_value"
+              type="number"
+              inputmode="decimal"
               :label="exerciseForm.load_type === 'level' ? 'Nivel' : 'Kg'"
               variant="outlined"
               rounded="lg"
@@ -584,39 +580,40 @@
             hide-details="auto"
           />
           <div class="d-flex flex-wrap gap-3">
-            <VNumberInput
-              v-model="sessionForm.duration_hours"
-              :min="0"
-              :max="12"
-              control-variant="stacked"
+            <VTextField
+              v-model.number="sessionForm.duration_hours"
+              type="number"
+              inputmode="numeric"
+              min="0"
+              max="12"
               label="Horas"
               variant="outlined"
               rounded="lg"
               hide-details="auto"
-              class="training-duration-num"
+              class="training-meta-num"
             />
-            <VNumberInput
-              v-model="sessionForm.duration_mins"
-              :min="0"
-              :max="59"
-              control-variant="stacked"
+            <VTextField
+              v-model.number="sessionForm.duration_mins"
+              type="number"
+              inputmode="numeric"
+              min="0"
+              max="59"
               label="Minutos"
               variant="outlined"
               rounded="lg"
               hide-details="auto"
-              class="training-duration-num"
+              class="training-meta-num"
             />
-            <VNumberInput
-              v-model="sessionForm.calories"
-              :min="0"
-              :max="5000"
-              :step="10"
-              control-variant="stacked"
+            <VTextField
+              v-model.number="sessionForm.calories"
+              type="number"
+              inputmode="numeric"
+              min="0"
               label="Calorías"
               variant="outlined"
               rounded="lg"
               hide-details="auto"
-              class="training-duration-num"
+              class="training-meta-num"
             />
           </div>
           <VTextField
@@ -627,53 +624,56 @@
             hide-details="auto"
           />
 
+          <p
+            v-if="sessionForm.exercises.length"
+            class="text-subtitle-2 font-weight-medium mb-0"
+          >
+            Ejercicios
+          </p>
+
           <div
             v-for="(item, index) in sessionForm.exercises"
             :key="index"
             class="training-session-ex"
           >
-            <p class="font-weight-medium mb-2">
+            <p class="training-session-ex__name mb-2">
               {{ item.name }}
             </p>
-            <div class="d-flex flex-wrap gap-2">
-              <VNumberInput
-                v-model="item.reps"
-                :min="1"
-                :max="100"
-                control-variant="stacked"
+            <div class="training-session-ex__row">
+              <VTextField
+                v-model.number="item.reps"
+                type="number"
+                inputmode="numeric"
                 label="Reps"
                 density="compact"
                 variant="outlined"
                 rounded="lg"
                 hide-details
-                class="training-session-ex__num"
               />
-              <VNumberInput
-                v-model="item.sets"
-                :min="1"
-                :max="30"
-                control-variant="stacked"
+              <span class="training-session-ex__sep">×</span>
+              <VTextField
+                v-model.number="item.sets"
+                type="number"
+                inputmode="numeric"
                 label="Series"
                 density="compact"
                 variant="outlined"
                 rounded="lg"
                 hide-details
-                class="training-session-ex__num"
               />
-              <VNumberInput
-                v-if="item.load_type !== 'bodyweight'"
-                v-model="item.load_value"
-                :min="0"
-                :max="item.load_type === 'level' ? 50 : 500"
-                :step="item.load_type === 'level' ? 1 : 0.5"
-                control-variant="stacked"
-                :label="item.load_type === 'level' ? 'Nivel' : 'Kg'"
-                density="compact"
-                variant="outlined"
-                rounded="lg"
-                hide-details
-                class="training-session-ex__num"
-              />
+              <template v-if="item.load_type !== 'bodyweight'">
+                <span class="training-session-ex__sep">·</span>
+                <VTextField
+                  v-model.number="item.load_value"
+                  type="number"
+                  inputmode="decimal"
+                  :label="item.load_type === 'level' ? 'Nivel' : 'Kg'"
+                  density="compact"
+                  variant="outlined"
+                  rounded="lg"
+                  hide-details
+                />
+              </template>
             </div>
           </div>
         </VCardText>
@@ -1332,16 +1332,30 @@ export default {
   border-radius: 12px;
 }
 
-.training-session-ex__num {
-  width: 8.5rem;
-  flex: 1 1 8.5rem;
-  max-width: 11rem;
+.training-session-ex__name {
+  font-weight: 650;
+  margin: 0;
 }
 
-.training-duration-num {
-  flex: 1 1 7rem;
-  min-width: 6.5rem;
-  max-width: 10rem;
+.training-session-ex__row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.training-session-ex__sep {
+  color: rgba(var(--v-theme-on-surface), 0.45);
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1;
+  padding-top: 0.35rem;
+}
+
+.training-meta-num {
+  flex: 1 1 5.5rem;
+  min-width: 5rem;
+  max-width: 9rem;
 }
 
 @media (max-width: 599px) {
