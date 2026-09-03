@@ -441,6 +441,7 @@ export default {
   beforeUnmount() {
     window.removeEventListener('resize', this.refreshScrollHints)
     this.unbindDesktopScroll()
+    this.unbindMobileResize()
   },
 
   methods: {
@@ -485,44 +486,51 @@ export default {
         return false
 
       const overflow = el.scrollHeight - el.clientHeight
-      if (overflow <= 8)
+      if (overflow > 24 && el.scrollTop < overflow - 8)
+        return true
+
+      const last = el.lastElementChild
+      if (!last)
         return false
 
-      return el.scrollTop < overflow - 8
+      const box = el.getBoundingClientRect()
+      const lastBox = last.getBoundingClientRect()
+
+      return lastBox.bottom > box.bottom + 12 && el.scrollTop + el.clientHeight < el.scrollHeight - 8
     },
 
     updateDesktopScrollHint() {
-      const el = this.desktopScrollEl()
-      if (el) {
-        this.desktopHasMore = this.hasMoreBelow(el)
-
-        return
-      }
-
-      this.desktopHasMore = this.closes.length > 4
-        && window.matchMedia('(min-width: 960px)').matches
+      this.desktopHasMore = this.hasMoreBelow(this.desktopScrollEl())
     },
 
     updateMobileScrollHint() {
-      const el = this.$refs.mobileList
-      if (el) {
-        this.mobileHasMore = this.hasMoreBelow(el)
-
-        return
-      }
-
-      this.mobileHasMore = this.closes.length > 3
-        && window.matchMedia('(max-width: 959px)').matches
+      this.mobileHasMore = this.hasMoreBelow(this.$refs.mobileList)
     },
 
     refreshScrollHints() {
       this.$nextTick(() => {
         requestAnimationFrame(() => {
           this.bindDesktopScroll()
+          this.bindMobileResize()
           this.updateDesktopScrollHint()
           this.updateMobileScrollHint()
         })
       })
+    },
+
+    bindMobileResize() {
+      this.unbindMobileResize()
+      const el = this.$refs.mobileList
+      if (!el || typeof ResizeObserver === 'undefined')
+        return
+
+      this._mobileResize = new ResizeObserver(() => this.updateMobileScrollHint())
+      this._mobileResize.observe(el)
+    },
+
+    unbindMobileResize() {
+      this._mobileResize?.disconnect()
+      this._mobileResize = null
     },
 
     loadCloses() {
