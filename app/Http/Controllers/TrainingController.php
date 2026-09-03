@@ -1,0 +1,339 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\WorkoutDay;
+use App\Models\WorkoutExercise;
+use App\Models\WorkoutSession;
+use App\Models\WorkoutSessionExercise;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+
+class TrainingController extends Controller
+{
+    public function index(Request $request)
+    {
+        $userId = $request->user()->id;
+        $this->ensureWeek($userId);
+
+        $days = WorkoutDay::query()
+            ->where('user_id', $userId)
+            ->with('exercises')
+            ->orderBy('weekday')
+            ->get()
+            ->map(fn (WorkoutDay $day) => $this->serializeDay($day));
+
+        $sessions = WorkoutSession::query()
+            ->where('user_id', $userId)
+            ->with(['exercises', 'day'])
+            ->orderByDesc('date')
+            ->orderByDesc('id')
+            ->limit(40)
+            ->get()
+            ->map(fn (WorkoutSession $session) => $this->serializeSession($session));
+
+        $todayWeekday = (int) now()->isoWeekday();
+
+        return response()->json([
+            'today_weekday' => $todayWeekday,
+            'days'          => $days,
+            'sessions'      => $sessions,
+            'summary'       => $this->summary($userId),
+        ], 200);
+    }
+
+    public function updateDay(Request $request, WorkoutDay $workoutDay)
+    {
+        $this->authorizeDay($request, $workoutDay);
+
+        $validated = $request->validate([
+            'focus'   => ['nullable', 'string', 'max:255'],
+            'is_rest' => ['nullable', 'boolean'],
+            'notes'   => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $workoutDay->fill([
+            'focus'   => array_key_exists('focus', $validated)
+                ? $this->nullableString($validated['focus'] ?? null)
+                : $workoutDay->focus,
+            'is_rest' => array_key_exists('is_rest', $validated)
+                ? (bool) $validated['is_rest']
+                : $workoutDay->is_rest,
+            'notes'   => array_key_exists('notes', $validated)
+                ? $this->nullableString($validated['notes'] ?? null)
+                : $workoutDay->notes,
+        ]);
+        $workoutDay->save();
+
+        return response()->json($this->serializeDay($workoutDay->load('exercises')), 200);
+    }
+
+    public function storeExercise(Request $request, WorkoutDay $workoutDay)
+    {
+        $this->authorizeDay($request, $workoutDay);
+        $validated = $this->validateExercise($request);
+
+        $maxOrder = (int) $workoutDay->exercises()->max('sort_order');
+
+        $exercise = $workoutDay->exercises()->create([
+            ...$validated,
+            'sort_order' => $maxOrder + 1,
+        ]);
+
+        return response()->json($this->serializeExercise($exercise), 201);
+    }
+
+    public function updateExercise(Request $request, WorkoutExercise $workoutExercise)
+    {
+        $this->authorizeExercise($request, $workoutExercise);
+        $validated = $this->validateExercise($request);
+        $workoutExercise->update($validated);
+
+        return response()->json($this->serializeExercise($workoutExercise->fresh()), 200);
+    }
+
+    public function destroyExercise(Request $request, WorkoutExercise $workoutExercise)
+    {
+        $this->authorizeExercise($request, $workoutExercise);
+        $workoutExercise->delete();
+
+        return response()->json(['message' => 'Ejercicio eliminado.'], 200);
+    }
+
+    public function storeSession(Request $request)
+    {
+        $validated = $this->validateSession($request);
+        $userId    = $request->user()->id;
+
+        if (! empty($validated['workout_day_id'])) {
+            $day = WorkoutDay::query()->findOrFail($validated['workout_day_id']);
+            abort_unless((int) $day->user_id === (int) $userId, 404);
+        }
+
+        $session = DB::transaction(function () use ($validated, $userId) {
+            $session = WorkoutSession::query()->create([
+                'user_id'          => $userId,
+                'workout_day_id'   => $validated['workout_day_id'] ?? null,
+                'date'             => $validated['date'],
+                'duration_minutes' => $validated['duration_minutes'] ?? null,
+                'calories'         => $validated['calories'] ?? null,
+                'notes'            => $this->nullableString($validated['notes'] ?? null),
+            ]);
+
+            $this->syncSessionExercises($session, $validated['exercises'] ?? []);
+
+            return $session->load(['exercises', 'day']);
+        });
+
+        return response()->json($this->serializeSession($session), 201);
+    }
+
+    public function updateSession(Request $request, WorkoutSession $workoutSession)
+    {
+        $this->authorizeSession($request, $workoutSession);
+        $validated = $this->validateSession($request);
+
+        if (! empty($validated['workout_day_id'])) {
+            $day = WorkoutDay::query()->findOrFail($validated['workout_day_id']);
+            abort_unless((int) $day->user_id === (int) $request->user()->id, 404);
+        }
+
+        $session = DB::transaction(function () use ($validated, $workoutSession) {
+            $workoutSession->update([
+                'workout_day_id'   => $validated['workout_day_id'] ?? null,
+                'date'             => $validated['date'],
+                'duration_minutes' => $validated['duration_minutes'] ?? null,
+                'calories'         => $validated['calories'] ?? null,
+                'notes'            => $this->nullableString($validated['notes'] ?? null),
+            ]);
+
+            $workoutSession->exercises()->delete();
+            $this->syncSessionExercises($workoutSession, $validated['exercises'] ?? []);
+
+            return $workoutSession->load(['exercises', 'day']);
+        });
+
+        return response()->json($this->serializeSession($session), 200);
+    }
+
+    public function destroySession(Request $request, WorkoutSession $workoutSession)
+    {
+        $this->authorizeSession($request, $workoutSession);
+        $workoutSession->delete();
+
+        return response()->json(['message' => 'Sesión eliminada.'], 200);
+    }
+
+    private function ensureWeek(int $userId): void
+    {
+        for ($weekday = 1; $weekday <= 7; $weekday++) {
+            WorkoutDay::query()->firstOrCreate(
+                ['user_id' => $userId, 'weekday' => $weekday],
+                ['focus' => null, 'is_rest' => false, 'notes' => null],
+            );
+        }
+    }
+
+    private function summary(int $userId): array
+    {
+        $from = now()->startOfWeek();
+
+        $weekSessions = WorkoutSession::query()
+            ->where('user_id', $userId)
+            ->whereDate('date', '>=', $from->toDateString())
+            ->with('exercises')
+            ->get();
+
+        return [
+            'week_sessions' => $weekSessions->count(),
+            'week_minutes'  => (int) $weekSessions->sum('duration_minutes'),
+            'week_calories' => (int) $weekSessions->sum('calories'),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validateExercise(Request $request): array
+    {
+        $validated = $request->validate([
+            'name'         => ['required', 'string', 'max:255'],
+            'muscle_group' => ['nullable', 'string', 'max:80'],
+            'sets'         => ['required', 'integer', 'min:1', 'max:30'],
+            'reps'         => ['required', 'integer', 'min:1', 'max:100'],
+            'load_type'    => ['required', Rule::in(WorkoutExercise::LOAD_TYPES)],
+            'load_value'   => ['nullable', 'numeric', 'min:0', 'max:9999'],
+            'notes'        => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $validated['name']         = trim($validated['name']);
+        $validated['muscle_group'] = $this->nullableString($validated['muscle_group'] ?? null);
+        $validated['notes']        = $this->nullableString($validated['notes'] ?? null);
+        $validated['load_value']   = $validated['load_value'] === null
+            ? null
+            : round((float) $validated['load_value'], 2);
+
+        return $validated;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validateSession(Request $request): array
+    {
+        return $request->validate([
+            'date'              => ['required', 'date'],
+            'workout_day_id'    => ['nullable', 'integer'],
+            'duration_minutes'  => ['nullable', 'integer', 'min:1', 'max:600'],
+            'calories'          => ['nullable', 'integer', 'min:0', 'max:5000'],
+            'notes'             => ['nullable', 'string', 'max:1000'],
+            'exercises'         => ['nullable', 'array'],
+            'exercises.*.name'  => ['required', 'string', 'max:255'],
+            'exercises.*.muscle_group' => ['nullable', 'string', 'max:80'],
+            'exercises.*.sets'  => ['required', 'integer', 'min:0', 'max:30'],
+            'exercises.*.reps'  => ['required', 'integer', 'min:0', 'max:100'],
+            'exercises.*.load_type' => ['required', Rule::in(WorkoutExercise::LOAD_TYPES)],
+            'exercises.*.load_value' => ['nullable', 'numeric', 'min:0', 'max:9999'],
+            'exercises.*.notes' => ['nullable', 'string', 'max:255'],
+        ]);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $exercises
+     */
+    private function syncSessionExercises(WorkoutSession $session, array $exercises): void
+    {
+        foreach (array_values($exercises) as $index => $item) {
+            WorkoutSessionExercise::query()->create([
+                'workout_session_id' => $session->id,
+                'name'               => trim((string) $item['name']),
+                'muscle_group'       => $this->nullableString($item['muscle_group'] ?? null),
+                'sets'               => (int) $item['sets'],
+                'reps'               => (int) $item['reps'],
+                'load_type'          => $item['load_type'],
+                'load_value'         => isset($item['load_value']) && $item['load_value'] !== null
+                    ? round((float) $item['load_value'], 2)
+                    : null,
+                'notes'              => $this->nullableString($item['notes'] ?? null),
+                'sort_order'         => $index,
+            ]);
+        }
+    }
+
+    private function serializeDay(WorkoutDay $day): array
+    {
+        return [
+            'id'        => $day->id,
+            'weekday'   => (int) $day->weekday,
+            'label'     => $day->weekdayLabel(),
+            'focus'     => $day->focus,
+            'is_rest'   => (bool) $day->is_rest,
+            'notes'     => $day->notes,
+            'exercises' => $day->exercises->map(fn (WorkoutExercise $item) => $this->serializeExercise($item))->values(),
+        ];
+    }
+
+    private function serializeExercise(WorkoutExercise $exercise): array
+    {
+        return [
+            'id'           => $exercise->id,
+            'name'         => $exercise->name,
+            'muscle_group' => $exercise->muscle_group,
+            'sets'         => (int) $exercise->sets,
+            'reps'         => (int) $exercise->reps,
+            'load_type'    => $exercise->load_type,
+            'load_value'   => $exercise->load_value !== null ? (float) $exercise->load_value : null,
+            'notes'        => $exercise->notes,
+            'sort_order'   => (int) $exercise->sort_order,
+        ];
+    }
+
+    private function serializeSession(WorkoutSession $session): array
+    {
+        return [
+            'id'               => $session->id,
+            'workout_day_id'   => $session->workout_day_id,
+            'weekday'          => $session->day?->weekday,
+            'weekday_label'    => $session->day?->weekdayLabel(),
+            'focus'            => $session->day?->focus,
+            'date'             => $session->date?->toDateString(),
+            'duration_minutes' => $session->duration_minutes,
+            'calories'         => $session->calories,
+            'notes'            => $session->notes,
+            'exercises'        => $session->exercises->map(fn (WorkoutSessionExercise $item) => [
+                'id'           => $item->id,
+                'name'         => $item->name,
+                'muscle_group' => $item->muscle_group,
+                'sets'         => (int) $item->sets,
+                'reps'         => (int) $item->reps,
+                'load_type'    => $item->load_type,
+                'load_value'   => $item->load_value !== null ? (float) $item->load_value : null,
+                'notes'        => $item->notes,
+            ])->values(),
+        ];
+    }
+
+    private function authorizeDay(Request $request, WorkoutDay $day): void
+    {
+        abort_unless((int) $day->user_id === (int) $request->user()->id, 404);
+    }
+
+    private function authorizeExercise(Request $request, WorkoutExercise $exercise): void
+    {
+        $exercise->loadMissing('day');
+        abort_unless((int) $exercise->day?->user_id === (int) $request->user()->id, 404);
+    }
+
+    private function authorizeSession(Request $request, WorkoutSession $session): void
+    {
+        abort_unless((int) $session->user_id === (int) $request->user()->id, 404);
+    }
+
+    private function nullableString(?string $value): ?string
+    {
+        $trimmed = trim((string) $value);
+
+        return $trimmed === '' ? null : $trimmed;
+    }
+}

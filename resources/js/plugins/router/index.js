@@ -69,6 +69,7 @@ export default function (app) {
       import('@/pages/moduleFixedPayments.vue')
       import('@/pages/moduleProjection.vue')
       import('@/pages/moduleMonthCloses.vue')
+      import('@/pages/moduleTraining.vue')
       import('@/pages/moduleUsers.vue')
     }
 
