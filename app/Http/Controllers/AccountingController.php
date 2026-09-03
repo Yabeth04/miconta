@@ -6,6 +6,7 @@ use App\Imports\AccountingWorkbookImport;
 use App\Models\Accounting;
 use App\Models\AccountingConcept;
 use App\Models\AccountingSetting;
+use App\Models\MonthClose;
 use App\Support\MonthCloseGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -98,24 +99,45 @@ class AccountingController extends Controller
             ->selectRaw("COALESCE(SUM(CASE WHEN movement_type = 'haber' THEN amount ELSE 0 END), 0) as haber")
             ->first();
 
+        $closes = MonthClose::query()
+            ->where('user_id', $userId)
+            ->where(function ($query) use ($from) {
+                $query->where('year', '>', (int) $from->year)
+                    ->orWhere(function ($q) use ($from) {
+                        $q->where('year', (int) $from->year)
+                            ->where('month', '>=', (int) $from->month);
+                    });
+            })
+            ->get()
+            ->keyBy(fn (MonthClose $close) => sprintf('%04d-%02d', $close->year, $close->month));
+
         $monthly = [];
         $running = $opening
             + (float) $beforeWindow->haber
             - (float) $beforeWindow->debe;
 
         for ($i = 0; $i < $months; $i++) {
-            $key  = $from->copy()->addMonths($i)->format('Y-m');
-            $row  = $monthlyRows->get($key);
-            $debe = $row ? (float) $row->debe : 0.0;
-            $haber = $row ? (float) $row->haber : 0.0;
+            $cursor = $from->copy()->addMonths($i);
+            $key    = $cursor->format('Y-m');
+            $row    = $monthlyRows->get($key);
+            $debe   = $row ? (float) $row->debe : 0.0;
+            $haber  = $row ? (float) $row->haber : 0.0;
+            $close  = $closes->get($key);
 
-            $running += $haber - $debe;
+            if ($close) {
+                $debe    = (float) $close->total_debe;
+                $haber   = (float) $close->total_haber;
+                $running = (float) $close->closing_balance;
+            } else {
+                $running += $haber - $debe;
+            }
 
             $monthly[] = [
-                'month'    => $key,
-                'debe'     => $debe,
-                'haber'    => $haber,
-                'balance'  => $running,
+                'month'   => $key,
+                'debe'    => $debe,
+                'haber'   => $haber,
+                'balance' => round($running, 2),
+                'closed'  => (bool) $close,
             ];
         }
 

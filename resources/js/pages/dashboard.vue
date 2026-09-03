@@ -180,25 +180,25 @@
               Evolución del saldo
             </VCardTitle>
             <VCardSubtitle class="text-body-2">
-              Saldo en cuenta al cierre de cada mes
+              Solo meses cerrados del historial
             </VCardSubtitle>
           </VCardItem>
           <VCardText>
             <div
-              v-if="!loading && !hasMonthlyData"
+              v-if="!loading && !hasClosedBalanceData"
               class="dashboard-empty text-center py-8 text-medium-emphasis"
             >
               <VIcon
-                icon="ri-line-chart-line"
+                icon="ri-lock-2-line"
                 size="40"
                 class="mb-3 opacity-50"
               />
               <p class="text-body-2 mb-0">
-                Sin historial de saldo
+                Cerrá un mes en Historial de cierres para ver esta gráfica
               </p>
             </div>
             <VueApexCharts
-              v-else-if="hasMonthlyData"
+              v-else-if="hasClosedBalanceData"
               type="area"
               height="260"
               :options="balanceChartOptions"
@@ -550,6 +550,29 @@ export default {
       })
     },
 
+    closedMonthly() {
+      return this.monthly.filter(item => item.closed)
+    },
+
+    closedMonthLabels() {
+      return this.closedMonthly.map(item => {
+        const [year, month] = item.month.split('-')
+        const date = new Date(Number(year), Number(month) - 1, 1)
+
+        return date.toLocaleDateString('es-CR', { month: 'short' }).replace('.', '')
+      })
+    },
+
+    closedMonthTooltipLabels() {
+      return this.closedMonthly.map(item => {
+        const [year, month] = item.month.split('-')
+        const date = new Date(Number(year), Number(month) - 1, 1)
+        const label = date.toLocaleDateString('es-CR', { month: 'long', year: 'numeric' })
+
+        return label.charAt(0).toUpperCase() + label.slice(1)
+      })
+    },
+
     monthlyChartOptions() {
       return {
         chart: {
@@ -630,7 +653,7 @@ export default {
           padding: { left: 8, right: 8 },
         },
         xaxis: {
-          categories: this.monthLabels,
+          categories: this.closedMonthLabels,
           axisBorder: { show: false },
           axisTicks: { show: false },
         },
@@ -642,7 +665,7 @@ export default {
         tooltip: {
           theme: this.isDark ? 'dark' : 'light',
           x: {
-            formatter: (_val, { dataPointIndex }) => this.monthTooltipLabels[dataPointIndex] ?? '',
+            formatter: (_val, { dataPointIndex }) => this.closedMonthTooltipLabels[dataPointIndex] ?? '',
           },
           y: {
             formatter: val => formatAmount(val),
@@ -653,7 +676,7 @@ export default {
 
     balanceChartSeries() {
       return [
-        { name: 'Saldo', data: this.monthly.map(m => m.balance) },
+        { name: 'Saldo', data: this.closedMonthly.map(m => m.balance) },
       ]
     },
 
@@ -759,6 +782,10 @@ export default {
 
     hasMonthlyData() {
       return this.monthly.some(m => m.debe > 0 || m.haber > 0)
+    },
+
+    hasClosedBalanceData() {
+      return this.closedMonthly.length > 0
     },
 
     hasPaymentData() {

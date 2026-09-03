@@ -166,7 +166,7 @@
           >
             <thead>
               <tr>
-                <th>Mes</th>
+                <th>Fecha</th>
                 <th class="text-end">
                   Ingresos
                 </th>
@@ -188,23 +188,23 @@
                 :key="item.id"
               >
                 <td>
-                  <div class="font-weight-medium">
+                  <div class="month-closes__month-name font-weight-medium">
                     {{ item.label }}
                   </div>
-                  <div class="text-caption text-medium-emphasis">
+                  <div class="month-closes__month-meta text-medium-emphasis">
                     Cerrado {{ formatClosedAt(item.closed_at) }}
                   </div>
                 </td>
-                <td class="text-end text-success">
+                <td class="month-closes__amount text-end text-success">
                   {{ $formatAmount(item.total_haber) }}
                 </td>
-                <td class="text-end text-error">
+                <td class="month-closes__amount text-end text-error">
                   {{ $formatAmount(item.total_debe) }}
                 </td>
-                <td class="text-end font-weight-semibold">
+                <td class="month-closes__amount text-end font-weight-semibold">
                   {{ $formatAmount(item.closing_balance) }}
                 </td>
-                <td class="text-end">
+                <td class="month-closes__amount text-end">
                   {{ item.movements_count }}
                 </td>
                 <td class="text-end">
@@ -760,6 +760,21 @@ export default {
 .month-closes__table :deep(th),
 .month-closes__table :deep(td) {
   white-space: nowrap;
+  font-size: 12px;
+}
+
+.month-closes__month-name {
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.month-closes__month-meta {
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.month-closes__amount {
+  font-size: 13px;
 }
 
 /* Ventana con scroll (como movimientos) */
