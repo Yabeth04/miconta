@@ -31,6 +31,6 @@ class DatabaseSeeder extends Seeder
 
         $this->call(StudyPlanSeeder::class);
         $this->call(AccountingConceptSeeder::class);
-        $this->call(TrainingRoutineSeeder::class);
+        // $this->call(TrainingRoutineSeeder::class);
     }
 }

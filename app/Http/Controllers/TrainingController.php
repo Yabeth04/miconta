@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Models\WorkoutDay;
@@ -22,7 +21,7 @@ class TrainingController extends Controller
             ->with('exercises')
             ->orderBy('weekday')
             ->get()
-            ->map(fn (WorkoutDay $day) => $this->serializeDay($day));
+            ->map(fn(WorkoutDay $day) => $this->serializeDay($day));
 
         $sessions = WorkoutSession::query()
             ->where('user_id', $userId)
@@ -31,7 +30,7 @@ class TrainingController extends Controller
             ->orderByDesc('id')
             ->limit(40)
             ->get()
-            ->map(fn (WorkoutSession $session) => $this->serializeSession($session));
+            ->map(fn(WorkoutSession $session) => $this->serializeSession($session));
 
         $todayWeekday = (int) now()->isoWeekday();
 
@@ -81,6 +80,8 @@ class TrainingController extends Controller
             'sort_order' => $maxOrder + 1,
         ]);
 
+        $this->rebuildFocusFromExercises($workoutDay->fresh('exercises'));
+
         return response()->json($this->serializeExercise($exercise), 201);
     }
 
@@ -90,15 +91,163 @@ class TrainingController extends Controller
         $validated = $this->validateExercise($request);
         $workoutExercise->update($validated);
 
+        $day = $workoutExercise->day()->with('exercises')->first();
+        if ($day) {
+            $this->rebuildFocusFromExercises($day);
+        }
+
         return response()->json($this->serializeExercise($workoutExercise->fresh()), 200);
     }
 
     public function destroyExercise(Request $request, WorkoutExercise $workoutExercise)
     {
         $this->authorizeExercise($request, $workoutExercise);
+        $day = $workoutExercise->day;
         $workoutExercise->delete();
 
+        if ($day) {
+            $this->rebuildFocusFromExercises($day->fresh('exercises'));
+        }
+
         return response()->json(['message' => 'Ejercicio eliminado.'], 200);
+    }
+
+    public function reorderExercises(Request $request, WorkoutDay $workoutDay)
+    {
+        $this->authorizeDay($request, $workoutDay);
+
+        $validated = $request->validate([
+            'exercise_ids'   => ['required', 'array', 'min:1'],
+            'exercise_ids.*' => ['integer'],
+        ]);
+
+        $orderedIds = array_values(array_map('intval', $validated['exercise_ids']));
+        $ownedIds   = $workoutDay->exercises()->pluck('id')->map(fn($id) => (int) $id)->all();
+
+        sort($ownedIds);
+        $sortedIncoming = $orderedIds;
+        sort($sortedIncoming);
+
+        abort_unless($sortedIncoming === $ownedIds, 422, 'El orden de ejercicios no es válido.');
+
+        DB::transaction(function () use ($workoutDay, $orderedIds) {
+            foreach ($orderedIds as $index => $exerciseId) {
+                WorkoutExercise::query()
+                    ->where('workout_day_id', $workoutDay->id)
+                    ->where('id', $exerciseId)
+                    ->update(['sort_order' => $index + 1]);
+            }
+        });
+
+        return response()->json($this->serializeDay($workoutDay->fresh('exercises')), 200);
+    }
+
+    /**
+     * Mueve todos los ejercicios de un grupo muscular de un día a otro.
+     */
+    public function moveGroup(Request $request)
+    {
+        $validated = $request->validate([
+            'source_day_id' => ['required', 'integer', 'exists:workout_days,id'],
+            'target_day_id' => ['required', 'integer', 'exists:workout_days,id'],
+            'muscle_group'  => ['nullable', 'string', 'max:80'],
+        ]);
+
+        $userId = (int) $request->user()->id;
+        $source = WorkoutDay::query()->with('exercises')->findOrFail($validated['source_day_id']);
+        $target = WorkoutDay::query()->with('exercises')->findOrFail($validated['target_day_id']);
+
+        abort_unless((int) $source->user_id === $userId, 404);
+        abort_unless((int) $target->user_id === $userId, 404);
+
+        if ((int) $source->id === (int) $target->id) {
+            return response()->json([
+                'source' => $this->serializeDay($source),
+                'target' => $this->serializeDay($target),
+            ], 200);
+        }
+
+        $muscle = $this->nullableString($validated['muscle_group'] ?? null);
+
+        DB::transaction(function () use ($source, $target, $muscle) {
+            $query = WorkoutExercise::query()
+                ->where('workout_day_id', $source->id)
+                ->orderBy('sort_order')
+                ->orderBy('id');
+
+            if ($muscle === null) {
+                $query->where(function ($q) {
+                    $q->whereNull('muscle_group')->orWhere('muscle_group', '');
+                });
+            } else {
+                $query->where('muscle_group', $muscle);
+            }
+
+            $exercises = $query->get();
+            abort_if($exercises->isEmpty(), 422, 'No hay ejercicios en ese grupo.');
+
+            $maxOrder = (int) $target->exercises()->max('sort_order');
+
+            foreach ($exercises->values() as $index => $exercise) {
+                $exercise->update([
+                    'workout_day_id' => $target->id,
+                    'sort_order'     => $maxOrder + $index + 1,
+                ]);
+            }
+
+            if ($target->is_rest) {
+                $target->update(['is_rest' => false]);
+            }
+
+            $this->rebuildFocusFromExercises($source->fresh('exercises'));
+            $this->rebuildFocusFromExercises($target->fresh('exercises'));
+        });
+
+        return response()->json([
+            'source' => $this->serializeDay($source->fresh('exercises')),
+            'target' => $this->serializeDay($target->fresh('exercises')),
+        ], 200);
+    }
+
+    /**
+     * Copiar o intercambiar la rutina de un día hacia otro (plan permanente).
+     */
+    public function reassignDay(Request $request, WorkoutDay $workoutDay)
+    {
+        $this->authorizeDay($request, $workoutDay);
+
+        $validated = $request->validate([
+            'source_day_id' => ['required', 'integer', 'exists:workout_days,id'],
+            'mode'          => ['required', Rule::in(['copy', 'swap'])],
+        ]);
+
+        $source = WorkoutDay::query()
+            ->with('exercises')
+            ->findOrFail($validated['source_day_id']);
+
+        abort_unless((int) $source->user_id === (int) $request->user()->id, 404);
+
+        if ((int) $source->id === (int) $workoutDay->id) {
+            return response()->json($this->serializeDay($workoutDay->load('exercises')), 200);
+        }
+
+        $workoutDay->load('exercises');
+
+        DB::transaction(function () use ($workoutDay, $source, $validated) {
+            if ($validated['mode'] === 'swap') {
+                $targetSnap = $this->daySnapshot($workoutDay);
+                $sourceSnap = $this->daySnapshot($source);
+                $this->applyDaySnapshot($workoutDay, $sourceSnap);
+                $this->applyDaySnapshot($source, $targetSnap);
+            } else {
+                $this->applyDaySnapshot($workoutDay, $this->daySnapshot($source));
+            }
+        });
+
+        return response()->json([
+            'target' => $this->serializeDay($workoutDay->fresh('exercises')),
+            'source' => $this->serializeDay($source->fresh('exercises')),
+        ], 200);
     }
 
     public function storeSession(Request $request)
@@ -223,20 +372,87 @@ class TrainingController extends Controller
     private function validateSession(Request $request): array
     {
         return $request->validate([
-            'date'              => ['required', 'date'],
-            'workout_day_id'    => ['nullable', 'integer'],
-            'duration_minutes'  => ['nullable', 'integer', 'min:1', 'max:600'],
-            'calories'          => ['nullable', 'integer', 'min:0', 'max:5000'],
-            'notes'             => ['nullable', 'string', 'max:1000'],
-            'exercises'         => ['nullable', 'array'],
-            'exercises.*.name'  => ['required', 'string', 'max:255'],
+            'date'                     => ['required', 'date'],
+            'workout_day_id'           => ['nullable', 'integer'],
+            'duration_minutes'         => ['nullable', 'integer', 'min:1', 'max:600'],
+            'calories'                 => ['nullable', 'integer', 'min:0', 'max:5000'],
+            'notes'                    => ['nullable', 'string', 'max:1000'],
+            'exercises'                => ['nullable', 'array'],
+            'exercises.*.name'         => ['required', 'string', 'max:255'],
             'exercises.*.muscle_group' => ['nullable', 'string', 'max:80'],
-            'exercises.*.sets'  => ['required', 'integer', 'min:0', 'max:30'],
-            'exercises.*.reps'  => ['required', 'integer', 'min:0', 'max:100'],
-            'exercises.*.load_type' => ['required', Rule::in(WorkoutExercise::LOAD_TYPES)],
-            'exercises.*.load_value' => ['nullable', 'numeric', 'min:0', 'max:9999'],
-            'exercises.*.notes' => ['nullable', 'string', 'max:255'],
+            'exercises.*.sets'         => ['required', 'integer', 'min:0', 'max:30'],
+            'exercises.*.reps'         => ['required', 'integer', 'min:0', 'max:100'],
+            'exercises.*.load_type'    => ['required', Rule::in(WorkoutExercise::LOAD_TYPES)],
+            'exercises.*.load_value'   => ['nullable', 'numeric', 'min:0', 'max:9999'],
+            'exercises.*.notes'        => ['nullable', 'string', 'max:255'],
         ]);
+    }
+
+    private function rebuildFocusFromExercises(WorkoutDay $day): void
+    {
+        if ($day->is_rest) {
+            return;
+        }
+
+        $groups = $day->exercises
+            ->pluck('muscle_group')
+            ->map(fn($value) => $this->nullableString($value))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $day->update([
+            'focus' => $groups->isEmpty() ? $day->focus : $groups->implode(' + '),
+        ]);
+    }
+
+    /**
+     * @return array{focus: ?string, is_rest: bool, notes: ?string, exercises: list<array<string, mixed>>}
+     */
+    private function daySnapshot(WorkoutDay $day): array
+    {
+        return [
+            'focus'     => $day->focus,
+            'is_rest'   => (bool) $day->is_rest,
+            'notes'     => $day->notes,
+            'exercises' => $day->exercises->map(fn(WorkoutExercise $item) => [
+                'name'         => $item->name,
+                'muscle_group' => $item->muscle_group,
+                'sets'         => (int) $item->sets,
+                'reps'         => (int) $item->reps,
+                'load_type'    => $item->load_type,
+                'load_value'   => $item->load_value,
+                'notes'        => $item->notes,
+                'sort_order'   => (int) $item->sort_order,
+            ])->values()->all(),
+        ];
+    }
+
+    /**
+     * @param  array{focus: ?string, is_rest: bool, notes: ?string, exercises: list<array<string, mixed>>}  $snapshot
+     */
+    private function applyDaySnapshot(WorkoutDay $day, array $snapshot): void
+    {
+        $day->update([
+            'focus'   => $snapshot['focus'],
+            'is_rest' => (bool) $snapshot['is_rest'],
+            'notes'   => $snapshot['notes'],
+        ]);
+
+        $day->exercises()->delete();
+
+        foreach (array_values($snapshot['exercises']) as $index => $item) {
+            $day->exercises()->create([
+                'name'         => $item['name'],
+                'muscle_group' => $item['muscle_group'] ?? null,
+                'sets'         => (int) $item['sets'],
+                'reps'         => (int) $item['reps'],
+                'load_type'    => $item['load_type'],
+                'load_value'   => $item['load_value'] ?? null,
+                'notes'        => $item['notes'] ?? null,
+                'sort_order'   => $item['sort_order'] ?? $index,
+            ]);
+        }
     }
 
     /**
@@ -270,7 +486,7 @@ class TrainingController extends Controller
             'focus'     => $day->focus,
             'is_rest'   => (bool) $day->is_rest,
             'notes'     => $day->notes,
-            'exercises' => $day->exercises->map(fn (WorkoutExercise $item) => $this->serializeExercise($item))->values(),
+            'exercises' => $day->exercises->map(fn(WorkoutExercise $item) => $this->serializeExercise($item))->values(),
         ];
     }
 
@@ -301,7 +517,7 @@ class TrainingController extends Controller
             'duration_minutes' => $session->duration_minutes,
             'calories'         => $session->calories,
             'notes'            => $session->notes,
-            'exercises'        => $session->exercises->map(fn (WorkoutSessionExercise $item) => [
+            'exercises'        => $session->exercises->map(fn(WorkoutSessionExercise $item) => [
                 'id'           => $item->id,
                 'name'         => $item->name,
                 'muscle_group' => $item->muscle_group,

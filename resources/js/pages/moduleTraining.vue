@@ -69,13 +69,13 @@
             <h2 class="training-hoy__focus mb-0">
               {{ activeDay.is_rest
                 ? 'Descanso / correr'
-                : (activeDay.focus || 'Todavía sin plan') }}
+                : (activeDaySummary || 'Todavía sin plan') }}
             </h2>
             <p
               v-if="isSwappedRoutine"
               class="training-hoy__swap-note mb-0 mt-2"
             >
-              Hoy toca {{ todayDay?.focus || todayDay?.label }}, pero estás haciendo la de {{ activeDay.label }}.
+              Hoy toca {{ todayDaySummary || todayDay?.label }}, pero estás haciendo la de {{ activeDay.label }}.
             </p>
           </header>
 
@@ -98,16 +98,23 @@
                 {{ shortDay(day.label) }}
               </button>
             </div>
-            <VBtn
+            <div
               v-if="isSwappedRoutine"
-              size="small"
-              variant="text"
-              rounded="lg"
-              class="mt-1 px-1"
-              @click="resetToTodayRoutine"
+              class="training-hoy__swap-actions mt-2"
             >
-              Volver a la de hoy
-            </VBtn>
+              <p class="text-caption text-medium-emphasis mb-1 w-100">
+                Solo por hoy. Para cambiar el plan, usá Semana y arrastrá los grupos.
+              </p>
+              <VBtn
+                size="small"
+                variant="text"
+                rounded="lg"
+                class="px-1"
+                @click="resetToTodayRoutine"
+              >
+                Volver a la de hoy
+              </VBtn>
+            </div>
           </div>
 
           <div
@@ -151,6 +158,9 @@
               v-else
               class="training-hoy__list"
             >
+              <p class="training-hoy__hint mb-3">
+                Tocá un ejercicio para subir nivel o reps al toque.
+              </p>
               <div
                 v-for="group in activeGroupedExercises"
                 :key="group.name"
@@ -159,26 +169,35 @@
                 <p class="training-hoy__group-title">
                   {{ group.name }}
                 </p>
-                <div
+                <button
                   v-for="item in group.items"
                   :key="item.id"
+                  type="button"
                   class="training-hoy__ex"
+                  @click="openQuickEdit(item)"
                 >
-                  <p class="training-hoy__ex-name mb-1">
-                    {{ item.name }}
-                  </p>
-                  <p class="training-hoy__ex-rx mb-0">
-                    {{ item.reps }}×{{ item.sets }}
-                    <span class="training-hoy__ex-dot">·</span>
-                    {{ formatLoad(item) }}
-                  </p>
-                  <p
-                    v-if="item.notes"
-                    class="training-hoy__ex-note mb-0"
-                  >
-                    {{ item.notes }}
-                  </p>
-                </div>
+                  <div class="min-w-0 text-left">
+                    <p class="training-hoy__ex-name mb-1">
+                      {{ item.name }}
+                    </p>
+                    <p class="training-hoy__ex-rx mb-0">
+                      {{ item.reps }}×{{ item.sets }}
+                      <span class="training-hoy__ex-dot">·</span>
+                      {{ formatLoad(item) }}
+                    </p>
+                    <p
+                      v-if="item.notes"
+                      class="training-hoy__ex-note mb-0"
+                    >
+                      {{ item.notes }}
+                    </p>
+                  </div>
+                  <VIcon
+                    icon="ri-pencil-line"
+                    size="18"
+                    class="training-hoy__ex-edit"
+                  />
+                </button>
               </div>
             </div>
 
@@ -208,150 +227,244 @@
         </template>
       </VWindowItem>
 
-      <!-- Semana: plan + editar cualquier día -->
+      <!-- Semana: plan + mover grupos + editar día -->
       <VWindowItem value="semana">
-        <VCard
-          rounded="lg"
-          class="mb-4"
-          :loading="loading"
+        <p class="text-body-2 text-medium-emphasis mb-3">
+          Arrastrá un grupo a otro día. Tocá un día para editarlo.
+        </p>
+
+        <div
+          class="training-board mb-4"
+          :class="{ 'training-board--busy': dragLocked }"
         >
-          <div class="training-semana">
+          <div
+            v-for="column in weekBoard"
+            :key="column.id"
+            class="training-board__day"
+            :class="{
+              'training-board__day--today': column.weekday === todayWeekday,
+              'training-board__day--rest': column.is_rest,
+              'training-board__day--selected': editPanelOpen && selectedDayId === column.id,
+            }"
+          >
             <button
-              v-for="day in days"
-              :key="day.id"
               type="button"
-              class="training-semana__row"
-              :class="{
-                'training-semana__row--today': day.weekday === todayWeekday,
-                'training-semana__row--open': selectedDayId === day.id && editPanelOpen,
-              }"
-              @click="toggleEditDay(day)"
+              class="training-board__head"
+              @click="toggleEditDay(days.find(d => d.id === column.id))"
             >
-              <span class="training-semana__day">
-                {{ day.label }}
+              <span class="training-board__label">
+                {{ column.label }}
                 <span
-                  v-if="day.weekday === todayWeekday"
-                  class="training-semana__hoy"
+                  v-if="column.weekday === todayWeekday"
+                  class="training-board__hoy"
                 >hoy</span>
               </span>
-              <span class="training-semana__summary">
-                {{ day.is_rest ? 'Descanso / correr' : (day.focus || 'Sin definir') }}
+              <span class="training-board__focus">
+                {{ column.is_rest ? 'Descanso' : (column.focus || 'Sin definir') }}
               </span>
-              <VIcon
-                :icon="selectedDayId === day.id && editPanelOpen ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'"
-                size="20"
-                class="training-semana__chevron"
-              />
             </button>
-          </div>
-        </VCard>
 
-        <VCard
-          v-if="editPanelOpen && selectedDay"
-          rounded="lg"
-          :loading="loading"
-        >
-          <VCardText>
-            <div class="d-flex flex-wrap align-center justify-space-between gap-2 mb-3">
-              <p class="text-subtitle-1 font-weight-medium mb-0">
-                {{ selectedDay.label }}
-              </p>
-              <VSwitch
-                v-model="selectedDay.is_rest"
-                color="primary"
-                hide-details
-                label="Descanso"
-                density="compact"
-                @update:model-value="saveDay"
-              />
-            </div>
-
-            <VTextField
-              v-if="!selectedDay.is_rest"
-              v-model="selectedDay.focus"
-              label="Resumen (ej. Pecho + hombros + tríceps)"
-              variant="outlined"
-              rounded="lg"
-              hide-details="auto"
-              class="mb-4"
-              @blur="saveDay"
-            />
-
-            <div
-              v-if="selectedDay.is_rest"
-              class="training-empty py-6"
+            <VueDraggable
+              v-model="column.groups"
+              :group="{ name: 'training-muscle-groups', pull: true, put: true }"
+              :animation="180"
+              handle=".training-board__handle"
+              filter="input, textarea, select, .v-field, .v-btn, button:not(.training-board__handle)"
+              :prevent-on-filter="false"
+              class="training-board__drop"
+              :disabled="dragLocked || column.is_rest"
+              @add="onGroupMoved($event, column)"
             >
-              Día de descanso / correr.
-            </div>
-
-            <template v-else>
-              <div class="d-flex align-center justify-space-between gap-2 mb-3">
-                <p class="text-subtitle-2 font-weight-medium mb-0">
-                  Ejercicios
-                </p>
-                <VBtn
-                  size="small"
-                  color="primary"
-                  variant="tonal"
-                  rounded="lg"
-                  prepend-icon="ri-add-line"
-                  @click="openExercise()"
-                >
-                  Agregar
-                </VBtn>
-              </div>
-
               <div
-                v-if="!selectedDay.exercises?.length"
-                class="training-empty py-6"
+                v-for="group in column.groups"
+                :key="`${column.id}-${group.key}`"
+                class="training-board__group"
               >
-                Agregá ejercicios con reps, series y nivel.
-              </div>
-
-              <div
-                v-for="group in groupedExercises"
-                :key="group.name"
-                class="mb-3"
-              >
-                <p class="training-group__title">
-                  {{ group.name }}
-                </p>
-                <div
-                  v-for="item in group.items"
-                  :key="item.id"
-                  class="training-exercise"
+                <button
+                  type="button"
+                  class="training-board__handle"
+                  aria-label="Mover grupo"
                 >
-                  <div class="min-w-0">
-                    <p class="font-weight-medium mb-0">
-                      {{ item.name }}
-                    </p>
-                    <p class="text-body-2 text-medium-emphasis mb-0">
-                      {{ item.reps }}×{{ item.sets }} · {{ formatLoad(item) }}
-                    </p>
-                  </div>
-                  <div class="d-flex gap-1">
-                    <VBtn
-                      icon
-                      variant="text"
-                      size="small"
-                      @click="openExercise(item)"
-                    >
-                      <VIcon icon="ri-pencil-line" />
-                    </VBtn>
-                    <VBtn
-                      icon
-                      variant="text"
-                      size="small"
-                      @click="deleteExercise(item)"
-                    >
-                      <VIcon icon="ri-delete-bin-line" />
-                    </VBtn>
-                  </div>
+                  <VIcon
+                    icon="ri-draggable"
+                    size="18"
+                  />
+                </button>
+                <div class="min-w-0">
+                  <p class="training-board__group-name mb-0">
+                    {{ group.name }}
+                  </p>
+                  <p class="training-board__group-meta mb-0">
+                    {{ group.count }} ejercicio{{ group.count === 1 ? '' : 's' }}
+                  </p>
                 </div>
               </div>
-            </template>
-          </VCardText>
-        </VCard>
+            </VueDraggable>
+
+            <p
+              v-if="!column.is_rest && !column.groups.length"
+              class="training-board__empty"
+            >
+              Sin grupos
+            </p>
+            <p
+              v-else-if="column.is_rest"
+              class="training-board__empty"
+            >
+              Descanso
+            </p>
+          </div>
+        </div>
+
+        <VDialog
+          v-model="editPanelOpen"
+          max-width="560"
+          scrollable
+        >
+          <VCard
+            v-if="selectedDay"
+            rounded="lg"
+            :loading="loading"
+            class="training-day-editor"
+          >
+            <VCardTitle class="d-flex align-center justify-space-between gap-2 pe-2">
+              <span>{{ selectedDay.label }}</span>
+              <VBtn
+                icon
+                variant="text"
+                size="small"
+                aria-label="Cerrar"
+                @click="editPanelOpen = false"
+              >
+                <VIcon icon="ri-close-line" />
+              </VBtn>
+            </VCardTitle>
+            <VCardText class="d-flex flex-column gap-4 pt-2">
+              <div class="d-flex flex-wrap align-center justify-space-between gap-2">
+                <div class="min-w-0">
+                  <p class="text-body-2 text-medium-emphasis mb-1">
+                    Resumen automático
+                  </p>
+                  <p class="text-subtitle-1 font-weight-medium mb-0">
+                    {{ selectedDay.is_rest
+                      ? 'Descanso / correr'
+                      : (selectedDaySummary || 'Agregá ejercicios con grupo muscular') }}
+                  </p>
+                </div>
+                <VSwitch
+                  v-model="selectedDay.is_rest"
+                  color="primary"
+                  hide-details
+                  label="Descanso"
+                  density="compact"
+                  @update:model-value="saveDay"
+                />
+              </div>
+
+              <div
+                v-if="selectedDay.is_rest"
+                class="training-empty py-6"
+              >
+                Día de descanso / correr.
+              </div>
+
+              <template v-else>
+                <div class="d-flex align-center justify-space-between gap-2">
+                  <p class="text-subtitle-2 font-weight-medium mb-0">
+                    Ejercicios
+                  </p>
+                  <VBtn
+                    size="small"
+                    color="primary"
+                    variant="tonal"
+                    rounded="lg"
+                    prepend-icon="ri-add-line"
+                    @click="openExercise()"
+                  >
+                    Agregar
+                  </VBtn>
+                </div>
+
+                <div
+                  v-if="!selectedDay.exercises?.length"
+                  class="training-empty py-6"
+                >
+                  Agregá ejercicios con reps, series y nivel. El grupo muscular arma el resumen del día (ej. Pecho + Tríceps).
+                </div>
+
+                <template v-else>
+                  <p class="text-caption text-medium-emphasis mb-0">
+                    Arrastrá el ícono para cambiar el orden.
+                  </p>
+                  <VueDraggable
+                    v-model="selectedDay.exercises"
+                    :animation="180"
+                    handle=".training-drag-handle"
+                    filter="input, textarea, select, .v-field, .v-btn, button:not(.training-drag-handle)"
+                    :prevent-on-filter="false"
+                    class="training-drag-list"
+                    :disabled="dragLocked"
+                    @update="saveExerciseOrder"
+                  >
+                    <div
+                      v-for="item in selectedDay.exercises"
+                      :key="item.id"
+                      class="training-exercise"
+                    >
+                      <button
+                        type="button"
+                        class="training-drag-handle"
+                        aria-label="Reordenar"
+                      >
+                        <VIcon
+                          icon="ri-draggable"
+                          size="20"
+                        />
+                      </button>
+                      <div class="min-w-0 flex-grow-1">
+                        <p class="font-weight-medium mb-0">
+                          {{ item.name }}
+                        </p>
+                        <p class="text-body-2 text-medium-emphasis mb-0">
+                          <span v-if="item.muscle_group">{{ item.muscle_group }} · </span>
+                          {{ item.reps }}×{{ item.sets }} · {{ formatLoad(item) }}
+                        </p>
+                      </div>
+                      <div class="d-flex gap-1">
+                        <VBtn
+                          icon
+                          variant="text"
+                          size="small"
+                          @click="openExercise(item)"
+                        >
+                          <VIcon icon="ri-pencil-line" />
+                        </VBtn>
+                        <VBtn
+                          icon
+                          variant="text"
+                          size="small"
+                          @click="deleteExercise(item)"
+                        >
+                          <VIcon icon="ri-delete-bin-line" />
+                        </VBtn>
+                      </div>
+                    </div>
+                  </VueDraggable>
+                </template>
+              </template>
+            </VCardText>
+            <VCardActions class="px-4 pb-4">
+              <VSpacer />
+              <VBtn
+                color="primary"
+                rounded="lg"
+                @click="editPanelOpen = false"
+              >
+                Listo
+              </VBtn>
+            </VCardActions>
+          </VCard>
+        </VDialog>
       </VWindowItem>
 
       <!-- Historial -->
@@ -443,13 +556,13 @@
         </VCardTitle>
         <VCardText>
           <p class="mb-3">
-            <strong>Hoy:</strong> ves la rutina del día. Si no querés hacer la de hoy, elegís otra (Lun–Dom) sin cambiar el plan de la semana.
+            <strong>Hoy:</strong> lo que mirás en el gym. Podés elegir otra rutina solo por hoy. Tocá un ejercicio para subir nivel o reps. Para cambiar el plan permanente, usá Semana.
           </p>
           <p class="mb-3">
-            <strong>Semana:</strong> armás el plan fijo (lunes pecho, martes piernas…) y los ejercicios de cada día.
+            <strong>Semana:</strong> arrastrá grupos (Abdomen, Bíceps…) entre días. Tocá el día para editar ejercicios.
           </p>
           <p class="mb-0">
-            <strong>Historial:</strong> al terminar, registrás la sesión (queda con la fecha de hoy y la rutina que elegiste).
+            <strong>Historial:</strong> lo que realmente hiciste al terminar.
           </p>
         </VCardText>
         <VCardActions>
@@ -466,6 +579,122 @@
     </VDialog>
 
     <VDialog
+      v-model="quickEditDialog"
+      max-width="420"
+    >
+      <VCard rounded="lg">
+        <VCardTitle class="text-h6">
+          {{ quickEditForm.name || 'Ajustar' }}
+        </VCardTitle>
+        <VCardText>
+          <p class="text-caption text-medium-emphasis mb-4">
+            Cambio en el plan (queda para las próximas veces).
+          </p>
+
+          <div class="training-quick">
+            <div class="training-quick__row">
+              <span class="training-quick__label">Reps</span>
+              <div class="training-quick__ctrl">
+                <VBtn
+                  icon
+                  variant="tonal"
+                  size="small"
+                  rounded="lg"
+                  @click="bumpQuick('reps', -1)"
+                >
+                  <VIcon icon="ri-subtract-line" />
+                </VBtn>
+                <span class="training-quick__value">{{ quickEditForm.reps }}</span>
+                <VBtn
+                  icon
+                  variant="tonal"
+                  size="small"
+                  rounded="lg"
+                  @click="bumpQuick('reps', 1)"
+                >
+                  <VIcon icon="ri-add-line" />
+                </VBtn>
+              </div>
+            </div>
+
+            <div class="training-quick__row">
+              <span class="training-quick__label">Series</span>
+              <div class="training-quick__ctrl">
+                <VBtn
+                  icon
+                  variant="tonal"
+                  size="small"
+                  rounded="lg"
+                  @click="bumpQuick('sets', -1)"
+                >
+                  <VIcon icon="ri-subtract-line" />
+                </VBtn>
+                <span class="training-quick__value">{{ quickEditForm.sets }}</span>
+                <VBtn
+                  icon
+                  variant="tonal"
+                  size="small"
+                  rounded="lg"
+                  @click="bumpQuick('sets', 1)"
+                >
+                  <VIcon icon="ri-add-line" />
+                </VBtn>
+              </div>
+            </div>
+
+            <div
+              v-if="quickEditForm.load_type !== 'bodyweight'"
+              class="training-quick__row"
+            >
+              <span class="training-quick__label">
+                {{ quickEditForm.load_type === 'level' ? 'Nivel' : 'Kg' }}
+              </span>
+              <div class="training-quick__ctrl">
+                <VBtn
+                  icon
+                  variant="tonal"
+                  size="small"
+                  rounded="lg"
+                  @click="bumpQuick('load_value', quickEditForm.load_type === 'level' ? -1 : -0.5)"
+                >
+                  <VIcon icon="ri-subtract-line" />
+                </VBtn>
+                <span class="training-quick__value">{{ quickEditForm.load_value ?? 0 }}</span>
+                <VBtn
+                  icon
+                  variant="tonal"
+                  size="small"
+                  rounded="lg"
+                  @click="bumpQuick('load_value', quickEditForm.load_type === 'level' ? 1 : 0.5)"
+                >
+                  <VIcon icon="ri-add-line" />
+                </VBtn>
+              </div>
+            </div>
+          </div>
+        </VCardText>
+        <VCardActions>
+          <VSpacer />
+          <VBtn
+            variant="text"
+            rounded="lg"
+            @click="quickEditDialog = false"
+          >
+            Cancelar
+          </VBtn>
+          <VBtn
+            color="primary"
+            rounded="lg"
+            :loading="saving"
+            @click="saveQuickEdit"
+          >
+            Guardar
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
+
+    <VDialog
       v-model="exerciseDialog"
       max-width="480"
     >
@@ -473,13 +702,14 @@
         <VCardTitle class="text-h6">
           {{ exerciseForm.id ? 'Editar ejercicio' : 'Nuevo ejercicio' }}
         </VCardTitle>
-        <VCardText class="d-flex flex-column gap-4">
+        <VCardText class="d-flex flex-column gap-4 pt-4">
           <VTextField
             v-model="exerciseForm.name"
             label="Ejercicio"
             variant="outlined"
             rounded="lg"
             hide-details="auto"
+            autofocus
           />
           <VSelect
             v-model="exerciseForm.muscle_group"
@@ -563,14 +793,13 @@
 
     <VDialog
       v-model="sessionDialog"
-      max-width="640"
-      scrollable
+      max-width="480"
     >
       <VCard rounded="lg">
         <VCardTitle class="text-h6">
           {{ sessionForm.id ? 'Editar sesión' : 'Registrar sesión' }}
         </VCardTitle>
-        <VCardText class="d-flex flex-column gap-4">
+        <VCardText class="d-flex flex-column gap-4 pt-4">
           <VTextField
             v-model="sessionForm.date"
             type="date"
@@ -623,59 +852,6 @@
             rounded="lg"
             hide-details="auto"
           />
-
-          <p
-            v-if="sessionForm.exercises.length"
-            class="text-subtitle-2 font-weight-medium mb-0"
-          >
-            Ejercicios
-          </p>
-
-          <div
-            v-for="(item, index) in sessionForm.exercises"
-            :key="index"
-            class="training-session-ex"
-          >
-            <p class="training-session-ex__name mb-2">
-              {{ item.name }}
-            </p>
-            <div class="training-session-ex__row">
-              <VTextField
-                v-model.number="item.reps"
-                type="number"
-                inputmode="numeric"
-                label="Reps"
-                density="compact"
-                variant="outlined"
-                rounded="lg"
-                hide-details
-              />
-              <span class="training-session-ex__sep">×</span>
-              <VTextField
-                v-model.number="item.sets"
-                type="number"
-                inputmode="numeric"
-                label="Series"
-                density="compact"
-                variant="outlined"
-                rounded="lg"
-                hide-details
-              />
-              <template v-if="item.load_type !== 'bodyweight'">
-                <span class="training-session-ex__sep">·</span>
-                <VTextField
-                  v-model.number="item.load_value"
-                  type="number"
-                  inputmode="decimal"
-                  :label="item.load_type === 'level' ? 'Nivel' : 'Kg'"
-                  density="compact"
-                  variant="outlined"
-                  rounded="lg"
-                  hide-details
-                />
-              </template>
-            </div>
-          </div>
         </VCardText>
         <VCardActions>
           <VSpacer />
@@ -697,10 +873,49 @@
         </VCardActions>
       </VCard>
     </VDialog>
+
+    <VDialog
+      v-model="deleteDialog"
+      max-width="400"
+    >
+      <VCard rounded="lg">
+        <VCardTitle class="text-h6">
+          {{ deleteKind === 'session' ? 'Eliminar sesión' : 'Eliminar ejercicio' }}
+        </VCardTitle>
+        <VCardText class="text-body-2 pt-2">
+          <template v-if="deleteKind === 'session'">
+            ¿Eliminar esta sesión? No se puede deshacer.
+          </template>
+          <template v-else>
+            ¿Eliminar “{{ deleteTarget?.name }}”?
+          </template>
+        </VCardText>
+        <VCardActions class="px-4 pb-4">
+          <VSpacer />
+          <VBtn
+            variant="text"
+            rounded="lg"
+            @click="deleteDialog = false"
+          >
+            Cancelar
+          </VBtn>
+          <VBtn
+            color="error"
+            variant="flat"
+            rounded="lg"
+            :loading="deleting"
+            @click="confirmDelete"
+          >
+            Eliminar
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
   </div>
 </template>
 
 <script>
+import { VueDraggable } from 'vue-draggable-plus'
 import { axios } from '@/plugins/axios'
 
 const MUSCLE_OPTIONS = [
@@ -781,6 +996,10 @@ function groupExercises(exercises) {
 export default {
   name: 'ModuleTraining',
 
+  components: {
+    VueDraggable,
+  },
+
   data() {
     return {
       loading: false,
@@ -794,9 +1013,16 @@ export default {
       activeDayId: null,
       selectedDayId: null,
       editPanelOpen: false,
+      movingGroup: false,
+      weekBoard: [],
       helpDialog: false,
+      quickEditDialog: false,
       exerciseDialog: false,
       sessionDialog: false,
+      deleteDialog: false,
+      deleteKind: null,
+      deleteTarget: null,
+      deleting: false,
       muscleOptions: MUSCLE_OPTIONS,
       loadTypeOptions: [
         { title: 'Nivel (máquina)', value: 'level' },
@@ -804,6 +1030,7 @@ export default {
         { title: 'Peso corporal', value: 'bodyweight' },
       ],
       exerciseForm: emptyExercise(),
+      quickEditForm: emptyExercise(),
       sessionForm: emptySession(),
     }
   },
@@ -817,6 +1044,20 @@ export default {
       return this.days.find(day => day.id === this.activeDayId) || this.todayDay
     },
 
+    activeDaySummary() {
+      if (!this.activeDay || this.activeDay.is_rest)
+        return null
+
+      return this.focusFromGroups(this.groupsFromDay(this.activeDay))
+    },
+
+    todayDaySummary() {
+      if (!this.todayDay || this.todayDay.is_rest)
+        return null
+
+      return this.focusFromGroups(this.groupsFromDay(this.todayDay))
+    },
+
     calendarDayLabel() {
       return this.todayDay?.label || ''
     },
@@ -825,8 +1066,22 @@ export default {
       return Boolean(this.activeDay && this.todayDay && this.activeDay.id !== this.todayDay.id)
     },
 
+    dragLocked() {
+      return this.movingGroup
+        || this.editPanelOpen
+        || this.exerciseDialog
+        || this.sessionDialog
+        || this.quickEditDialog
+        || this.deleteDialog
+        || this.helpDialog
+    },
+
     selectedDay() {
       return this.days.find(day => day.id === this.selectedDayId) || null
+    },
+
+    selectedDaySummary() {
+      return this.focusFromGroups(this.groupsFromDay(this.selectedDay || { exercises: [] }))
     },
 
     activeGroupedExercises() {
@@ -851,7 +1106,7 @@ export default {
       this.loading = true
       this.error = ''
 
-      axios.get('/api/training')
+      return axios.get('/api/training')
         .then(response => {
           this.days = response.data.days || []
           this.sessions = response.data.sessions || []
@@ -865,12 +1120,88 @@ export default {
           if (!this.selectedDayId) {
             this.selectedDayId = fallbackId
           }
+
+          this.rebuildWeekBoard()
         })
         .catch(error => {
           this.error = error.response?.data?.message || 'No se pudo cargar el entrenamiento.'
         })
         .finally(() => {
           this.loading = false
+        })
+    },
+
+    rebuildWeekBoard() {
+      this.weekBoard = this.days.map(day => {
+        const groups = this.groupsFromDay(day)
+
+        return {
+          id: day.id,
+          label: day.label,
+          weekday: day.weekday,
+          is_rest: day.is_rest,
+          focus: day.is_rest ? null : this.focusFromGroups(groups),
+          groups,
+        }
+      })
+    },
+
+    focusFromGroups(groups) {
+      return (groups || [])
+        .map(group => group.name)
+        .filter(name => name && name !== 'Sin grupo')
+        .join(' + ') || null
+    },
+
+    groupsFromDay(day) {
+      const map = {}
+      const groups = []
+
+      ;(day.exercises || []).forEach(item => {
+        const name = item.muscle_group || 'Sin grupo'
+        const key = name
+
+        if (!map[key]) {
+          map[key] = {
+            key,
+            name,
+            source_day_id: day.id,
+            muscle_group: item.muscle_group || null,
+            count: 0,
+          }
+          groups.push(map[key])
+        }
+
+        map[key].count += 1
+      })
+
+      return groups
+    },
+
+    onGroupMoved(event, targetColumn) {
+      const group = targetColumn.groups[event.newIndex]
+      if (!group || this.movingGroup)
+        return
+
+      if (group.source_day_id === targetColumn.id) {
+        this.rebuildWeekBoard()
+
+        return
+      }
+
+      this.movingGroup = true
+      axios.post('/api/training/move-group', {
+        source_day_id: group.source_day_id,
+        target_day_id: targetColumn.id,
+        muscle_group: group.muscle_group,
+      })
+        .then(() => this.load())
+        .catch(error => {
+          this.error = error.response?.data?.message || 'No se pudo mover el grupo.'
+          this.rebuildWeekBoard()
+        })
+        .finally(() => {
+          this.movingGroup = false
         })
     },
 
@@ -888,17 +1219,16 @@ export default {
       axios.put(`/api/training/days/${day.id}`, {
         focus: day.focus,
         is_rest: day.is_rest,
+      }).then(() => {
+        this.rebuildWeekBoard()
       }).catch(error => {
         this.error = error.response?.data?.message || 'No se pudo guardar el día.'
       })
     },
 
     toggleEditDay(day) {
-      if (this.selectedDayId === day.id && this.editPanelOpen) {
-        this.editPanelOpen = false
-
+      if (!day)
         return
-      }
 
       this.selectedDayId = day.id
       this.editPanelOpen = true
@@ -916,6 +1246,55 @@ export default {
 
     shortDay(label) {
       return String(label || '').slice(0, 3)
+    },
+
+    openQuickEdit(item) {
+      this.quickEditForm = { ...item }
+      this.quickEditDialog = true
+    },
+
+    bumpQuick(field, delta) {
+      const current = Number(this.quickEditForm[field])
+      const base = Number.isFinite(current) ? current : 0
+      let next = base + delta
+
+      if (field === 'reps')
+        next = Math.min(100, Math.max(1, next))
+      else if (field === 'sets')
+        next = Math.min(30, Math.max(1, next))
+      else if (field === 'load_value')
+        next = Math.max(0, Math.round(next * 100) / 100)
+
+      this.quickEditForm[field] = next
+    },
+
+    saveQuickEdit() {
+      if (!this.quickEditForm.id || this.saving)
+        return
+
+      this.saving = true
+      const payload = {
+        name: this.quickEditForm.name,
+        muscle_group: this.quickEditForm.muscle_group,
+        sets: this.quickEditForm.sets,
+        reps: this.quickEditForm.reps,
+        load_type: this.quickEditForm.load_type,
+        load_value: this.quickEditForm.load_type === 'bodyweight' ? null : this.quickEditForm.load_value,
+        notes: this.quickEditForm.notes,
+      }
+
+      axios.put(`/api/training/exercises/${this.quickEditForm.id}`, payload)
+        .then(() => {
+          this.quickEditDialog = false
+          this.$toast.success('Actualizado', { timeout: 1500, closeOnClick: true })
+          this.load()
+        })
+        .catch(error => {
+          this.error = error.response?.data?.message || 'No se pudo guardar.'
+        })
+        .finally(() => {
+          this.saving = false
+        })
     },
 
     openExercise(item = null) {
@@ -966,14 +1345,54 @@ export default {
     },
 
     deleteExercise(item) {
-      if (!confirm(`¿Eliminar ${item.name}?`))
+      this.deleteKind = 'exercise'
+      this.deleteTarget = item
+      this.deleteDialog = true
+    },
+
+    deleteSession(session) {
+      this.deleteKind = 'session'
+      this.deleteTarget = session
+      this.deleteDialog = true
+    },
+
+    confirmDelete() {
+      if (!this.deleteTarget || this.deleting)
         return
 
-      axios.delete(`/api/training/exercises/${item.id}`)
-        .then(() => this.load())
+      this.deleting = true
+
+      const request = this.deleteKind === 'session'
+        ? axios.delete(`/api/training/sessions/${this.deleteTarget.id}`)
+        : axios.delete(`/api/training/exercises/${this.deleteTarget.id}`)
+
+      request
+        .then(() => {
+          this.deleteDialog = false
+          this.deleteTarget = null
+          this.deleteKind = null
+          this.load()
+        })
         .catch(error => {
           this.error = error.response?.data?.message || 'No se pudo eliminar.'
         })
+        .finally(() => {
+          this.deleting = false
+        })
+    },
+
+    saveExerciseOrder() {
+      if (!this.selectedDay?.exercises?.length)
+        return
+
+      const exerciseIds = this.selectedDay.exercises.map(item => item.id)
+
+      axios.put(`/api/training/days/${this.selectedDay.id}/exercises/reorder`, {
+        exercise_ids: exerciseIds,
+      }).catch(error => {
+        this.error = error.response?.data?.message || 'No se pudo guardar el orden.'
+        this.load()
+      })
     },
 
     openSessionFromDay(day = null) {
@@ -1047,17 +1466,6 @@ export default {
         })
         .finally(() => {
           this.saving = false
-        })
-    },
-
-    deleteSession(session) {
-      if (!confirm('¿Eliminar esta sesión?'))
-        return
-
-      axios.delete(`/api/training/sessions/${session.id}`)
-        .then(() => this.load())
-        .catch(error => {
-          this.error = error.response?.data?.message || 'No se pudo eliminar.'
         })
     },
 
@@ -1189,12 +1597,72 @@ export default {
 }
 
 .training-hoy__ex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
   padding: 1rem 0;
+  border: 0;
   border-bottom: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .training-hoy__ex:last-child {
   border-bottom: 0;
+}
+
+.training-hoy__ex-edit {
+  opacity: 0.35;
+  flex-shrink: 0;
+}
+
+.training-hoy__hint {
+  font-size: 0.8125rem;
+  color: rgba(var(--v-theme-on-surface), 0.55);
+  margin: 0;
+}
+
+.training-hoy__swap-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.training-quick {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.training-quick__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.training-quick__label {
+  font-weight: 600;
+  min-width: 4rem;
+}
+
+.training-quick__ctrl {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.training-quick__value {
+  min-width: 2.5rem;
+  text-align: center;
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .training-hoy__ex-name {
@@ -1230,55 +1698,131 @@ export default {
   background: linear-gradient(to top, rgb(var(--v-theme-background)) 70%, transparent);
 }
 
-.training-semana__row {
+.training-board {
   display: grid;
-  grid-template-columns: 6.5rem 1fr auto;
   gap: 0.75rem;
-  width: 100%;
-  align-items: center;
-  border: 0;
-  border-bottom: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  padding: 0.95rem 1rem;
-  cursor: pointer;
 }
 
-.training-semana__row:last-child {
-  border-bottom: 0;
+.training-board--busy {
+  opacity: 0.7;
+  pointer-events: none;
 }
 
-.training-semana__row--today .training-semana__day {
-  color: rgb(var(--v-theme-primary));
+.training-board__day {
+  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 14px;
+  background: rgb(var(--v-theme-surface));
+  padding: 0.75rem;
+  min-height: 5.5rem;
 }
 
-.training-semana__row--open {
-  background: color-mix(in srgb, rgb(var(--v-theme-primary)) 10%, rgb(var(--v-theme-surface)));
+.training-board__day--today {
+  border-color: color-mix(in srgb, rgb(var(--v-theme-primary)) 55%, rgba(var(--v-border-color), var(--v-border-opacity)));
 }
 
-.training-semana__day {
-  font-weight: 650;
+.training-board__day--selected {
+  border-color: rgb(var(--v-theme-primary));
+  box-shadow: 0 0 0 1px rgb(var(--v-theme-primary));
+  background: color-mix(in srgb, rgb(var(--v-theme-primary)) 8%, rgb(var(--v-theme-surface)));
+}
+
+.training-board__day--rest {
+  opacity: 0.72;
+}
+
+.training-board__head {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 0 0 0.55rem;
+  margin: 0 0 0.35rem;
+  cursor: pointer;
+  border-bottom: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
-.training-semana__hoy {
+.training-board__label {
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.training-board__hoy {
   font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  opacity: 0.85;
+  color: rgb(var(--v-theme-primary));
 }
 
-.training-semana__summary {
-  color: rgba(var(--v-theme-on-surface), 0.78);
-  font-size: 0.9375rem;
+.training-board__focus {
+  font-size: 0.8125rem;
+  color: rgba(var(--v-theme-on-surface), 0.65);
 }
 
-.training-semana__chevron {
-  opacity: 0.45;
+.training-board__drop {
+  min-height: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.training-board__group {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, rgb(var(--v-theme-primary)) 10%, rgb(var(--v-theme-surface)));
+  border: thin solid color-mix(in srgb, rgb(var(--v-theme-primary)) 22%, rgba(var(--v-border-color), var(--v-border-opacity)));
+}
+
+.training-board__handle {
+  display: inline-flex;
+  border: 0;
+  background: transparent;
+  color: rgba(var(--v-theme-on-surface), 0.45);
+  cursor: grab;
+  padding: 0.15rem;
+  touch-action: none;
+}
+
+.training-board__handle:active {
+  cursor: grabbing;
+}
+
+.training-board__group-name {
+  font-weight: 650;
+  font-size: 0.9rem;
+}
+
+.training-board__group-meta {
+  font-size: 0.75rem;
+  color: rgba(var(--v-theme-on-surface), 0.55);
+}
+
+.training-board__empty {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: rgba(var(--v-theme-on-surface), 0.45);
+}
+
+@media (min-width: 900px) {
+  .training-board {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+@media (min-width: 600px) and (max-width: 899px) {
+  .training-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .training-empty {
@@ -1301,11 +1845,32 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.75rem 0.9rem;
+  gap: 0.5rem;
+  padding: 0.75rem 0.75rem;
   border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
   border-radius: 12px;
   margin-bottom: 0.5rem;
+  background: rgb(var(--v-theme-surface));
+}
+
+.training-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: rgba(var(--v-theme-on-surface), 0.45);
+  cursor: grab;
+  padding: 0.25rem;
+  touch-action: none;
+}
+
+.training-drag-handle:active {
+  cursor: grabbing;
+}
+
+.training-drag-list .sortable-ghost {
+  opacity: 0.45;
 }
 
 .training-history__list {
@@ -1326,55 +1891,9 @@ export default {
   border-top: 0;
 }
 
-.training-session-ex {
-  padding: 0.85rem;
-  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 12px;
-}
-
-.training-session-ex__name {
-  font-weight: 650;
-  margin: 0;
-}
-
-.training-session-ex__row {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr auto 1fr;
-  gap: 0.35rem;
-  align-items: center;
-}
-
-.training-session-ex__sep {
-  color: rgba(var(--v-theme-on-surface), 0.45);
-  font-weight: 600;
-  font-size: 1rem;
-  line-height: 1;
-  padding-top: 0.35rem;
-}
-
 .training-meta-num {
   flex: 1 1 5.5rem;
   min-width: 5rem;
   max-width: 9rem;
-}
-
-@media (max-width: 599px) {
-  .training-semana__row {
-    grid-template-columns: 1fr auto;
-    grid-template-rows: auto auto;
-  }
-
-  .training-semana__day {
-    grid-column: 1;
-  }
-
-  .training-semana__summary {
-    grid-column: 1;
-  }
-
-  .training-semana__chevron {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-  }
 }
 </style>
