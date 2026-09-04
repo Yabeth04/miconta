@@ -428,9 +428,9 @@
 
 <script>
 import { axios } from '@/plugins/axios'
-import { useDisplay } from 'vuetify'
 import ProjectionMonthsDetail from '@/views/pages/projection/ProjectionMonthsDetail.vue'
 import ProjectionSummaryCards from '@/views/pages/projection/ProjectionSummaryCards.vue'
+import { useDisplay } from 'vuetify'
 
 const MONTH_OPTIONS = [
   { title: 'Enero', value: 1 },

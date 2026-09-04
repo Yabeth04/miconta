@@ -310,7 +310,7 @@
 </template>
 
 <script>
-import { useDisplay } from 'vuetify'
+import { useDisplay } from 'vuetify';
 
 export default {
   name: 'ProjectionMonthsDetail',
