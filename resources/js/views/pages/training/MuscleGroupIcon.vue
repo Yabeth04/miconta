@@ -1,5 +1,20 @@
 <template>
   <svg
+    v-if="isCardio"
+    class="muscle-icon muscle-icon--heart"
+    :class="{ 'muscle-icon--lg': size === 'lg' }"
+    viewBox="0 0 24 24"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+  >
+    <path
+      class="muscle-icon__heart"
+      d="M12 21s-6.7-4.35-9.33-7.7C.7 10.9 1.1 7.2 3.6 5.5 5.5 4.2 8 4.5 9.5 6.2L12 9l2.5-2.8c1.5-1.7 4-2 5.9-.7 2.5 1.7 2.9 5.4.93 7.8C18.7 16.65 12 21 12 21z"
+    />
+  </svg>
+
+  <svg
+    v-else
     class="muscle-icon"
     :class="{ 'muscle-icon--lg': size === 'lg' }"
     viewBox="0 0 200 420"
@@ -98,13 +113,12 @@ export default {
   },
 
   computed: {
-    side() {
-      return BACK_GROUPS.has(this.group) ? 'back' : 'front'
+    isCardio() {
+      return this.group === 'Cardio'
     },
 
-    visible() {
-      return Boolean(this.group)
-        && !['Sin grupo', 'Cardio', 'Otro'].includes(this.group)
+    side() {
+      return BACK_GROUPS.has(this.group) ? 'back' : 'front'
     },
   },
 }
@@ -119,8 +133,18 @@ export default {
   vertical-align: middle;
 }
 
+.muscle-icon--heart {
+  width: 16px;
+  height: 16px;
+}
+
 .muscle-icon--lg {
   width: 28px;
+}
+
+.muscle-icon--heart.muscle-icon--lg {
+  width: 20px;
+  height: 20px;
 }
 
 .muscle-icon__base {
@@ -132,6 +156,10 @@ export default {
 }
 
 .muscle-icon__zone--on {
+  fill: rgba(var(--v-theme-primary), 0.85);
+}
+
+.muscle-icon__heart {
   fill: rgba(var(--v-theme-primary), 0.85);
 }
 </style>

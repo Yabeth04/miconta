@@ -4,7 +4,7 @@ export function shortDay(label) {
 
 export function hasMuscleIcon(name) {
   return Boolean(name)
-    && !['Sin grupo', 'Cardio', 'Otro'].includes(name)
+    && !['Sin grupo', 'Otro'].includes(name)
 }
 
 export function formatLoad(item) {
@@ -162,5 +162,5 @@ export function groupsFromDay(day) {
 
 export const MUSCLE_OPTIONS = [
   'Pecho', 'Hombros', 'Tríceps', 'Espalda', 'Bíceps', 'Antebrazo',
-  'Piernas', 'Abdomen', 'Cardio', 'Otro',
+  'Piernas', 'Abdomen', 'Cardio',
 ]
