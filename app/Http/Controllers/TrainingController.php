@@ -167,14 +167,27 @@ class TrainingController extends Controller
     {
         $this->authorizeLibrary($request, $libraryExercise);
 
-        // Las instancias en días quedan (FK → null); solo se saca del catálogo.
+        $affectedDayIds = WorkoutExercise::query()
+            ->where('library_exercise_id', $libraryExercise->id)
+            ->pluck('workout_day_id')
+            ->unique()
+            ->filter()
+            ->values();
+
         WorkoutExercise::query()
             ->where('library_exercise_id', $libraryExercise->id)
-            ->update(['library_exercise_id' => null]);
+            ->delete();
 
         $libraryExercise->delete();
 
-        return response()->json(['message' => 'Ejercicio eliminado de la biblioteca.'], 200);
+        foreach ($affectedDayIds as $dayId) {
+            $day = WorkoutDay::query()->with('exercises')->find($dayId);
+            if ($day && (int) $day->user_id === (int) $request->user()->id) {
+                $this->rebuildFocusFromExercises($day);
+            }
+        }
+
+        return response()->json(['message' => 'Ejercicio eliminado de la biblioteca y de la rutina.'], 200);
     }
 
     public function updateExercise(Request $request, WorkoutExercise $workoutExercise)

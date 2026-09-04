@@ -158,9 +158,6 @@
               v-else
               class="training-hoy__list"
             >
-              <p class="training-hoy__hint mb-3">
-                Tocá un ejercicio para subir nivel o reps al toque.
-              </p>
               <div
                 v-for="group in activeGroupedExercises"
                 :key="group.name"
@@ -169,14 +166,12 @@
                 <p class="training-hoy__group-title">
                   {{ group.name }}
                 </p>
-                <button
+                <div
                   v-for="item in group.items"
                   :key="item.id"
-                  type="button"
                   class="training-hoy__ex"
-                  @click="openQuickEdit(item)"
                 >
-                  <div class="min-w-0 flex-grow-1 text-start">
+                  <div class="min-w-0 flex-grow-1">
                     <p class="training-hoy__ex-name mb-1">
                       {{ item.name }}
                     </p>
@@ -192,12 +187,19 @@
                       {{ item.notes }}
                     </p>
                   </div>
-                  <VIcon
-                    icon="ri-pencil-line"
-                    size="18"
-                    class="training-hoy__ex-edit"
-                  />
-                </button>
+                  <VBtn
+                    icon
+                    variant="text"
+                    size="small"
+                    aria-label="Ajustar reps o nivel"
+                    @click="openQuickEdit(item)"
+                  >
+                    <VIcon
+                      icon="ri-pencil-line"
+                      size="18"
+                    />
+                  </VBtn>
+                </div>
               </div>
             </div>
 
@@ -646,7 +648,7 @@
         </VCardTitle>
         <VCardText>
           <p class="mb-3">
-            <strong>Hoy:</strong> lo que mirás en el gym. Tocá un ejercicio para subir reps, series o nivel. Podés elegir otra rutina solo por hoy. Para armar el plan, usá Semana.
+            <strong>Hoy:</strong> lo que mirás en el gym. Con el lápiz ajustás reps, series o nivel. Podés elegir otra rutina solo por hoy. Para armar el plan, usá Semana.
           </p>
           <p class="mb-3">
             <strong>Semana:</strong> arrastrá grupos (Abdomen, Bíceps…) entre días. Tocá el día para editar ejercicios.
@@ -1065,7 +1067,7 @@
             ¿Eliminar esta sesión? No se puede deshacer.
           </template>
           <template v-else-if="deleteKind === 'library'">
-            ¿Sacar “{{ deleteTarget?.name }}” de la biblioteca? Los días que ya lo usan lo conservan.
+            ¿Sacar “{{ deleteTarget?.name }}” de la biblioteca? También se quita de los días donde esté.
           </template>
           <template v-else>
             ¿Eliminar “{{ deleteTarget?.name }}” de este día?
@@ -1747,7 +1749,7 @@ export default {
           this.deleteTarget = null
           this.deleteKind = null
           if (kind === 'library')
-            this.$toast.success('Sacado de la biblioteca', { timeout: 2000, closeOnClick: true })
+            this.$toast.success('Eliminado de biblioteca y rutina', { timeout: 2000, closeOnClick: true })
           this.load()
         })
         .catch(error => {
@@ -1868,7 +1870,7 @@ export default {
       if (item.load_type === 'bodyweight')
         return 'Peso corporal'
       if (item.load_type === 'level')
-        return item.load_value != null ? `lvl ${item.load_value}` : 'Sin nivel'
+        return item.load_value != null ? `Niv ${item.load_value}` : 'Sin nivel'
       if (item.load_value == null)
         return 'Sin peso'
 
@@ -1981,31 +1983,12 @@ export default {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  width: 100%;
   padding: 1rem 0;
-  border: 0;
   border-bottom: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  border-radius: 0;
 }
 
 .training-hoy__ex:last-child {
   border-bottom: 0;
-}
-
-.training-hoy__ex-edit {
-  opacity: 0.35;
-  flex-shrink: 0;
-}
-
-.training-hoy__hint {
-  font-size: 0.8125rem;
-  color: rgba(var(--v-theme-on-surface), 0.55);
-  margin: 0;
 }
 
 .training-quick {
