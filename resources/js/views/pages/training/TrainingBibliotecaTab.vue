@@ -5,6 +5,7 @@
         Solo nombre y grupo. Series y nivel se ajustan en cada día.
       </p>
       <VBtn
+        v-if="mdAndUp"
         color="primary"
         rounded="lg"
         size="small"
@@ -15,17 +16,29 @@
       </VBtn>
     </div>
 
-    <VTextField
-      v-model="libraryQuery"
-      class="mb-3"
-      label="Buscar"
-      prepend-inner-icon="ri-search-line"
-      variant="outlined"
-      rounded="lg"
-      hide-details
-      clearable
-      density="comfortable"
-    />
+    <div class="training-library-search mb-3">
+      <VTextField
+        v-model="libraryQuery"
+        class="training-library-search__field"
+        label="Buscar"
+        prepend-inner-icon="ri-search-line"
+        variant="outlined"
+        rounded="lg"
+        hide-details
+        clearable
+        density="comfortable"
+      />
+      <VBtn
+        v-if="!mdAndUp"
+        color="primary"
+        rounded="lg"
+        class="training-library-search__btn"
+        prepend-icon="ri-add-line"
+        @click="openLibraryExercise()"
+      >
+        Nuevo
+      </VBtn>
+    </div>
 
     <div
       v-if="loading && !library.length"
@@ -212,6 +225,7 @@ import {
   emptyExercise,
   MUSCLE_OPTIONS,
 } from '@/utils/trainingFormat'
+import { useDisplay } from 'vuetify'
 
 export default {
   name: 'TrainingBibliotecaTab',
@@ -224,6 +238,12 @@ export default {
   },
 
   emits: ['refresh', 'error'],
+
+  setup() {
+    const { mdAndUp } = useDisplay()
+
+    return { mdAndUp }
+  },
 
   data() {
     return {
@@ -338,6 +358,21 @@ export default {
   padding: 2.5rem 1rem;
   color: rgba(var(--v-theme-on-surface), 0.6);
   font-size: 0.875rem;
+}
+
+.training-library-search {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.training-library-search__field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.training-library-search__btn {
+  flex-shrink: 0;
 }
 
 .training-library-hoy {
