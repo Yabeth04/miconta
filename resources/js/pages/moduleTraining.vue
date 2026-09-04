@@ -131,17 +131,19 @@
       :touch="false"
     >
       <VWindowItem value="hoy">
-        <TrainingHoyTab
-          ref="hoyTab"
-          :loading="loading"
-          :days="days"
-          :today-weekday="todayWeekday"
-          :hoy-view="hoyView"
-          @refresh="load"
-          @error="error = $event"
-          @edit-day="goEditDay"
-          @register="openSessionFromDay"
-        />
+        <div class="training-panel training-panel--narrow">
+          <TrainingHoyTab
+            ref="hoyTab"
+            :loading="loading"
+            :days="days"
+            :today-weekday="todayWeekday"
+            :hoy-view="hoyView"
+            @refresh="load"
+            @error="error = $event"
+            @edit-day="goEditDay"
+            @register="openSessionFromDay"
+          />
+        </div>
       </VWindowItem>
 
       <VWindowItem
@@ -160,14 +162,16 @@
       </VWindowItem>
 
       <VWindowItem value="historial">
-        <TrainingHistorialTab
-          :loading="loading"
-          :summary="summary"
-          :sessions="sessions"
-          @refresh="load"
-          @error="error = $event"
-          @open-session="openSession"
-        />
+        <div class="training-panel training-panel--narrow">
+          <TrainingHistorialTab
+            :loading="loading"
+            :summary="summary"
+            :sessions="sessions"
+            @refresh="load"
+            @error="error = $event"
+            @open-session="openSession"
+          />
+        </div>
       </VWindowItem>
 
       <VWindowItem value="biblioteca">
@@ -495,6 +499,18 @@ export default {
 </script>
 
 <style scoped>
+.training-page {
+  width: 100%;
+}
+
+@media (min-width: 960px) {
+  .training-panel--narrow {
+    max-width: 40rem;
+    width: 100%;
+    margin-inline: auto;
+  }
+}
+
 .training-tabs :deep(.v-slide-group) {
   overflow: visible;
 }

@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="training-library">
     <div class="d-flex flex-wrap align-center justify-space-between gap-2 mb-3">
       <p class="text-body-2 text-medium-emphasis mb-0">
         Solo nombre y grupo. Series y nivel se ajustan en cada día.
@@ -41,32 +41,41 @@
       {{ libraryQuery ? 'Nada coincide con la búsqueda.' : 'Todavía no hay ejercicios. Creá el primero.' }}
     </div>
 
-    <div
+    <VExpansionPanels
       v-else
-      class="d-flex flex-column gap-4"
+      v-model="openedPanels"
+      multiple
+      variant="accordion"
+      class="training-library-hoy"
     >
-      <section
+      <VExpansionPanel
         v-for="group in groupedLibrary"
         :key="group.name"
+        :value="group.name"
+        rounded="lg"
+        class="training-library-hoy__panel"
       >
-        <p class="text-subtitle-2 font-weight-medium mb-2 d-flex align-center gap-2">
-          <MuscleGroupIcon
-            v-if="hasMuscleIcon(group.name)"
-            :group="group.name"
-          />
-          {{ group.name }}
-        </p>
-        <div class="training-drag-list">
+        <VExpansionPanelTitle class="training-library-hoy__title">
+          <span class="d-inline-flex align-center gap-2">
+            <MuscleGroupIcon
+              v-if="hasMuscleIcon(group.name)"
+              :group="group.name"
+            />
+            {{ group.name }}
+            <span class="text-medium-emphasis text-caption text-none font-weight-regular">
+              · {{ group.items.length }}
+            </span>
+          </span>
+        </VExpansionPanelTitle>
+        <VExpansionPanelText>
           <div
             v-for="item in group.items"
             :key="item.id"
-            class="training-exercise"
+            class="training-library-hoy__ex"
           >
-            <div class="min-w-0 flex-grow-1">
-              <p class="font-weight-medium mb-0">
-                {{ item.name }}
-              </p>
-            </div>
+            <p class="training-library-hoy__name mb-0 flex-grow-1">
+              {{ item.name }}
+            </p>
             <div class="d-flex gap-1">
               <VBtn
                 icon
@@ -86,9 +95,9 @@
               </VBtn>
             </div>
           </div>
-        </div>
-      </section>
-    </div>
+        </VExpansionPanelText>
+      </VExpansionPanel>
+    </VExpansionPanels>
 
     <VDialog
       v-model="libraryDialog"
@@ -219,6 +228,7 @@ export default {
   data() {
     return {
       libraryQuery: '',
+      openedPanels: [],
       libraryDialog: false,
       libraryForm: emptyExercise(),
       deleteDialog: false,
@@ -330,15 +340,50 @@ export default {
   font-size: 0.875rem;
 }
 
-.training-exercise {
+.training-library-hoy {
+  max-width: 40rem;
+  margin-inline: auto;
+}
+
+.training-library-hoy__panel {
+  background: transparent !important;
+}
+
+.training-library-hoy :deep(.v-expansion-panel) {
+  background: transparent;
+  box-shadow: none !important;
+}
+
+.training-library-hoy :deep(.v-expansion-panel-title) {
+  min-height: 40px;
+  padding-inline: 0.15rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(var(--v-theme-on-surface), 0.45);
+}
+
+.training-library-hoy :deep(.v-expansion-panel-text__wrapper) {
+  padding-inline: 0.15rem;
+  padding-bottom: 0.35rem;
+}
+
+.training-library-hoy__ex {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.75rem 0.75rem;
-  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 12px;
-  margin-bottom: 0.5rem;
-  background: rgb(var(--v-theme-surface));
+  padding: 0.65rem 0;
+  border-bottom: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.training-library-hoy__ex:last-child {
+  border-bottom: 0;
+}
+
+.training-library-hoy__name {
+  font-size: 0.9375rem;
+  font-weight: 600;
 }
 </style>
