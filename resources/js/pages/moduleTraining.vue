@@ -34,19 +34,37 @@
       v-model="activeTab"
       class="mb-4 training-tabs"
       color="primary"
-      density="comfortable"
-      show-arrows
+      density="default"
+      grow
+      fixed-tabs
+      height="72"
     >
-      <VTab value="hoy">
+      <VTab
+        value="hoy"
+        stacked
+      >
+        <VIcon icon="ri-flashlight-line" />
         Hoy
       </VTab>
-      <VTab value="semana">
+      <VTab
+        value="semana"
+        stacked
+      >
+        <VIcon icon="ri-calendar-schedule-line" />
         Semana
       </VTab>
-      <VTab value="historial">
+      <VTab
+        value="historial"
+        stacked
+      >
+        <VIcon icon="ri-history-line" />
         Historial
       </VTab>
-      <VTab value="biblioteca">
+      <VTab
+        value="biblioteca"
+        stacked
+      >
+        <VIcon icon="ri-book-open-line" />
         Biblioteca
       </VTab>
     </VTabs>
@@ -2173,8 +2191,35 @@ export default {
 </script>
 
 <style scoped>
+.training-tabs :deep(.v-slide-group) {
+  overflow: visible;
+}
+
 .training-tabs :deep(.v-slide-group__content) {
-  gap: 0.25rem;
+  width: 100%;
+  gap: 0;
+  transform: none !important;
+}
+
+.training-tabs :deep(.v-tabs) {
+  height: auto;
+}
+
+.training-tabs :deep(.v-tab) {
+  min-width: 0;
+  flex: 1 1 0;
+  height: auto !important;
+  min-height: 64px;
+  padding-top: 0.35rem;
+  padding-bottom: 0.55rem;
+  padding-inline: 0.15rem;
+  font-size: 0.75rem;
+  letter-spacing: 0;
+  overflow: visible;
+}
+
+.training-tabs :deep(.v-btn__content) {
+  white-space: nowrap;
 }
 
 .training-hoy__eyebrow {

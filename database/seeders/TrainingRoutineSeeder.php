@@ -1,5 +1,4 @@
 <?php
-
 namespace Database\Seeders;
 
 use App\Models\User;
@@ -17,8 +16,7 @@ class TrainingRoutineSeeder extends Seeder
 {
     public function run(): void
     {
-        $user = User::query()->where('username', 'villaf14')->first()
-            ?? User::query()->orderBy('id')->first();
+        $user = User::query()->where('username', 'villaf14')->first() ?? User::query()->orderBy('id')->first();
 
         if (! $user) {
             $this->command?->warn('No hay usuario para seed de entrenamiento.');
@@ -27,18 +25,18 @@ class TrainingRoutineSeeder extends Seeder
         }
 
         WorkoutSessionExercise::query()
-            ->whereHas('session', fn ($q) => $q->where('user_id', $user->id))
+            ->whereHas('session', fn($q) => $q->where('user_id', $user->id))
             ->delete();
         WorkoutSession::query()->where('user_id', $user->id)->delete();
         WorkoutExercise::query()
-            ->whereHas('day', fn ($q) => $q->where('user_id', $user->id))
+            ->whereHas('day', fn($q) => $q->where('user_id', $user->id))
             ->delete();
         WorkoutDay::query()->where('user_id', $user->id)->delete();
 
         $plan = [
             1 => [
-                'focus'   => 'Pecho + hombros + tríceps',
-                'is_rest' => false,
+                'focus'     => 'Pecho + hombros + tríceps',
+                'is_rest'   => false,
                 'exercises' => [
                     ['name' => 'Press de pecho', 'muscle_group' => 'Pecho', 'reps' => 11, 'sets' => 4, 'load_type' => 'level', 'load_value' => 5, 'notes' => null],
                     ['name' => 'Butterfly (cerrar y abrir)', 'muscle_group' => 'Pecho', 'reps' => 11, 'sets' => 4, 'load_type' => 'level', 'load_value' => 4, 'notes' => null],
@@ -49,8 +47,8 @@ class TrainingRoutineSeeder extends Seeder
                 ],
             ],
             2 => [
-                'focus'   => 'Piernas + abdomen',
-                'is_rest' => false,
+                'focus'     => 'Piernas + abdomen',
+                'is_rest'   => false,
                 'exercises' => [
                     ['name' => 'Extensión de piernas', 'muscle_group' => 'Piernas', 'reps' => 12, 'sets' => 4, 'load_type' => 'level', 'load_value' => 4, 'notes' => null],
                     ['name' => 'Leg Curl de pie con polea baja + tobillera', 'muscle_group' => 'Piernas', 'reps' => 11, 'sets' => 4, 'load_type' => 'level', 'load_value' => 3, 'notes' => null],
@@ -59,8 +57,8 @@ class TrainingRoutineSeeder extends Seeder
                 ],
             ],
             3 => [
-                'focus'   => 'Espalda + bíceps + antebrazo',
-                'is_rest' => false,
+                'focus'     => 'Espalda + bíceps + antebrazo',
+                'is_rest'   => false,
                 'exercises' => [
                     ['name' => 'Jalón en polea alta', 'muscle_group' => 'Espalda', 'reps' => 11, 'sets' => 4, 'load_type' => 'level', 'load_value' => 6, 'notes' => 'Jalando de arriba hacia abajo'],
                     ['name' => 'Remo en polea baja', 'muscle_group' => 'Espalda', 'reps' => 11, 'sets' => 4, 'load_type' => 'level', 'load_value' => 5, 'notes' => 'En el piso jalando'],
@@ -78,8 +76,8 @@ class TrainingRoutineSeeder extends Seeder
                 ],
             ],
             5 => [
-                'focus'   => 'Piernas + hombros + bíceps + tríceps',
-                'is_rest' => false,
+                'focus'     => 'Piernas + hombros + bíceps + tríceps',
+                'is_rest'   => false,
                 'exercises' => [
                     ['name' => 'Extensión de piernas', 'muscle_group' => 'Piernas', 'reps' => 12, 'sets' => 3, 'load_type' => 'level', 'load_value' => 4, 'notes' => null],
                     ['name' => 'Leg Curl de pie con polea baja + tobillera', 'muscle_group' => 'Piernas', 'reps' => 11, 'sets' => 3, 'load_type' => 'level', 'load_value' => 3, 'notes' => null],
@@ -89,8 +87,8 @@ class TrainingRoutineSeeder extends Seeder
                 ],
             ],
             6 => [
-                'focus'   => 'Pecho + espalda + abdomen',
-                'is_rest' => false,
+                'focus'     => 'Pecho + espalda + abdomen',
+                'is_rest'   => false,
                 'exercises' => [
                     ['name' => 'Press de pecho', 'muscle_group' => 'Pecho', 'reps' => 11, 'sets' => 4, 'load_type' => 'level', 'load_value' => 5, 'notes' => null],
                     ['name' => 'Butterfly (cerrar y abrir)', 'muscle_group' => 'Pecho', 'reps' => 11, 'sets' => 3, 'load_type' => 'level', 'load_value' => 4, 'notes' => null],
@@ -120,7 +118,7 @@ class TrainingRoutineSeeder extends Seeder
 
             foreach ($dayData['exercises'] as $index => $exercise) {
                 WorkoutExercise::query()->create([
-                    ...$exercise,
+                     ...$exercise,
                     'workout_day_id' => $day->id,
                     'sort_order'     => $index + 1,
                 ]);
@@ -130,7 +128,7 @@ class TrainingRoutineSeeder extends Seeder
         }
 
         // Una sesión de ejemplo (miércoles anterior) para ver Historial
-        $wed = $daysByWeekday[3];
+        $wed     = $daysByWeekday[3];
         $session = WorkoutSession::query()->create([
             'user_id'          => $user->id,
             'workout_day_id'   => $wed->id,

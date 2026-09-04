@@ -23,7 +23,7 @@ class TrainingController extends Controller
             ->with('exercises')
             ->orderBy('weekday')
             ->get()
-            ->map(fn (WorkoutDay $day) => $this->serializeDay($day));
+            ->map(fn(WorkoutDay $day) => $this->serializeDay($day));
 
         $sessions = WorkoutSession::query()
             ->where('user_id', $userId)
@@ -32,14 +32,14 @@ class TrainingController extends Controller
             ->orderByDesc('id')
             ->limit(40)
             ->get()
-            ->map(fn (WorkoutSession $session) => $this->serializeSession($session));
+            ->map(fn(WorkoutSession $session) => $this->serializeSession($session));
 
         $library = LibraryExercise::query()
             ->where('user_id', $userId)
             ->orderBy('muscle_group')
             ->orderBy('name')
             ->get()
-            ->map(fn (LibraryExercise $item) => $this->serializeLibrary($item));
+            ->map(fn(LibraryExercise $item) => $this->serializeLibrary($item));
 
         $todayWeekday = (int) now()->isoWeekday();
 
@@ -82,12 +82,12 @@ class TrainingController extends Controller
     {
         $this->authorizeDay($request, $workoutDay);
         $validated = $this->validateExercise($request);
-        $library = $this->upsertLibrary((int) $request->user()->id, $validated);
+        $library   = $this->upsertLibrary((int) $request->user()->id, $validated);
 
         $maxOrder = (int) $workoutDay->exercises()->max('sort_order');
 
         $exercise = $workoutDay->exercises()->create([
-            ...$validated,
+             ...$validated,
             'library_exercise_id' => $library->id,
             'sort_order'          => $maxOrder + 1,
         ]);
@@ -139,7 +139,7 @@ class TrainingController extends Controller
     public function storeLibraryExercise(Request $request)
     {
         $validated = $this->validateLibraryExercise($request);
-        $library = $this->upsertLibrary((int) $request->user()->id, $validated);
+        $library   = $this->upsertLibrary((int) $request->user()->id, $validated);
 
         return response()->json($this->serializeLibrary($library->fresh()), 201);
     }
@@ -474,7 +474,7 @@ class TrainingController extends Controller
     private function syncLibraryFromExisting(int $userId): void
     {
         $unlinked = WorkoutExercise::query()
-            ->whereHas('day', fn ($q) => $q->where('user_id', $userId))
+            ->whereHas('day', fn($q) => $q->where('user_id', $userId))
             ->whereNull('library_exercise_id')
             ->orderBy('id')
             ->get();
@@ -486,14 +486,14 @@ class TrainingController extends Controller
         $byName = LibraryExercise::query()
             ->where('user_id', $userId)
             ->get()
-            ->keyBy(fn (LibraryExercise $item) => mb_strtolower($item->name));
+            ->keyBy(fn(LibraryExercise $item) => mb_strtolower($item->name));
 
         // Solo si la biblioteca está vacía, sembramos desde la rutina (migración inicial).
         // Si el usuario borró un ítem del catálogo, no lo recreamos aunque siga en un día.
         $seedMissing = $byName->isEmpty();
 
         foreach ($unlinked as $exercise) {
-            $key = mb_strtolower((string) $exercise->name);
+            $key     = mb_strtolower((string) $exercise->name);
             $library = $byName->get($key);
 
             if (! $library && $seedMissing) {
@@ -616,7 +616,7 @@ class TrainingController extends Controller
                     ['id', 'asc'],
                 ])
                 ->pluck('name')
-                ->map(fn ($value) => $this->nullableString($value))
+                ->map(fn($value) => $this->nullableString($value))
                 ->filter()
                 ->unique()
                 ->values();
@@ -634,7 +634,7 @@ class TrainingController extends Controller
                 ['id', 'asc'],
             ])
             ->pluck('muscle_group')
-            ->map(fn ($value) => $this->nullableString($value))
+            ->map(fn($value) => $this->nullableString($value))
             ->filter()
             ->unique()
             ->values();
