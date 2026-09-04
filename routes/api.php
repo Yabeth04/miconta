@@ -53,6 +53,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('training/days/{workoutDay}/reassign', [TrainingController::class, 'reassignDay']);
     Route::post('training/days/{workoutDay}/exercises', [TrainingController::class, 'storeExercise']);
     Route::put('training/days/{workoutDay}/exercises/reorder', [TrainingController::class, 'reorderExercises']);
+    Route::put('training/days/{workoutDay}/groups/reorder', [TrainingController::class, 'reorderGroups']);
     Route::post('training/move-group', [TrainingController::class, 'moveGroup']);
     Route::put('training/exercises/{workoutExercise}', [TrainingController::class, 'updateExercise']);
     Route::delete('training/exercises/{workoutExercise}', [TrainingController::class, 'destroyExercise']);

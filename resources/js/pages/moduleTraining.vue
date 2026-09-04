@@ -102,9 +102,6 @@
               v-if="isSwappedRoutine"
               class="training-hoy__swap-actions mt-2"
             >
-              <p class="text-caption text-medium-emphasis mb-1 w-100">
-                Solo por hoy. Para cambiar el plan, usá Semana y arrastrá los grupos.
-              </p>
               <VBtn
                 size="small"
                 variant="text"
@@ -158,9 +155,6 @@
               v-else
               class="training-hoy__list"
             >
-              <p class="training-hoy__hint mb-3">
-                Tocá un ejercicio para subir nivel o reps al toque.
-              </p>
               <div
                 v-for="group in activeGroupedExercises"
                 :key="group.name"
@@ -169,35 +163,26 @@
                 <p class="training-hoy__group-title">
                   {{ group.name }}
                 </p>
-                <button
+                <div
                   v-for="item in group.items"
                   :key="item.id"
-                  type="button"
                   class="training-hoy__ex"
-                  @click="openQuickEdit(item)"
                 >
-                  <div class="min-w-0 text-left">
-                    <p class="training-hoy__ex-name mb-1">
-                      {{ item.name }}
-                    </p>
-                    <p class="training-hoy__ex-rx mb-0">
-                      {{ item.reps }}×{{ item.sets }}
-                      <span class="training-hoy__ex-dot">·</span>
-                      {{ formatLoad(item) }}
-                    </p>
-                    <p
-                      v-if="item.notes"
-                      class="training-hoy__ex-note mb-0"
-                    >
-                      {{ item.notes }}
-                    </p>
-                  </div>
-                  <VIcon
-                    icon="ri-pencil-line"
-                    size="18"
-                    class="training-hoy__ex-edit"
-                  />
-                </button>
+                  <p class="training-hoy__ex-name mb-1">
+                    {{ item.name }}
+                  </p>
+                  <p class="training-hoy__ex-rx mb-0">
+                    {{ item.reps }}×{{ item.sets }}
+                    <span class="training-hoy__ex-dot">·</span>
+                    {{ formatLoad(item) }}
+                  </p>
+                  <p
+                    v-if="item.notes"
+                    class="training-hoy__ex-note mb-0"
+                  >
+                    {{ item.notes }}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -274,6 +259,7 @@
               class="training-board__drop"
               :disabled="dragLocked || column.is_rest"
               @add="onGroupMoved($event, column)"
+              @update="onGroupReordered(column)"
             >
               <div
                 v-for="group in column.groups"
@@ -556,7 +542,7 @@
         </VCardTitle>
         <VCardText>
           <p class="mb-3">
-            <strong>Hoy:</strong> lo que mirás en el gym. Podés elegir otra rutina solo por hoy. Tocá un ejercicio para subir nivel o reps. Para cambiar el plan permanente, usá Semana.
+            <strong>Hoy:</strong> lo que mirás en el gym. Podés elegir otra rutina solo por hoy. Para editar o cambiar el plan, usá Semana.
           </p>
           <p class="mb-3">
             <strong>Semana:</strong> arrastrá grupos (Abdomen, Bíceps…) entre días. Tocá el día para editar ejercicios.
@@ -573,122 +559,6 @@
             @click="helpDialog = false"
           >
             Entendido
-          </VBtn>
-        </VCardActions>
-      </VCard>
-    </VDialog>
-
-    <VDialog
-      v-model="quickEditDialog"
-      max-width="420"
-    >
-      <VCard rounded="lg">
-        <VCardTitle class="text-h6">
-          {{ quickEditForm.name || 'Ajustar' }}
-        </VCardTitle>
-        <VCardText>
-          <p class="text-caption text-medium-emphasis mb-4">
-            Cambio en el plan (queda para las próximas veces).
-          </p>
-
-          <div class="training-quick">
-            <div class="training-quick__row">
-              <span class="training-quick__label">Reps</span>
-              <div class="training-quick__ctrl">
-                <VBtn
-                  icon
-                  variant="tonal"
-                  size="small"
-                  rounded="lg"
-                  @click="bumpQuick('reps', -1)"
-                >
-                  <VIcon icon="ri-subtract-line" />
-                </VBtn>
-                <span class="training-quick__value">{{ quickEditForm.reps }}</span>
-                <VBtn
-                  icon
-                  variant="tonal"
-                  size="small"
-                  rounded="lg"
-                  @click="bumpQuick('reps', 1)"
-                >
-                  <VIcon icon="ri-add-line" />
-                </VBtn>
-              </div>
-            </div>
-
-            <div class="training-quick__row">
-              <span class="training-quick__label">Series</span>
-              <div class="training-quick__ctrl">
-                <VBtn
-                  icon
-                  variant="tonal"
-                  size="small"
-                  rounded="lg"
-                  @click="bumpQuick('sets', -1)"
-                >
-                  <VIcon icon="ri-subtract-line" />
-                </VBtn>
-                <span class="training-quick__value">{{ quickEditForm.sets }}</span>
-                <VBtn
-                  icon
-                  variant="tonal"
-                  size="small"
-                  rounded="lg"
-                  @click="bumpQuick('sets', 1)"
-                >
-                  <VIcon icon="ri-add-line" />
-                </VBtn>
-              </div>
-            </div>
-
-            <div
-              v-if="quickEditForm.load_type !== 'bodyweight'"
-              class="training-quick__row"
-            >
-              <span class="training-quick__label">
-                {{ quickEditForm.load_type === 'level' ? 'Nivel' : 'Kg' }}
-              </span>
-              <div class="training-quick__ctrl">
-                <VBtn
-                  icon
-                  variant="tonal"
-                  size="small"
-                  rounded="lg"
-                  @click="bumpQuick('load_value', quickEditForm.load_type === 'level' ? -1 : -0.5)"
-                >
-                  <VIcon icon="ri-subtract-line" />
-                </VBtn>
-                <span class="training-quick__value">{{ quickEditForm.load_value ?? 0 }}</span>
-                <VBtn
-                  icon
-                  variant="tonal"
-                  size="small"
-                  rounded="lg"
-                  @click="bumpQuick('load_value', quickEditForm.load_type === 'level' ? 1 : 0.5)"
-                >
-                  <VIcon icon="ri-add-line" />
-                </VBtn>
-              </div>
-            </div>
-          </div>
-        </VCardText>
-        <VCardActions>
-          <VSpacer />
-          <VBtn
-            variant="text"
-            rounded="lg"
-            @click="quickEditDialog = false"
-          >
-            Cancelar
-          </VBtn>
-          <VBtn
-            color="primary"
-            rounded="lg"
-            :loading="saving"
-            @click="saveQuickEdit"
-          >
-            Guardar
           </VBtn>
         </VCardActions>
       </VCard>
@@ -1016,7 +886,6 @@ export default {
       movingGroup: false,
       weekBoard: [],
       helpDialog: false,
-      quickEditDialog: false,
       exerciseDialog: false,
       sessionDialog: false,
       deleteDialog: false,
@@ -1030,7 +899,6 @@ export default {
         { title: 'Peso corporal', value: 'bodyweight' },
       ],
       exerciseForm: emptyExercise(),
-      quickEditForm: emptyExercise(),
       sessionForm: emptySession(),
     }
   },
@@ -1071,7 +939,6 @@ export default {
         || this.editPanelOpen
         || this.exerciseDialog
         || this.sessionDialog
-        || this.quickEditDialog
         || this.deleteDialog
         || this.helpDialog
     },
@@ -1205,6 +1072,28 @@ export default {
         })
     },
 
+    onGroupReordered(column) {
+      if (this.movingGroup || !column?.groups?.length)
+        return
+
+      // Si hay un grupo de otro día, lo maneja onGroupMoved (@add).
+      if (column.groups.some(group => group.source_day_id !== column.id))
+        return
+
+      this.movingGroup = true
+      axios.put(`/api/training/days/${column.id}/groups/reorder`, {
+        groups: column.groups.map(group => group.muscle_group),
+      })
+        .then(() => this.load())
+        .catch(error => {
+          this.error = error.response?.data?.message || 'No se pudo guardar el orden.'
+          this.rebuildWeekBoard()
+        })
+        .finally(() => {
+          this.movingGroup = false
+        })
+    },
+
     saveDay() {
       if (!this.selectedDay)
         return
@@ -1246,55 +1135,6 @@ export default {
 
     shortDay(label) {
       return String(label || '').slice(0, 3)
-    },
-
-    openQuickEdit(item) {
-      this.quickEditForm = { ...item }
-      this.quickEditDialog = true
-    },
-
-    bumpQuick(field, delta) {
-      const current = Number(this.quickEditForm[field])
-      const base = Number.isFinite(current) ? current : 0
-      let next = base + delta
-
-      if (field === 'reps')
-        next = Math.min(100, Math.max(1, next))
-      else if (field === 'sets')
-        next = Math.min(30, Math.max(1, next))
-      else if (field === 'load_value')
-        next = Math.max(0, Math.round(next * 100) / 100)
-
-      this.quickEditForm[field] = next
-    },
-
-    saveQuickEdit() {
-      if (!this.quickEditForm.id || this.saving)
-        return
-
-      this.saving = true
-      const payload = {
-        name: this.quickEditForm.name,
-        muscle_group: this.quickEditForm.muscle_group,
-        sets: this.quickEditForm.sets,
-        reps: this.quickEditForm.reps,
-        load_type: this.quickEditForm.load_type,
-        load_value: this.quickEditForm.load_type === 'bodyweight' ? null : this.quickEditForm.load_value,
-        notes: this.quickEditForm.notes,
-      }
-
-      axios.put(`/api/training/exercises/${this.quickEditForm.id}`, payload)
-        .then(() => {
-          this.quickEditDialog = false
-          this.$toast.success('Actualizado', { timeout: 1500, closeOnClick: true })
-          this.load()
-        })
-        .catch(error => {
-          this.error = error.response?.data?.message || 'No se pudo guardar.'
-        })
-        .finally(() => {
-          this.saving = false
-        })
     },
 
     openExercise(item = null) {
@@ -1597,72 +1437,12 @@ export default {
 }
 
 .training-hoy__ex {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  width: 100%;
   padding: 1rem 0;
-  border: 0;
   border-bottom: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
 }
 
 .training-hoy__ex:last-child {
   border-bottom: 0;
-}
-
-.training-hoy__ex-edit {
-  opacity: 0.35;
-  flex-shrink: 0;
-}
-
-.training-hoy__hint {
-  font-size: 0.8125rem;
-  color: rgba(var(--v-theme-on-surface), 0.55);
-  margin: 0;
-}
-
-.training-hoy__swap-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  align-items: center;
-}
-
-.training-quick {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.training-quick__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.training-quick__label {
-  font-weight: 600;
-  min-width: 4rem;
-}
-
-.training-quick__ctrl {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-}
-
-.training-quick__value {
-  min-width: 2.5rem;
-  text-align: center;
-  font-size: 1.35rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
 }
 
 .training-hoy__ex-name {
@@ -1696,6 +1476,13 @@ export default {
   margin-top: 1.5rem;
   padding-top: 0.5rem;
   background: linear-gradient(to top, rgb(var(--v-theme-background)) 70%, transparent);
+}
+
+.training-hoy__swap-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
 }
 
 .training-board {

@@ -143,6 +143,48 @@ class TrainingController extends Controller
     }
 
     /**
+     * Reordena los grupos musculares de un día (y sus ejercicios).
+     */
+    public function reorderGroups(Request $request, WorkoutDay $workoutDay)
+    {
+        $this->authorizeDay($request, $workoutDay);
+
+        $validated = $request->validate([
+            'groups'   => ['required', 'array', 'min:1'],
+            'groups.*' => ['nullable', 'string', 'max:80'],
+        ]);
+
+        DB::transaction(function () use ($workoutDay, $validated) {
+            $order = 1;
+
+            foreach ($validated['groups'] as $rawGroup) {
+                $muscle = $this->nullableString(is_string($rawGroup) ? $rawGroup : null);
+
+                $query = WorkoutExercise::query()
+                    ->where('workout_day_id', $workoutDay->id)
+                    ->orderBy('sort_order')
+                    ->orderBy('id');
+
+                if ($muscle === null) {
+                    $query->where(function ($q) {
+                        $q->whereNull('muscle_group')->orWhere('muscle_group', '');
+                    });
+                } else {
+                    $query->where('muscle_group', $muscle);
+                }
+
+                foreach ($query->get() as $exercise) {
+                    $exercise->update(['sort_order' => $order++]);
+                }
+            }
+
+            $this->rebuildFocusFromExercises($workoutDay->fresh('exercises'));
+        });
+
+        return response()->json($this->serializeDay($workoutDay->fresh('exercises')), 200);
+    }
+
+    /**
      * Mueve todos los ejercicios de un grupo muscular de un día a otro.
      */
     public function moveGroup(Request $request)
@@ -395,8 +437,12 @@ class TrainingController extends Controller
         }
 
         $groups = $day->exercises
+            ->sortBy([
+                ['sort_order', 'asc'],
+                ['id', 'asc'],
+            ])
             ->pluck('muscle_group')
-            ->map(fn($value) => $this->nullableString($value))
+            ->map(fn ($value) => $this->nullableString($value))
             ->filter()
             ->unique()
             ->values();
