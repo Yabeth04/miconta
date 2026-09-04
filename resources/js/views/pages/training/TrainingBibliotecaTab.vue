@@ -1,0 +1,344 @@
+<template>
+  <div>
+    <div class="d-flex flex-wrap align-center justify-space-between gap-2 mb-3">
+      <p class="text-body-2 text-medium-emphasis mb-0">
+        Solo nombre y grupo. Series y nivel se ajustan en cada día.
+      </p>
+      <VBtn
+        color="primary"
+        rounded="lg"
+        size="small"
+        prepend-icon="ri-add-line"
+        @click="openLibraryExercise()"
+      >
+        Nuevo
+      </VBtn>
+    </div>
+
+    <VTextField
+      v-model="libraryQuery"
+      class="mb-3"
+      label="Buscar"
+      prepend-inner-icon="ri-search-line"
+      variant="outlined"
+      rounded="lg"
+      hide-details
+      clearable
+      density="comfortable"
+    />
+
+    <div
+      v-if="loading && !library.length"
+      class="training-empty"
+    >
+      Cargando…
+    </div>
+
+    <div
+      v-else-if="!filteredLibrary.length"
+      class="training-empty"
+    >
+      {{ libraryQuery ? 'Nada coincide con la búsqueda.' : 'Todavía no hay ejercicios. Creá el primero.' }}
+    </div>
+
+    <div
+      v-else
+      class="d-flex flex-column gap-4"
+    >
+      <section
+        v-for="group in groupedLibrary"
+        :key="group.name"
+      >
+        <p class="text-subtitle-2 font-weight-medium mb-2 d-flex align-center gap-2">
+          <MuscleGroupIcon
+            v-if="hasMuscleIcon(group.name)"
+            :group="group.name"
+          />
+          {{ group.name }}
+        </p>
+        <div class="training-drag-list">
+          <div
+            v-for="item in group.items"
+            :key="item.id"
+            class="training-exercise"
+          >
+            <div class="min-w-0 flex-grow-1">
+              <p class="font-weight-medium mb-0">
+                {{ item.name }}
+              </p>
+            </div>
+            <div class="d-flex gap-1">
+              <VBtn
+                icon
+                variant="text"
+                size="small"
+                @click="openLibraryExercise(item)"
+              >
+                <VIcon icon="ri-pencil-line" />
+              </VBtn>
+              <VBtn
+                icon
+                variant="text"
+                size="small"
+                @click="askDeleteLibrary(item)"
+              >
+                <VIcon icon="ri-delete-bin-line" />
+              </VBtn>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <VDialog
+      v-model="libraryDialog"
+      max-width="480"
+    >
+      <VCard rounded="lg">
+        <VCardTitle class="text-h6">
+          {{ libraryForm.id ? 'Editar en biblioteca' : 'Nuevo en biblioteca' }}
+        </VCardTitle>
+        <VCardText class="d-flex flex-column gap-4 pt-4">
+          <VTextField
+            v-model="libraryForm.name"
+            label="Ejercicio"
+            variant="outlined"
+            rounded="lg"
+            hide-details="auto"
+            autofocus
+          />
+          <VSelect
+            v-model="libraryForm.muscle_group"
+            :items="muscleOptions"
+            label="Grupo muscular"
+            variant="outlined"
+            rounded="lg"
+            hide-details="auto"
+            clearable
+          >
+            <template #selection="{ item }">
+              <span class="d-inline-flex align-center gap-2">
+                <MuscleGroupIcon
+                  v-if="hasMuscleIcon(item.value)"
+                  :group="item.value"
+                />
+                {{ item.title }}
+              </span>
+            </template>
+            <template #item="{ props: itemProps, item }">
+              <VListItem v-bind="itemProps">
+                <template #prepend>
+                  <MuscleGroupIcon
+                    v-if="hasMuscleIcon(item.value)"
+                    :group="item.value"
+                    class="me-1"
+                  />
+                </template>
+              </VListItem>
+            </template>
+          </VSelect>
+        </VCardText>
+        <VCardActions>
+          <VSpacer />
+          <VBtn
+            variant="text"
+            rounded="lg"
+            @click="libraryDialog = false"
+          >
+            Cancelar
+          </VBtn>
+          <VBtn
+            color="primary"
+            rounded="lg"
+            :loading="saving"
+            @click="saveLibraryExercise"
+          >
+            Guardar
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
+
+    <VDialog
+      v-model="deleteDialog"
+      max-width="400"
+    >
+      <VCard rounded="lg">
+        <VCardTitle class="text-h6">
+          Quitar de biblioteca
+        </VCardTitle>
+        <VCardText class="text-body-2 pt-2">
+          ¿Sacar “{{ deleteTarget?.name }}” de la biblioteca? También se quita de los días donde esté.
+        </VCardText>
+        <VCardActions class="px-4 pb-4">
+          <VSpacer />
+          <VBtn
+            variant="text"
+            rounded="lg"
+            @click="deleteDialog = false"
+          >
+            Cancelar
+          </VBtn>
+          <VBtn
+            color="error"
+            variant="flat"
+            rounded="lg"
+            :loading="deleting"
+            @click="confirmDeleteLibrary"
+          >
+            Eliminar
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
+  </div>
+</template>
+
+<script>
+import { axios } from '@/plugins/axios'
+import MuscleGroupIcon from '@/views/pages/training/MuscleGroupIcon.vue'
+import {
+  hasMuscleIcon,
+  groupExercises,
+  emptyExercise,
+  MUSCLE_OPTIONS,
+} from '@/utils/trainingFormat'
+
+export default {
+  name: 'TrainingBibliotecaTab',
+
+  components: { MuscleGroupIcon },
+
+  props: {
+    loading: { type: Boolean, default: false },
+    library: { type: Array, default: () => [] },
+  },
+
+  emits: ['refresh', 'error'],
+
+  data() {
+    return {
+      libraryQuery: '',
+      libraryDialog: false,
+      libraryForm: emptyExercise(),
+      deleteDialog: false,
+      deleteTarget: null,
+      deleting: false,
+      saving: false,
+      muscleOptions: MUSCLE_OPTIONS,
+    }
+  },
+
+  computed: {
+    filteredLibrary() {
+      const q = String(this.libraryQuery || '').trim().toLowerCase()
+      if (!q)
+        return this.library
+
+      return this.library.filter(item => {
+        const hay = `${item.name} ${item.muscle_group || ''}`.toLowerCase()
+
+        return hay.includes(q)
+      })
+    },
+
+    groupedLibrary() {
+      return groupExercises(this.filteredLibrary)
+    },
+  },
+
+  methods: {
+    hasMuscleIcon,
+
+    openLibraryExercise(item = null) {
+      this.libraryForm = item
+        ? { ...emptyExercise(), ...item }
+        : emptyExercise()
+      this.libraryDialog = true
+    },
+
+    saveLibraryExercise() {
+      if (this.saving)
+        return
+
+      const name = String(this.libraryForm.name || '').trim()
+      if (!name) {
+        this.$emit('error', 'Indicá el nombre del ejercicio.')
+
+        return
+      }
+
+      this.saving = true
+      const payload = {
+        name,
+        muscle_group: this.libraryForm.muscle_group,
+      }
+      const request = this.libraryForm.id
+        ? axios.put(`/api/training/library/${this.libraryForm.id}`, payload)
+        : axios.post('/api/training/library', payload)
+
+      request
+        .then(() => {
+          this.libraryDialog = false
+          this.$toast.success('Guardado', { timeout: 2000, closeOnClick: true })
+          this.$emit('refresh')
+        })
+        .catch(error => {
+          this.$emit('error', error.response?.data?.message || 'No se pudo guardar.')
+        })
+        .finally(() => {
+          this.saving = false
+        })
+    },
+
+    askDeleteLibrary(item) {
+      this.deleteTarget = item
+      this.deleteDialog = true
+    },
+
+    confirmDeleteLibrary() {
+      if (!this.deleteTarget || this.deleting)
+        return
+
+      this.deleting = true
+      axios.delete(`/api/training/library/${this.deleteTarget.id}`)
+        .then(() => {
+          this.deleteDialog = false
+          this.deleteTarget = null
+          this.$toast.success('Eliminado de biblioteca y rutina', { timeout: 2000, closeOnClick: true })
+          this.$emit('refresh')
+        })
+        .catch(error => {
+          this.deleteDialog = false
+          const message = error.response?.data?.message || 'No se pudo eliminar.'
+          this.$emit('error', message)
+          this.$toast.error(message, { timeout: 3500, closeOnClick: true })
+        })
+        .finally(() => {
+          this.deleting = false
+        })
+    },
+  },
+}
+</script>
+
+<style scoped>
+.training-empty {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  font-size: 0.875rem;
+}
+
+.training-exercise {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 0.75rem;
+  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 12px;
+  margin-bottom: 0.5rem;
+  background: rgb(var(--v-theme-surface));
+}
+</style>
