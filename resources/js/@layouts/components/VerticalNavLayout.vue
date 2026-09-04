@@ -49,7 +49,7 @@ export default defineComponent({
 
       return h('div', {
         class: [
-          'layout-wrapper layout-nav-type-vertical layout-navbar-static layout-footer-static layout-content-width-fluid',
+          'layout-wrapper layout-nav-type-vertical layout-navbar-sticky layout-footer-static layout-content-width-fluid',
           mdAndDown.value && 'layout-overlay-nav',
           route.meta.layoutWrapperClasses,
         ],
@@ -124,6 +124,13 @@ export default defineComponent({
 
   &.layout-navbar-sticky .layout-navbar {
     @extend %layout-navbar-sticky;
+
+    .navbar-content-container,
+    &.navbar-blur .navbar-content-container {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+      background-color: rgb(var(--v-theme-background)) !important;
+    }
   }
 
   &.layout-navbar-hidden .layout-navbar {

@@ -756,7 +756,7 @@ export default {
   display: flex;
   gap: 0.4rem;
   overflow-x: auto;
-  padding-bottom: 0.15rem;
+  padding-bottom: 0.55rem;
 }
 
 .training-day-chip {
