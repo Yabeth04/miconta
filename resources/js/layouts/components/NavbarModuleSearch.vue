@@ -311,6 +311,7 @@ defineExpose({ openSearch })
 
 .nav-search-list {
   max-block-size: min(52vh, 420px);
+  overflow-x: hidden;
   overflow-y: auto;
   padding-inline: 0.5rem;
 }
@@ -331,6 +332,8 @@ defineExpose({ openSearch })
   align-items: center;
   gap: 0.65rem;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   border: 0;
   border-radius: 10px;
   background: transparent;
@@ -342,8 +345,10 @@ defineExpose({ openSearch })
 }
 
 .nav-search-item--child {
-  padding-inline-start: 1.35rem;
-  margin-inline-start: 0.35rem;
+  width: calc(100% - 0.5rem);
+  max-width: calc(100% - 0.5rem);
+  margin-inline-start: 0.5rem;
+  padding-inline-start: 1.1rem;
   border-inline-start: 2px solid rgba(var(--v-theme-primary), 0.35);
   border-radius: 0 10px 10px 0;
 }
