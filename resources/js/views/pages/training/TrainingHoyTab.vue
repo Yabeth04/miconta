@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div :class="`training-hoy training-hoy--${hoyView}`">
     <div
       v-if="loading && !activeDay"
       class="training-empty"
@@ -8,7 +8,7 @@
     </div>
 
     <template v-else-if="activeDay">
-      <header class="training-hoy__header mb-3">
+      <header class="training-hoy__header mb-2">
         <p class="training-hoy__eyebrow mb-1">
           Hoy · {{ calendarDayLabel }}
         </p>
@@ -21,14 +21,11 @@
           v-if="isSwappedRoutine"
           class="training-hoy__swap-note mb-0 mt-2"
         >
-          Hoy toca {{ todayDaySummary || todayDay?.label }}, pero estás haciendo la de {{ activeDay.label }}.
+          Viendo {{ activeDay.label }} · hoy toca {{ shortDay(todayDay.label) }}
         </p>
       </header>
 
-      <div class="training-hoy__pick mb-4">
-        <p class="training-hoy__pick-label mb-2">
-          ¿Qué rutina hago?
-        </p>
+      <div class="training-hoy__pick mb-3">
         <div class="training-day-chips">
           <button
             v-for="day in days"
@@ -82,21 +79,100 @@
         </div>
 
         <template v-else>
-          <div class="training-hoy__list">
+          <!-- Lista -->
+          <div
+            v-if="hoyView === 'lista'"
+            class="training-hoy__list"
+          >
+            <button
+              v-for="item in activeDay.exercises"
+              :key="item.id"
+              type="button"
+              class="training-hoy__ex training-hoy__ex--row"
+              @click="openQuickEdit(item)"
+            >
+              <span class="training-hoy__ex-name">{{ item.name }}</span>
+              <span class="training-hoy__ex-rx">{{ formatLoad(item) }}</span>
+            </button>
+          </div>
+
+          <!-- Enfoque -->
+          <div
+            v-else-if="hoyView === 'enfoque' && focusItem"
+            class="training-hoy__focus-mode"
+          >
+            <p class="training-hoy__focus-count mb-3">
+              {{ focusIndex + 1 }} / {{ flatExercises.length }}
+            </p>
+            <div class="training-hoy__focus-card">
+              <p class="training-hoy__focus-group mb-1">
+                {{ focusItem.muscle_group || 'Actividad' }}
+              </p>
+              <p class="training-hoy__focus-name mb-2">
+                {{ focusItem.name }}
+              </p>
+              <p class="training-hoy__focus-rx mb-0">
+                {{ formatLoad(focusItem) }}
+              </p>
+              <p
+                v-if="focusItem.notes"
+                class="training-hoy__ex-note mt-2 mb-0"
+              >
+                {{ focusItem.notes }}
+              </p>
+              <VBtn
+                class="mt-3"
+                variant="tonal"
+                size="small"
+                rounded="lg"
+                prepend-icon="ri-pencil-line"
+                @click="openQuickEdit(focusItem)"
+              >
+                Ajustar
+              </VBtn>
+            </div>
+            <div class="training-hoy__focus-nav mt-3">
+              <VBtn
+                variant="tonal"
+                rounded="lg"
+                :disabled="focusIndex <= 0"
+                prepend-icon="ri-arrow-left-s-line"
+                @click="focusPrev"
+              >
+                Anterior
+              </VBtn>
+              <VBtn
+                color="primary"
+                variant="tonal"
+                rounded="lg"
+                :disabled="focusIndex >= flatExercises.length - 1"
+                append-icon="ri-arrow-right-s-line"
+                @click="focusNext"
+              >
+                Siguiente
+              </VBtn>
+            </div>
+          </div>
+
+          <!-- Detalle / compacta -->
+          <div
+            v-else
+            class="training-hoy__list"
+          >
             <div
               v-for="item in activeDay.exercises"
               :key="item.id"
               class="training-hoy__ex"
             >
               <div class="min-w-0 flex-grow-1">
-                <p class="training-hoy__ex-name mb-1">
+                <p class="training-hoy__ex-name mb-0">
                   {{ item.name }}
                 </p>
                 <p class="training-hoy__ex-rx mb-0">
                   {{ formatLoad(item) }}
                 </p>
                 <p
-                  v-if="item.notes"
+                  v-if="item.notes && hoyView === 'detalle'"
                   class="training-hoy__ex-note mb-0"
                 >
                   {{ item.notes }}
@@ -121,7 +197,6 @@
             <VBtn
               color="primary"
               rounded="lg"
-              size="large"
               block
               prepend-icon="ri-checkbox-circle-line"
               @click="$emit('register', activeDay)"
@@ -159,81 +234,171 @@
           </VBtn>
         </div>
 
-        <div
-          v-else
-          class="training-hoy__list"
-        >
+        <template v-else>
+          <!-- Vista lista: plana, una línea -->
           <div
-            v-for="group in activeGroupedExercises"
-            :key="group.name"
-            class="training-hoy__group"
+            v-if="hoyView === 'lista'"
+            class="training-hoy__list"
           >
-            <p class="training-hoy__group-title">
-              <MuscleGroupIcon
-                v-if="hasMuscleIcon(group.name)"
-                :group="group.name"
-              />
-              {{ group.name }}
-            </p>
-            <div
-              v-for="item in group.items"
+            <button
+              v-for="item in activeDay.exercises"
               :key="item.id"
-              class="training-hoy__ex"
+              type="button"
+              class="training-hoy__ex training-hoy__ex--row"
+              @click="openQuickEdit(item)"
             >
-              <div class="min-w-0 flex-grow-1">
-                <p class="training-hoy__ex-name mb-1">
-                  {{ item.name }}
-                </p>
-                <p class="training-hoy__ex-rx mb-0">
-                  {{ item.reps }}×{{ item.sets }}
-                  <span class="training-hoy__ex-dot">·</span>
+              <span class="training-hoy__ex-name">{{ item.name }}</span>
+              <span class="training-hoy__ex-rx">
+                <template v-if="item.load_type === 'km'">
                   {{ formatLoad(item) }}
-                </p>
-                <p
-                  v-if="item.notes"
-                  class="training-hoy__ex-note mb-0"
-                >
-                  {{ item.notes }}
-                </p>
-              </div>
-              <VBtn
-                icon
-                variant="text"
-                size="small"
-                aria-label="Ajustar reps o nivel"
-                @click="openQuickEdit(item)"
+                </template>
+                <template v-else>
+                  {{ item.reps }}×{{ item.sets }} · {{ formatLoad(item) }}
+                </template>
+              </span>
+            </button>
+          </div>
+
+          <!-- Enfoque: un ejercicio a la vez -->
+          <div
+            v-else-if="hoyView === 'enfoque' && focusItem"
+            class="training-hoy__focus-mode"
+          >
+            <p class="training-hoy__focus-count mb-3">
+              {{ focusIndex + 1 }} / {{ flatExercises.length }}
+            </p>
+            <div class="training-hoy__focus-card">
+              <p class="training-hoy__focus-group mb-1">
+                {{ focusItem.muscle_group || 'Ejercicio' }}
+              </p>
+              <p class="training-hoy__focus-name mb-2">
+                {{ focusItem.name }}
+              </p>
+              <p class="training-hoy__focus-rx mb-0">
+                <template v-if="focusItem.load_type === 'km'">
+                  {{ formatLoad(focusItem) }}
+                </template>
+                <template v-else>
+                  {{ focusItem.reps }}×{{ focusItem.sets }}
+                  <span class="training-hoy__ex-dot">·</span>
+                  {{ formatLoad(focusItem) }}
+                </template>
+              </p>
+              <p
+                v-if="focusItem.notes"
+                class="training-hoy__ex-note mt-2 mb-0"
               >
-                <VIcon
-                  icon="ri-pencil-line"
-                  size="18"
-                />
+                {{ focusItem.notes }}
+              </p>
+              <VBtn
+                class="mt-3"
+                variant="tonal"
+                size="small"
+                rounded="lg"
+                prepend-icon="ri-pencil-line"
+                @click="openQuickEdit(focusItem)"
+              >
+                Ajustar
+              </VBtn>
+            </div>
+            <div class="training-hoy__focus-nav mt-3">
+              <VBtn
+                variant="tonal"
+                rounded="lg"
+                :disabled="focusIndex <= 0"
+                prepend-icon="ri-arrow-left-s-line"
+                @click="focusPrev"
+              >
+                Anterior
+              </VBtn>
+              <VBtn
+                color="primary"
+                variant="tonal"
+                rounded="lg"
+                :disabled="focusIndex >= flatExercises.length - 1"
+                append-icon="ri-arrow-right-s-line"
+                @click="focusNext"
+              >
+                Siguiente
               </VBtn>
             </div>
           </div>
-        </div>
 
-        <div class="training-hoy__actions">
-          <VBtn
-            v-if="activeDay.exercises?.length"
-            color="primary"
-            rounded="lg"
-            size="large"
-            block
-            prepend-icon="ri-checkbox-circle-line"
-            @click="$emit('register', activeDay)"
+          <!-- Detalle / compacta: por grupos -->
+          <div
+            v-else
+            class="training-hoy__list"
           >
-            Terminé · registrar
-          </VBtn>
-          <VBtn
-            variant="text"
-            rounded="lg"
-            block
-            class="mt-1"
-            @click="$emit('edit-day', activeDay)"
-          >
-            Editar estos ejercicios
-          </VBtn>
-        </div>
+            <div
+              v-for="group in activeGroupedExercises"
+              :key="group.name"
+              class="training-hoy__group"
+            >
+              <p class="training-hoy__group-title">
+                <MuscleGroupIcon
+                  v-if="hasMuscleIcon(group.name) && hoyView === 'detalle'"
+                  :group="group.name"
+                />
+                {{ group.name }}
+              </p>
+              <div
+                v-for="item in group.items"
+                :key="item.id"
+                class="training-hoy__ex"
+              >
+                <div class="min-w-0 flex-grow-1">
+                  <p class="training-hoy__ex-name mb-0">
+                    {{ item.name }}
+                  </p>
+                  <p class="training-hoy__ex-rx mb-0">
+                    {{ item.reps }}×{{ item.sets }}
+                    <span class="training-hoy__ex-dot">·</span>
+                    {{ formatLoad(item) }}
+                  </p>
+                  <p
+                    v-if="item.notes && hoyView === 'detalle'"
+                    class="training-hoy__ex-note mb-0"
+                  >
+                    {{ item.notes }}
+                  </p>
+                </div>
+                <VBtn
+                  icon
+                  variant="text"
+                  size="small"
+                  aria-label="Ajustar reps o nivel"
+                  @click="openQuickEdit(item)"
+                >
+                  <VIcon
+                    icon="ri-pencil-line"
+                    size="18"
+                  />
+                </VBtn>
+              </div>
+            </div>
+          </div>
+
+          <div class="training-hoy__actions">
+            <VBtn
+              color="primary"
+              rounded="lg"
+              block
+              prepend-icon="ri-checkbox-circle-line"
+              @click="$emit('register', activeDay)"
+            >
+              Terminé · registrar
+            </VBtn>
+            <VBtn
+              variant="text"
+              rounded="lg"
+              block
+              class="mt-1"
+              @click="$emit('edit-day', activeDay)"
+            >
+              Editar estos ejercicios
+            </VBtn>
+          </div>
+        </template>
       </template>
     </template>
 
@@ -406,6 +571,7 @@ export default {
     loading: { type: Boolean, default: false },
     days: { type: Array, default: () => [] },
     todayWeekday: { type: Number, default: null },
+    hoyView: { type: String, default: 'compacta' },
   },
 
   emits: ['refresh', 'error', 'edit-day', 'register'],
@@ -413,6 +579,7 @@ export default {
   data() {
     return {
       activeDayId: null,
+      focusIndex: 0,
       quickEditDialog: false,
       quickEditForm: emptyExercise(),
       saving: false,
@@ -441,19 +608,6 @@ export default {
       return focusFromGroups(groupsFromDay(this.activeDay))
     },
 
-    todayDaySummary() {
-      if (!this.todayDay)
-        return null
-
-      if (this.todayDay.is_rest) {
-        const names = (this.todayDay.exercises || []).map(item => item.name).filter(Boolean)
-
-        return names.length ? names.join(' + ') : null
-      }
-
-      return focusFromGroups(groupsFromDay(this.todayDay))
-    },
-
     calendarDayLabel() {
       return this.todayDay?.label || ''
     },
@@ -464,6 +618,14 @@ export default {
 
     activeGroupedExercises() {
       return groupExercises(this.activeDay?.exercises)
+    },
+
+    flatExercises() {
+      return this.activeDay?.exercises || []
+    },
+
+    focusItem() {
+      return this.flatExercises[this.focusIndex] || null
     },
   },
 
@@ -477,12 +639,36 @@ export default {
           this.activeDayId = fallbackId
       },
     },
+
+    activeDayId() {
+      this.focusIndex = 0
+    },
+
+    hoyView(value) {
+      if (value === 'enfoque')
+        this.focusIndex = 0
+    },
+
+    flatExercises(list) {
+      if (this.focusIndex >= list.length)
+        this.focusIndex = Math.max(0, list.length - 1)
+    },
   },
 
   methods: {
     shortDay,
     formatLoad,
     hasMuscleIcon,
+
+    focusPrev() {
+      if (this.focusIndex > 0)
+        this.focusIndex -= 1
+    },
+
+    focusNext() {
+      if (this.focusIndex < this.flatExercises.length - 1)
+        this.focusIndex += 1
+    },
 
     resetToTodayRoutine() {
       this.activeDayId = this.todayDay?.id || this.activeDayId
@@ -542,7 +728,7 @@ export default {
 
 <style scoped>
 .training-hoy__eyebrow {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -550,27 +736,25 @@ export default {
 }
 
 .training-hoy__focus {
-  font-size: clamp(1.5rem, 5vw, 2rem);
+  font-size: clamp(1.2rem, 4vw, 1.5rem);
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.25;
+}
+
+.training-hoy--compacta .training-hoy__focus,
+.training-hoy--lista .training-hoy__focus,
+.training-hoy--enfoque .training-hoy__focus {
+  font-size: clamp(1.1rem, 3.5vw, 1.35rem);
 }
 
 .training-hoy__swap-note {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: rgba(var(--v-theme-on-surface), 0.65);
-}
-
-.training-hoy__pick-label {
-  font-size: 0.75rem;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgba(var(--v-theme-on-surface), 0.5);
 }
 
 .training-day-chips {
   display: flex;
-  gap: 0.45rem;
+  gap: 0.4rem;
   overflow-x: auto;
   padding-bottom: 0.15rem;
 }
@@ -581,8 +765,8 @@ export default {
   background: rgb(var(--v-theme-surface));
   color: inherit;
   border-radius: 999px;
-  padding: 0.4rem 0.8rem;
-  font-size: 0.8125rem;
+  padding: 0.32rem 0.7rem;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -599,50 +783,101 @@ export default {
 
 .training-hoy__rest,
 .training-hoy__empty {
-  padding: 1.5rem 0.25rem 2rem;
+  padding: 1.25rem 0.25rem 1.75rem;
   color: rgba(var(--v-theme-on-surface), 0.7);
 }
 
 .training-hoy__group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.1rem;
+}
+
+.training-hoy--compacta .training-hoy__group {
+  margin-bottom: 0.85rem;
 }
 
 .training-hoy__group-title {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
+  gap: 0.4rem;
+  font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(var(--v-theme-on-surface), 0.5);
-  margin: 0 0 0.65rem;
+  color: rgba(var(--v-theme-on-surface), 0.45);
+  margin: 0 0 0.35rem;
+}
+
+.training-hoy--compacta .training-hoy__group-title {
+  margin-bottom: 0.25rem;
+  letter-spacing: 0.04em;
 }
 
 .training-hoy__ex {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 1rem 0;
+  gap: 0.5rem;
+  padding: 0.65rem 0;
   border-bottom: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.training-hoy--compacta .training-hoy__ex {
+  padding: 0.5rem 0;
+  gap: 0.5rem;
 }
 
 .training-hoy__ex:last-child {
   border-bottom: 0;
 }
 
-.training-hoy__ex-name {
-  font-size: 1.125rem;
+.training-hoy__ex--row {
+  width: 100%;
+  border: 0;
+  border-bottom: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 0.65rem 0;
+  gap: 0.75rem;
+}
+
+.training-hoy__ex--row .training-hoy__ex-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.training-hoy__ex--row .training-hoy__ex-rx {
+  flex-shrink: 0;
+  font-size: 0.875rem;
   font-weight: 650;
+  color: rgba(var(--v-theme-on-surface), 0.72);
+}
+
+.training-hoy__ex-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
   line-height: 1.3;
 }
 
+.training-hoy--compacta .training-hoy__ex-name {
+  font-size: 0.875rem;
+}
+
 .training-hoy__ex-rx {
-  font-size: 1.35rem;
-  font-weight: 700;
+  margin-top: 0.1rem;
+  font-size: 0.875rem;
+  font-weight: 650;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
+  color: rgba(var(--v-theme-on-surface), 0.7);
+}
+
+.training-hoy--compacta .training-hoy__ex-rx {
+  font-size: 0.8125rem;
+  color: rgba(var(--v-theme-on-surface), 0.65);
 }
 
 .training-hoy__ex-dot {
@@ -652,14 +887,72 @@ export default {
 }
 
 .training-hoy__ex-note {
-  margin-top: 0.25rem;
-  font-size: 0.8125rem;
-  color: rgba(var(--v-theme-on-surface), 0.55);
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  color: rgba(var(--v-theme-on-surface), 0.5);
 }
 
 .training-hoy__actions {
-  margin-top: 1.5rem;
+  margin-top: 1.15rem;
   padding-bottom: 1rem;
+}
+
+.training-hoy--compacta .training-hoy__actions,
+.training-hoy--lista .training-hoy__actions,
+.training-hoy--enfoque .training-hoy__actions {
+  margin-top: 1rem;
+}
+
+.training-hoy__focus-mode {
+  padding: 0.25rem 0 0.5rem;
+}
+
+.training-hoy__focus-count {
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(var(--v-theme-on-surface), 0.5);
+  text-align: center;
+}
+
+.training-hoy__focus-card {
+  text-align: center;
+  padding: 1.5rem 1rem;
+  border-radius: 16px;
+  background: color-mix(in srgb, rgb(var(--v-theme-primary)) 8%, rgb(var(--v-theme-surface)));
+  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.training-hoy__focus-group {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(var(--v-theme-on-surface), 0.45);
+}
+
+.training-hoy__focus-name {
+  font-size: clamp(1.35rem, 5vw, 1.75rem);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.training-hoy__focus-rx {
+  font-size: clamp(1.15rem, 4vw, 1.45rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--v-theme-primary));
+}
+
+.training-hoy__focus-nav {
+  display: flex;
+  gap: 0.65rem;
+  justify-content: space-between;
+}
+
+.training-hoy__focus-nav .v-btn {
+  flex: 1 1 0;
 }
 
 .training-hoy__swap-actions {

@@ -1,7 +1,7 @@
 <template>
   <div class="training-page">
     <div class="d-flex flex-wrap align-center justify-space-between gap-3 mb-3">
-      <div class="d-flex align-center gap-2">
+      <div class="d-flex align-center gap-2 min-w-0">
         <h1 class="text-h4 font-weight-medium mb-0">
           Entrenamiento
         </h1>
@@ -17,6 +17,28 @@
             size="22"
           />
         </VBtn>
+      </div>
+      <div
+        v-if="activeTab === 'hoy'"
+        class="training-hoy-views"
+        role="group"
+        aria-label="Tipo de vista de Hoy"
+      >
+        <button
+          v-for="option in hoyViewOptions"
+          :key="option.value"
+          type="button"
+          class="training-hoy-views__btn"
+          :class="{ 'training-hoy-views__btn--active': hoyView === option.value }"
+          :title="option.title"
+          :aria-label="option.title"
+          @click="setHoyView(option.value)"
+        >
+          <VIcon
+            :icon="option.icon"
+            size="18"
+          />
+        </button>
       </div>
     </div>
 
@@ -79,6 +101,7 @@
           :loading="loading"
           :days="days"
           :today-weekday="todayWeekday"
+          :hoy-view="hoyView"
           @refresh="load"
           @error="error = $event"
           @edit-day="goEditDay"
@@ -108,7 +131,6 @@
           :sessions="sessions"
           @refresh="load"
           @error="error = $event"
-          @register="openSessionFromDay()"
           @open-session="openSession"
         />
       </VWindowItem>
@@ -245,15 +267,31 @@
 
 <script>
 import { axios } from '@/plugins/axios'
-import TrainingHoyTab from '@/views/pages/training/TrainingHoyTab.vue'
-import TrainingSemanaTab from '@/views/pages/training/TrainingSemanaTab.vue'
-import TrainingHistorialTab from '@/views/pages/training/TrainingHistorialTab.vue'
-import TrainingBibliotecaTab from '@/views/pages/training/TrainingBibliotecaTab.vue'
 import {
   emptySession,
-  splitDuration,
   joinDuration,
+  splitDuration,
 } from '@/utils/trainingFormat'
+import TrainingBibliotecaTab from '@/views/pages/training/TrainingBibliotecaTab.vue'
+import TrainingHistorialTab from '@/views/pages/training/TrainingHistorialTab.vue'
+import TrainingHoyTab from '@/views/pages/training/TrainingHoyTab.vue'
+import TrainingSemanaTab from '@/views/pages/training/TrainingSemanaTab.vue'
+
+const HOY_VIEW_KEY = 'training.hoyView'
+const HOY_VIEWS = ['detalle', 'compacta', 'lista', 'enfoque']
+
+function readHoyViewPref() {
+  try {
+    const saved = localStorage.getItem(HOY_VIEW_KEY)
+    if (HOY_VIEWS.includes(saved))
+      return saved
+  }
+  catch {
+    // ignore
+  }
+
+  return 'compacta'
+}
 
 export default {
   name: 'ModuleTraining',
@@ -271,6 +309,13 @@ export default {
       saving: false,
       error: '',
       activeTab: 'hoy',
+      hoyView: readHoyViewPref(),
+      hoyViewOptions: [
+        { value: 'detalle', title: 'Vista detalle', icon: 'ri-layout-masonry-line' },
+        { value: 'compacta', title: 'Vista compacta', icon: 'ri-list-check-2' },
+        { value: 'lista', title: 'Vista lista', icon: 'ri-menu-line' },
+        { value: 'enfoque', title: 'Vista enfoque', icon: 'ri-focus-3-line' },
+      ],
       days: [],
       sessions: [],
       library: [],
@@ -293,6 +338,19 @@ export default {
   },
 
   methods: {
+    setHoyView(value) {
+      if (!HOY_VIEWS.includes(value))
+        return
+
+      this.hoyView = value
+      try {
+        localStorage.setItem(HOY_VIEW_KEY, value)
+      }
+      catch {
+        // ignore
+      }
+    },
+
     load() {
       this.loading = true
       this.error = ''
@@ -430,5 +488,33 @@ export default {
   flex: 1 1 5.5rem;
   min-width: 5rem;
   max-width: 9rem;
+}
+
+.training-hoy-views {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 0.1rem;
+  padding: 0.15rem;
+  border-radius: 10px;
+  background: rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.training-hoy-views__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(var(--v-theme-on-surface), 0.55);
+  cursor: pointer;
+}
+
+.training-hoy-views__btn--active {
+  background: rgb(var(--v-theme-surface));
+  color: rgb(var(--v-theme-primary));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 </style>

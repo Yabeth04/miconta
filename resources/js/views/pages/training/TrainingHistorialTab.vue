@@ -1,19 +1,10 @@
 <template>
   <div>
-    <div class="d-flex flex-wrap align-center justify-space-between gap-2 mb-3">
+    <div class="mb-3">
       <p class="text-body-2 text-medium-emphasis mb-0">
         Esta semana: {{ summary.week_sessions }} sesión(es)
         <span v-if="summary.week_minutes"> · {{ formatDuration(summary.week_minutes) }}</span>
       </p>
-      <VBtn
-        color="primary"
-        rounded="lg"
-        size="small"
-        prepend-icon="ri-add-line"
-        @click="$emit('register')"
-      >
-        Registrar
-      </VBtn>
     </div>
 
     <VCard
@@ -126,7 +117,7 @@ export default {
     sessions: { type: Array, default: () => [] },
   },
 
-  emits: ['refresh', 'error', 'register', 'open-session'],
+  emits: ['refresh', 'error', 'open-session'],
 
   data() {
     return {
