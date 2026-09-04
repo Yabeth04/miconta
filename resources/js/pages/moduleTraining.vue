@@ -46,6 +46,9 @@
       <VTab value="historial">
         Historial
       </VTab>
+      <VTab value="biblioteca">
+        Biblioteca
+      </VTab>
     </VTabs>
 
     <VWindow
@@ -155,6 +158,9 @@
               v-else
               class="training-hoy__list"
             >
+              <p class="training-hoy__hint mb-3">
+                Tocá un ejercicio para subir nivel o reps al toque.
+              </p>
               <div
                 v-for="group in activeGroupedExercises"
                 :key="group.name"
@@ -163,26 +169,35 @@
                 <p class="training-hoy__group-title">
                   {{ group.name }}
                 </p>
-                <div
+                <button
                   v-for="item in group.items"
                   :key="item.id"
+                  type="button"
                   class="training-hoy__ex"
+                  @click="openQuickEdit(item)"
                 >
-                  <p class="training-hoy__ex-name mb-1">
-                    {{ item.name }}
-                  </p>
-                  <p class="training-hoy__ex-rx mb-0">
-                    {{ item.reps }}×{{ item.sets }}
-                    <span class="training-hoy__ex-dot">·</span>
-                    {{ formatLoad(item) }}
-                  </p>
-                  <p
-                    v-if="item.notes"
-                    class="training-hoy__ex-note mb-0"
-                  >
-                    {{ item.notes }}
-                  </p>
-                </div>
+                  <div class="min-w-0 flex-grow-1 text-start">
+                    <p class="training-hoy__ex-name mb-1">
+                      {{ item.name }}
+                    </p>
+                    <p class="training-hoy__ex-rx mb-0">
+                      {{ item.reps }}×{{ item.sets }}
+                      <span class="training-hoy__ex-dot">·</span>
+                      {{ formatLoad(item) }}
+                    </p>
+                    <p
+                      v-if="item.notes"
+                      class="training-hoy__ex-note mb-0"
+                    >
+                      {{ item.notes }}
+                    </p>
+                  </div>
+                  <VIcon
+                    icon="ri-pencil-line"
+                    size="18"
+                    class="training-hoy__ex-edit"
+                  />
+                </button>
               </div>
             </div>
 
@@ -365,7 +380,7 @@
                     variant="tonal"
                     rounded="lg"
                     prepend-icon="ri-add-line"
-                    @click="openExercise()"
+                    @click="openPickExercise()"
                   >
                     Agregar
                   </VBtn>
@@ -421,7 +436,7 @@
                           icon
                           variant="text"
                           size="small"
-                          @click="openExercise(item)"
+                          @click="openExerciseFromDay(selectedDay, item)"
                         >
                           <VIcon icon="ri-pencil-line" />
                         </VBtn>
@@ -530,6 +545,95 @@
           </div>
         </VCard>
       </VWindowItem>
+
+      <!-- Biblioteca -->
+      <VWindowItem value="biblioteca">
+        <div class="d-flex flex-wrap align-center justify-space-between gap-2 mb-3">
+          <p class="text-body-2 text-medium-emphasis mb-0">
+            Solo nombre y grupo. Series y nivel se ajustan en cada día.
+          </p>
+          <VBtn
+            color="primary"
+            rounded="lg"
+            size="small"
+            prepend-icon="ri-add-line"
+            @click="openLibraryExercise()"
+          >
+            Nuevo
+          </VBtn>
+        </div>
+
+        <VTextField
+          v-model="libraryQuery"
+          class="mb-3"
+          label="Buscar"
+          prepend-inner-icon="ri-search-line"
+          variant="outlined"
+          rounded="lg"
+          hide-details
+          clearable
+          density="comfortable"
+        />
+
+        <div
+          v-if="loading && !library.length"
+          class="training-empty"
+        >
+          Cargando…
+        </div>
+
+        <div
+          v-else-if="!filteredLibrary.length"
+          class="training-empty"
+        >
+          {{ libraryQuery ? 'Nada coincide con la búsqueda.' : 'Todavía no hay ejercicios. Creá el primero.' }}
+        </div>
+
+        <div
+          v-else
+          class="d-flex flex-column gap-4"
+        >
+          <section
+            v-for="group in groupedLibrary"
+            :key="group.name"
+          >
+            <p class="text-subtitle-2 font-weight-medium mb-2">
+              {{ group.name }}
+            </p>
+            <div class="training-drag-list">
+              <div
+                v-for="item in group.items"
+                :key="item.id"
+                class="training-exercise"
+              >
+                <div class="min-w-0 flex-grow-1">
+                  <p class="font-weight-medium mb-0">
+                    {{ item.name }}
+                  </p>
+                </div>
+                <div class="d-flex gap-1">
+                  <VBtn
+                    icon
+                    variant="text"
+                    size="small"
+                    @click="openLibraryExercise(item)"
+                  >
+                    <VIcon icon="ri-pencil-line" />
+                  </VBtn>
+                  <VBtn
+                    icon
+                    variant="text"
+                    size="small"
+                    @click="deleteLibraryExercise(item)"
+                  >
+                    <VIcon icon="ri-delete-bin-line" />
+                  </VBtn>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </VWindowItem>
     </VWindow>
 
     <VDialog
@@ -542,13 +646,16 @@
         </VCardTitle>
         <VCardText>
           <p class="mb-3">
-            <strong>Hoy:</strong> lo que mirás en el gym. Podés elegir otra rutina solo por hoy. Para editar o cambiar el plan, usá Semana.
+            <strong>Hoy:</strong> lo que mirás en el gym. Tocá un ejercicio para subir reps, series o nivel. Podés elegir otra rutina solo por hoy. Para armar el plan, usá Semana.
           </p>
           <p class="mb-3">
             <strong>Semana:</strong> arrastrá grupos (Abdomen, Bíceps…) entre días. Tocá el día para editar ejercicios.
           </p>
-          <p class="mb-0">
+          <p class="mb-3">
             <strong>Historial:</strong> lo que realmente hiciste al terminar.
+          </p>
+          <p class="mb-0">
+            <strong>Biblioteca:</strong> solo nombre y grupo muscular. Series, reps y nivel se definen en cada día.
           </p>
         </VCardText>
         <VCardActions>
@@ -565,12 +672,211 @@
     </VDialog>
 
     <VDialog
+      v-model="quickEditDialog"
+      max-width="420"
+    >
+      <VCard rounded="lg">
+        <VCardTitle class="text-h6">
+          {{ quickEditForm.name || 'Ajustar' }}
+        </VCardTitle>
+        <VCardText>
+          <p class="text-caption text-medium-emphasis mb-4">
+            Cambio en el plan (queda para las próximas veces).
+          </p>
+
+          <div class="training-quick">
+            <div class="training-quick__row">
+              <span class="training-quick__label">Reps</span>
+              <div class="training-quick__ctrl">
+                <VBtn
+                  icon
+                  variant="tonal"
+                  size="small"
+                  rounded="lg"
+                  @click="bumpQuick('reps', -1)"
+                >
+                  <VIcon icon="ri-subtract-line" />
+                </VBtn>
+                <span class="training-quick__value">{{ quickEditForm.reps }}</span>
+                <VBtn
+                  icon
+                  variant="tonal"
+                  size="small"
+                  rounded="lg"
+                  @click="bumpQuick('reps', 1)"
+                >
+                  <VIcon icon="ri-add-line" />
+                </VBtn>
+              </div>
+            </div>
+
+            <div class="training-quick__row">
+              <span class="training-quick__label">Series</span>
+              <div class="training-quick__ctrl">
+                <VBtn
+                  icon
+                  variant="tonal"
+                  size="small"
+                  rounded="lg"
+                  @click="bumpQuick('sets', -1)"
+                >
+                  <VIcon icon="ri-subtract-line" />
+                </VBtn>
+                <span class="training-quick__value">{{ quickEditForm.sets }}</span>
+                <VBtn
+                  icon
+                  variant="tonal"
+                  size="small"
+                  rounded="lg"
+                  @click="bumpQuick('sets', 1)"
+                >
+                  <VIcon icon="ri-add-line" />
+                </VBtn>
+              </div>
+            </div>
+
+            <div
+              v-if="quickEditForm.load_type !== 'bodyweight'"
+              class="training-quick__row"
+            >
+              <span class="training-quick__label">
+                {{ quickEditForm.load_type === 'level' ? 'Nivel' : 'Kg' }}
+              </span>
+              <div class="training-quick__ctrl">
+                <VBtn
+                  icon
+                  variant="tonal"
+                  size="small"
+                  rounded="lg"
+                  @click="bumpQuick('load_value', quickEditForm.load_type === 'level' ? -1 : -0.5)"
+                >
+                  <VIcon icon="ri-subtract-line" />
+                </VBtn>
+                <span class="training-quick__value">{{ quickEditForm.load_value ?? 0 }}</span>
+                <VBtn
+                  icon
+                  variant="tonal"
+                  size="small"
+                  rounded="lg"
+                  @click="bumpQuick('load_value', quickEditForm.load_type === 'level' ? 1 : 0.5)"
+                >
+                  <VIcon icon="ri-add-line" />
+                </VBtn>
+              </div>
+            </div>
+          </div>
+        </VCardText>
+        <VCardActions>
+          <VSpacer />
+          <VBtn
+            variant="text"
+            rounded="lg"
+            @click="quickEditDialog = false"
+          >
+            Cancelar
+          </VBtn>
+          <VBtn
+            color="primary"
+            rounded="lg"
+            :loading="saving"
+            @click="saveQuickEdit"
+          >
+            Guardar
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
+
+    <VDialog
+      v-model="pickExerciseDialog"
+      max-width="480"
+    >
+      <VCard rounded="lg">
+        <VCardTitle class="text-h6">
+          Agregar ejercicio
+        </VCardTitle>
+        <VCardText class="d-flex flex-column gap-3 pt-4">
+          <VTextField
+            v-model="pickQuery"
+            label="Buscar en biblioteca"
+            prepend-inner-icon="ri-search-line"
+            variant="outlined"
+            rounded="lg"
+            hide-details
+            clearable
+            density="comfortable"
+            autofocus
+          />
+
+          <VBtn
+            color="primary"
+            variant="tonal"
+            rounded="lg"
+            block
+            prepend-icon="ri-add-line"
+            @click="createExerciseFromPick"
+          >
+            Crear nuevo
+          </VBtn>
+
+          <div
+            v-if="!pickFilteredLibrary.length"
+            class="training-empty py-4"
+          >
+            {{ pickEmptyMessage }}
+          </div>
+
+          <div
+            v-else
+            class="training-drag-list"
+            style="max-height: 320px; overflow: auto;"
+          >
+            <button
+              v-for="item in pickFilteredLibrary"
+              :key="`pick-${item.id}`"
+              type="button"
+              class="training-exercise training-exercise--pick"
+              :disabled="saving"
+              @click="attachFromLibrary(item)"
+            >
+              <div class="min-w-0 flex-grow-1 text-start">
+                <p class="font-weight-medium mb-0">
+                  {{ item.name }}
+                </p>
+                <p
+                  v-if="item.muscle_group"
+                  class="text-body-2 text-medium-emphasis mb-0"
+                >
+                  {{ item.muscle_group }}
+                </p>
+              </div>
+              <VIcon
+                icon="ri-add-circle-line"
+                size="22"
+              />
+            </button>
+          </div>
+        </VCardText>
+        <VCardActions>
+          <VSpacer />
+          <VBtn
+            variant="text"
+            rounded="lg"
+            @click="pickExerciseDialog = false"
+          >
+            Cancelar
+          </VBtn>
+        </VCardActions>
+      </VCard>
+    </VDialog>
+
+    <VDialog
       v-model="exerciseDialog"
       max-width="480"
     >
       <VCard rounded="lg">
         <VCardTitle class="text-h6">
-          {{ exerciseForm.id ? 'Editar ejercicio' : 'Nuevo ejercicio' }}
+          {{ exerciseDialogTitle }}
         </VCardTitle>
         <VCardText class="d-flex flex-column gap-4 pt-4">
           <VTextField
@@ -590,55 +896,57 @@
             hide-details="auto"
             clearable
           />
-          <div class="d-flex gap-3">
+          <template v-if="exerciseMode === 'day'">
+            <div class="d-flex gap-3">
+              <VTextField
+                v-model.number="exerciseForm.reps"
+                type="number"
+                inputmode="numeric"
+                label="Reps"
+                variant="outlined"
+                rounded="lg"
+                hide-details="auto"
+              />
+              <VTextField
+                v-model.number="exerciseForm.sets"
+                type="number"
+                inputmode="numeric"
+                label="Series"
+                variant="outlined"
+                rounded="lg"
+                hide-details="auto"
+              />
+            </div>
+            <div class="d-flex gap-3">
+              <VSelect
+                v-model="exerciseForm.load_type"
+                :items="loadTypeOptions"
+                item-title="title"
+                item-value="value"
+                label="Carga"
+                variant="outlined"
+                rounded="lg"
+                hide-details="auto"
+              />
+              <VTextField
+                v-if="exerciseForm.load_type !== 'bodyweight'"
+                v-model.number="exerciseForm.load_value"
+                type="number"
+                inputmode="decimal"
+                :label="exerciseForm.load_type === 'level' ? 'Nivel' : 'Kg'"
+                variant="outlined"
+                rounded="lg"
+                hide-details="auto"
+              />
+            </div>
             <VTextField
-              v-model.number="exerciseForm.reps"
-              type="number"
-              inputmode="numeric"
-              label="Reps"
+              v-model="exerciseForm.notes"
+              label="Nota (opcional)"
               variant="outlined"
               rounded="lg"
               hide-details="auto"
             />
-            <VTextField
-              v-model.number="exerciseForm.sets"
-              type="number"
-              inputmode="numeric"
-              label="Series"
-              variant="outlined"
-              rounded="lg"
-              hide-details="auto"
-            />
-          </div>
-          <div class="d-flex gap-3">
-            <VSelect
-              v-model="exerciseForm.load_type"
-              :items="loadTypeOptions"
-              item-title="title"
-              item-value="value"
-              label="Carga"
-              variant="outlined"
-              rounded="lg"
-              hide-details="auto"
-            />
-            <VTextField
-              v-if="exerciseForm.load_type !== 'bodyweight'"
-              v-model.number="exerciseForm.load_value"
-              type="number"
-              inputmode="decimal"
-              :label="exerciseForm.load_type === 'level' ? 'Nivel' : 'Kg'"
-              variant="outlined"
-              rounded="lg"
-              hide-details="auto"
-            />
-          </div>
-          <VTextField
-            v-model="exerciseForm.notes"
-            label="Nota (opcional)"
-            variant="outlined"
-            rounded="lg"
-            hide-details="auto"
-          />
+          </template>
         </VCardText>
         <VCardActions>
           <VSpacer />
@@ -750,14 +1058,17 @@
     >
       <VCard rounded="lg">
         <VCardTitle class="text-h6">
-          {{ deleteKind === 'session' ? 'Eliminar sesión' : 'Eliminar ejercicio' }}
+          {{ deleteDialogTitle }}
         </VCardTitle>
         <VCardText class="text-body-2 pt-2">
           <template v-if="deleteKind === 'session'">
             ¿Eliminar esta sesión? No se puede deshacer.
           </template>
+          <template v-else-if="deleteKind === 'library'">
+            ¿Sacar “{{ deleteTarget?.name }}” de la biblioteca? Los días que ya lo usan lo conservan.
+          </template>
           <template v-else>
-            ¿Eliminar “{{ deleteTarget?.name }}”?
+            ¿Eliminar “{{ deleteTarget?.name }}” de este día?
           </template>
         </VCardText>
         <VCardActions class="px-4 pb-4">
@@ -796,6 +1107,7 @@ const MUSCLE_OPTIONS = [
 function emptyExercise() {
   return {
     id: null,
+    library_exercise_id: null,
     name: '',
     muscle_group: null,
     sets: 4,
@@ -878,6 +1190,9 @@ export default {
       activeTab: 'hoy',
       days: [],
       sessions: [],
+      library: [],
+      libraryQuery: '',
+      pickQuery: '',
       summary: { week_sessions: 0, week_minutes: 0, week_calories: 0 },
       todayWeekday: new Date().getDay() === 0 ? 7 : new Date().getDay(),
       activeDayId: null,
@@ -886,7 +1201,10 @@ export default {
       movingGroup: false,
       weekBoard: [],
       helpDialog: false,
+      quickEditDialog: false,
+      pickExerciseDialog: false,
       exerciseDialog: false,
+      exerciseMode: 'day',
       sessionDialog: false,
       deleteDialog: false,
       deleteKind: null,
@@ -899,6 +1217,7 @@ export default {
         { title: 'Peso corporal', value: 'bodyweight' },
       ],
       exerciseForm: emptyExercise(),
+      quickEditForm: emptyExercise(),
       sessionForm: emptySession(),
     }
   },
@@ -937,6 +1256,8 @@ export default {
     dragLocked() {
       return this.movingGroup
         || this.editPanelOpen
+        || this.pickExerciseDialog
+        || this.quickEditDialog
         || this.exerciseDialog
         || this.sessionDialog
         || this.deleteDialog
@@ -958,6 +1279,85 @@ export default {
     groupedExercises() {
       return groupExercises(this.selectedDay?.exercises)
     },
+
+    exerciseDialogTitle() {
+      if (this.exerciseMode === 'library')
+        return this.exerciseForm.id ? 'Editar en biblioteca' : 'Nuevo en biblioteca'
+
+      return this.exerciseForm.id ? 'Editar ejercicio' : 'Nuevo ejercicio'
+    },
+
+    deleteDialogTitle() {
+      if (this.deleteKind === 'session')
+        return 'Eliminar sesión'
+      if (this.deleteKind === 'library')
+        return 'Quitar de biblioteca'
+
+      return 'Eliminar ejercicio'
+    },
+
+    filteredLibrary() {
+      const q = String(this.libraryQuery || '').trim().toLowerCase()
+      if (!q)
+        return this.library
+
+      return this.library.filter(item => {
+        const hay = `${item.name} ${item.muscle_group || ''}`.toLowerCase()
+
+        return hay.includes(q)
+      })
+    },
+
+    pickFilteredLibrary() {
+      const usedIds = new Set(
+        (this.selectedDay?.exercises || [])
+          .map(item => item.library_exercise_id)
+          .filter(Boolean),
+      )
+      const usedNames = new Set(
+        (this.selectedDay?.exercises || [])
+          .map(item => String(item.name || '').trim().toLowerCase())
+          .filter(Boolean),
+      )
+
+      const available = this.library.filter(item => {
+        if (usedIds.has(item.id))
+          return false
+
+        const name = String(item.name || '').trim().toLowerCase()
+
+        return !name || !usedNames.has(name)
+      })
+
+      const q = String(this.pickQuery || '').trim().toLowerCase()
+      if (!q)
+        return available
+
+      return available.filter(item => {
+        const hay = `${item.name} ${item.muscle_group || ''}`.toLowerCase()
+
+        return hay.includes(q)
+      })
+    },
+
+    pickEmptyMessage() {
+      if (!this.library.length)
+        return 'Biblioteca vacía: creá el primero.'
+
+      const q = String(this.pickQuery || '').trim()
+      if (q)
+        return 'Nada coincide.'
+
+      const dayHasExercises = Boolean(this.selectedDay?.exercises?.length)
+      if (dayHasExercises && this.pickFilteredLibrary.length === 0)
+        return 'Ya están todos en este día.'
+
+      return 'Nada coincide.'
+    },
+
+    groupedLibrary() {
+      return groupExercises(this.filteredLibrary)
+    },
   },
 
   created() {
@@ -977,6 +1377,7 @@ export default {
         .then(response => {
           this.days = response.data.days || []
           this.sessions = response.data.sessions || []
+          this.library = response.data.library || []
           this.summary = response.data.summary || this.summary
           this.todayWeekday = response.data.today_weekday ?? this.todayWeekday
 
@@ -1137,15 +1538,108 @@ export default {
       return String(label || '').slice(0, 3)
     },
 
+    openPickExercise() {
+      this.pickQuery = ''
+      this.pickExerciseDialog = true
+    },
+
+    createExerciseFromPick() {
+      this.pickExerciseDialog = false
+      this.openExercise()
+    },
+
+    attachFromLibrary(item) {
+      if (!item?.id)
+        return
+
+      this.pickExerciseDialog = false
+      this.exerciseMode = 'day'
+      this.exerciseForm = {
+        ...this.emptyExercise(),
+        library_exercise_id: item.id,
+        name: item.name,
+        muscle_group: item.muscle_group || null,
+      }
+      this.exerciseDialog = true
+    },
+
+    openQuickEdit(item) {
+      this.quickEditForm = { ...this.emptyExercise(), ...item }
+      this.quickEditDialog = true
+    },
+
+    bumpQuick(field, delta) {
+      const current = Number(this.quickEditForm[field])
+      const base = Number.isFinite(current) ? current : 0
+      let next = base + delta
+
+      if (field === 'reps')
+        next = Math.min(100, Math.max(1, next))
+      else if (field === 'sets')
+        next = Math.min(30, Math.max(1, next))
+      else if (field === 'load_value')
+        next = Math.max(0, Math.round(next * 100) / 100)
+
+      this.quickEditForm[field] = next
+    },
+
+    saveQuickEdit() {
+      if (!this.quickEditForm.id || this.saving)
+        return
+
+      this.saving = true
+      const payload = {
+        name: this.quickEditForm.name,
+        muscle_group: this.quickEditForm.muscle_group,
+        sets: this.quickEditForm.sets,
+        reps: this.quickEditForm.reps,
+        load_type: this.quickEditForm.load_type,
+        load_value: this.quickEditForm.load_type === 'bodyweight' ? null : this.quickEditForm.load_value,
+        notes: this.quickEditForm.notes,
+      }
+
+      axios.put(`/api/training/exercises/${this.quickEditForm.id}`, payload)
+        .then(() => {
+          this.quickEditDialog = false
+          this.$toast.success('Actualizado', { timeout: 1500, closeOnClick: true })
+          this.load()
+        })
+        .catch(error => {
+          this.error = error.response?.data?.message || 'No se pudo guardar.'
+        })
+        .finally(() => {
+          this.saving = false
+        })
+    },
+
+    openExerciseFromDay(day, item = null) {
+      if (day?.id)
+        this.selectedDayId = day.id
+
+      this.openExercise(item)
+    },
+
     openExercise(item = null) {
+      this.exerciseMode = 'day'
       this.exerciseForm = item
-        ? { ...item }
+        ? { ...this.emptyExercise(), ...item }
+        : this.emptyExercise()
+      this.exerciseDialog = true
+    },
+
+    openLibraryExercise(item = null) {
+      this.exerciseMode = 'library'
+      this.exerciseForm = item
+        ? { ...this.emptyExercise(), ...item }
         : this.emptyExercise()
       this.exerciseDialog = true
     },
 
     saveExercise() {
-      if (!this.selectedDay || this.saving)
+      if (this.saving)
+        return
+
+      if (this.exerciseMode === 'day' && !this.exerciseForm.id && !this.selectedDay)
         return
 
       const name = String(this.exerciseForm.name || '').trim()
@@ -1156,19 +1650,49 @@ export default {
       }
 
       this.saving = true
-      const payload = {
-        name,
-        muscle_group: this.exerciseForm.muscle_group,
-        sets: this.exerciseForm.sets,
-        reps: this.exerciseForm.reps,
-        load_type: this.exerciseForm.load_type,
-        load_value: this.exerciseForm.load_type === 'bodyweight' ? null : this.exerciseForm.load_value,
-        notes: this.exerciseForm.notes,
-      }
 
-      const request = this.exerciseForm.id
-        ? axios.put(`/api/training/exercises/${this.exerciseForm.id}`, payload)
-        : axios.post(`/api/training/days/${this.selectedDay.id}/exercises`, payload)
+      let request
+      if (this.exerciseMode === 'library') {
+        const payload = {
+          name,
+          muscle_group: this.exerciseForm.muscle_group,
+        }
+        request = this.exerciseForm.id
+          ? axios.put(`/api/training/library/${this.exerciseForm.id}`, payload)
+          : axios.post('/api/training/library', payload)
+      }
+      else if (this.exerciseForm.id) {
+        request = axios.put(`/api/training/exercises/${this.exerciseForm.id}`, {
+          name,
+          muscle_group: this.exerciseForm.muscle_group,
+          sets: this.exerciseForm.sets,
+          reps: this.exerciseForm.reps,
+          load_type: this.exerciseForm.load_type,
+          load_value: this.exerciseForm.load_type === 'bodyweight' ? null : this.exerciseForm.load_value,
+          notes: this.exerciseForm.notes,
+        })
+      }
+      else if (this.exerciseForm.library_exercise_id) {
+        request = axios.post(`/api/training/days/${this.selectedDay.id}/exercises/attach`, {
+          library_exercise_id: this.exerciseForm.library_exercise_id,
+          sets: this.exerciseForm.sets,
+          reps: this.exerciseForm.reps,
+          load_type: this.exerciseForm.load_type,
+          load_value: this.exerciseForm.load_type === 'bodyweight' ? null : this.exerciseForm.load_value,
+          notes: this.exerciseForm.notes,
+        })
+      }
+      else {
+        request = axios.post(`/api/training/days/${this.selectedDay.id}/exercises`, {
+          name,
+          muscle_group: this.exerciseForm.muscle_group,
+          sets: this.exerciseForm.sets,
+          reps: this.exerciseForm.reps,
+          load_type: this.exerciseForm.load_type,
+          load_value: this.exerciseForm.load_type === 'bodyweight' ? null : this.exerciseForm.load_value,
+          notes: this.exerciseForm.notes,
+        })
+      }
 
       request
         .then(() => {
@@ -1190,6 +1714,12 @@ export default {
       this.deleteDialog = true
     },
 
+    deleteLibraryExercise(item) {
+      this.deleteKind = 'library'
+      this.deleteTarget = item
+      this.deleteDialog = true
+    },
+
     deleteSession(session) {
       this.deleteKind = 'session'
       this.deleteTarget = session
@@ -1202,19 +1732,29 @@ export default {
 
       this.deleting = true
 
-      const request = this.deleteKind === 'session'
-        ? axios.delete(`/api/training/sessions/${this.deleteTarget.id}`)
-        : axios.delete(`/api/training/exercises/${this.deleteTarget.id}`)
+      let request
+      if (this.deleteKind === 'session')
+        request = axios.delete(`/api/training/sessions/${this.deleteTarget.id}`)
+      else if (this.deleteKind === 'library')
+        request = axios.delete(`/api/training/library/${this.deleteTarget.id}`)
+      else
+        request = axios.delete(`/api/training/exercises/${this.deleteTarget.id}`)
 
       request
         .then(() => {
+          const kind = this.deleteKind
           this.deleteDialog = false
           this.deleteTarget = null
           this.deleteKind = null
+          if (kind === 'library')
+            this.$toast.success('Sacado de la biblioteca', { timeout: 2000, closeOnClick: true })
           this.load()
         })
         .catch(error => {
-          this.error = error.response?.data?.message || 'No se pudo eliminar.'
+          this.deleteDialog = false
+          const message = error.response?.data?.message || 'No se pudo eliminar.'
+          this.error = message
+          this.$toast.error(message, { timeout: 3500, closeOnClick: true })
         })
         .finally(() => {
           this.deleting = false
@@ -1437,12 +1977,67 @@ export default {
 }
 
 .training-hoy__ex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
   padding: 1rem 0;
+  border: 0;
   border-bottom: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 0;
 }
 
 .training-hoy__ex:last-child {
   border-bottom: 0;
+}
+
+.training-hoy__ex-edit {
+  opacity: 0.35;
+  flex-shrink: 0;
+}
+
+.training-hoy__hint {
+  font-size: 0.8125rem;
+  color: rgba(var(--v-theme-on-surface), 0.55);
+  margin: 0;
+}
+
+.training-quick {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.training-quick__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.training-quick__label {
+  font-weight: 600;
+  min-width: 4rem;
+}
+
+.training-quick__ctrl {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.training-quick__value {
+  min-width: 2.5rem;
+  text-align: center;
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .training-hoy__ex-name {
@@ -1638,6 +2233,23 @@ export default {
   border-radius: 12px;
   margin-bottom: 0.5rem;
   background: rgb(var(--v-theme-surface));
+}
+
+.training-exercise--pick {
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.training-exercise--pick:hover {
+  border-color: rgba(var(--v-theme-primary), 0.45);
+}
+
+.training-exercise--pick:disabled {
+  opacity: 0.55;
+  cursor: wait;
 }
 
 .training-drag-handle {

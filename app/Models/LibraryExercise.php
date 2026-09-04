@@ -4,14 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class WorkoutExercise extends Model
+class LibraryExercise extends Model
 {
-    public const LOAD_TYPES = ['level', 'kg', 'bodyweight'];
+    protected $table = 'exercise_library';
 
     protected $fillable = [
-        'workout_day_id',
-        'library_exercise_id',
+        'user_id',
         'name',
         'muscle_group',
         'sets',
@@ -19,7 +19,6 @@ class WorkoutExercise extends Model
         'load_type',
         'load_value',
         'notes',
-        'sort_order',
     ];
 
     protected function casts(): array
@@ -28,17 +27,16 @@ class WorkoutExercise extends Model
             'sets'       => 'integer',
             'reps'       => 'integer',
             'load_value' => 'float',
-            'sort_order' => 'integer',
         ];
     }
 
-    public function day(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(WorkoutDay::class, 'workout_day_id');
+        return $this->belongsTo(User::class);
     }
 
-    public function libraryExercise(): BelongsTo
+    public function workoutExercises(): HasMany
     {
-        return $this->belongsTo(LibraryExercise::class, 'library_exercise_id');
+        return $this->hasMany(WorkoutExercise::class, 'library_exercise_id');
     }
 }

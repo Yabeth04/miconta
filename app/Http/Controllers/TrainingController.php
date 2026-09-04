@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
+use App\Models\LibraryExercise;
 use App\Models\WorkoutDay;
 use App\Models\WorkoutExercise;
 use App\Models\WorkoutSession;
@@ -15,13 +16,14 @@ class TrainingController extends Controller
     {
         $userId = $request->user()->id;
         $this->ensureWeek($userId);
+        $this->syncLibraryFromExisting($userId);
 
         $days = WorkoutDay::query()
             ->where('user_id', $userId)
             ->with('exercises')
             ->orderBy('weekday')
             ->get()
-            ->map(fn(WorkoutDay $day) => $this->serializeDay($day));
+            ->map(fn (WorkoutDay $day) => $this->serializeDay($day));
 
         $sessions = WorkoutSession::query()
             ->where('user_id', $userId)
@@ -30,7 +32,14 @@ class TrainingController extends Controller
             ->orderByDesc('id')
             ->limit(40)
             ->get()
-            ->map(fn(WorkoutSession $session) => $this->serializeSession($session));
+            ->map(fn (WorkoutSession $session) => $this->serializeSession($session));
+
+        $library = LibraryExercise::query()
+            ->where('user_id', $userId)
+            ->orderBy('muscle_group')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (LibraryExercise $item) => $this->serializeLibrary($item));
 
         $todayWeekday = (int) now()->isoWeekday();
 
@@ -38,6 +47,7 @@ class TrainingController extends Controller
             'today_weekday' => $todayWeekday,
             'days'          => $days,
             'sessions'      => $sessions,
+            'library'       => $library,
             'summary'       => $this->summary($userId),
         ], 200);
     }
@@ -72,17 +82,99 @@ class TrainingController extends Controller
     {
         $this->authorizeDay($request, $workoutDay);
         $validated = $this->validateExercise($request);
+        $library = $this->upsertLibrary((int) $request->user()->id, $validated);
 
         $maxOrder = (int) $workoutDay->exercises()->max('sort_order');
 
         $exercise = $workoutDay->exercises()->create([
             ...$validated,
-            'sort_order' => $maxOrder + 1,
+            'library_exercise_id' => $library->id,
+            'sort_order'          => $maxOrder + 1,
         ]);
 
         $this->rebuildFocusFromExercises($workoutDay->fresh('exercises'));
 
         return response()->json($this->serializeExercise($exercise), 201);
+    }
+
+    public function attachLibraryExercise(Request $request, WorkoutDay $workoutDay)
+    {
+        $this->authorizeDay($request, $workoutDay);
+
+        $validated = $request->validate([
+            'library_exercise_id' => ['required', 'integer', 'exists:exercise_library,id'],
+            'sets'                => ['nullable', 'integer', 'min:1', 'max:30'],
+            'reps'                => ['nullable', 'integer', 'min:1', 'max:100'],
+            'load_type'           => ['nullable', Rule::in(WorkoutExercise::LOAD_TYPES)],
+            'load_value'          => ['nullable', 'numeric', 'min:0', 'max:9999'],
+            'notes'               => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $library = LibraryExercise::query()->findOrFail($validated['library_exercise_id']);
+        abort_unless((int) $library->user_id === (int) $request->user()->id, 404);
+
+        $maxOrder = (int) $workoutDay->exercises()->max('sort_order');
+
+        $exercise = $workoutDay->exercises()->create([
+            'library_exercise_id' => $library->id,
+            'name'                => $library->name,
+            'muscle_group'        => $library->muscle_group,
+            'sets'                => $validated['sets'] ?? 4,
+            'reps'                => $validated['reps'] ?? 11,
+            'load_type'           => $validated['load_type'] ?? 'level',
+            'load_value'          => array_key_exists('load_value', $validated)
+                ? ($validated['load_value'] !== null ? round((float) $validated['load_value'], 2) : null)
+                : null,
+            'notes'               => array_key_exists('notes', $validated)
+                ? $this->nullableString($validated['notes'] ?? null)
+                : null,
+            'sort_order'          => $maxOrder + 1,
+        ]);
+
+        $this->rebuildFocusFromExercises($workoutDay->fresh('exercises'));
+
+        return response()->json($this->serializeExercise($exercise), 201);
+    }
+
+    public function storeLibraryExercise(Request $request)
+    {
+        $validated = $this->validateLibraryExercise($request);
+        $library = $this->upsertLibrary((int) $request->user()->id, $validated);
+
+        return response()->json($this->serializeLibrary($library->fresh()), 201);
+    }
+
+    public function updateLibraryExercise(Request $request, LibraryExercise $libraryExercise)
+    {
+        $this->authorizeLibrary($request, $libraryExercise);
+        $validated = $this->validateLibraryExercise($request);
+
+        // Si cambian el nombre, respetar unique por usuario
+        $exists = LibraryExercise::query()
+            ->where('user_id', $request->user()->id)
+            ->where('name', $validated['name'])
+            ->where('id', '!=', $libraryExercise->id)
+            ->exists();
+
+        abort_if($exists, 422, 'Ya tenés un ejercicio con ese nombre en la biblioteca.');
+
+        $libraryExercise->update($validated);
+
+        return response()->json($this->serializeLibrary($libraryExercise->fresh()), 200);
+    }
+
+    public function destroyLibraryExercise(Request $request, LibraryExercise $libraryExercise)
+    {
+        $this->authorizeLibrary($request, $libraryExercise);
+
+        // Las instancias en días quedan (FK → null); solo se saca del catálogo.
+        WorkoutExercise::query()
+            ->where('library_exercise_id', $libraryExercise->id)
+            ->update(['library_exercise_id' => null]);
+
+        $libraryExercise->delete();
+
+        return response()->json(['message' => 'Ejercicio eliminado de la biblioteca.'], 200);
     }
 
     public function updateExercise(Request $request, WorkoutExercise $workoutExercise)
@@ -366,6 +458,62 @@ class TrainingController extends Controller
         }
     }
 
+    private function syncLibraryFromExisting(int $userId): void
+    {
+        $unlinked = WorkoutExercise::query()
+            ->whereHas('day', fn ($q) => $q->where('user_id', $userId))
+            ->whereNull('library_exercise_id')
+            ->orderBy('id')
+            ->get();
+
+        if ($unlinked->isEmpty()) {
+            return;
+        }
+
+        $byName = LibraryExercise::query()
+            ->where('user_id', $userId)
+            ->get()
+            ->keyBy(fn (LibraryExercise $item) => mb_strtolower($item->name));
+
+        // Solo si la biblioteca está vacía, sembramos desde la rutina (migración inicial).
+        // Si el usuario borró un ítem del catálogo, no lo recreamos aunque siga en un día.
+        $seedMissing = $byName->isEmpty();
+
+        foreach ($unlinked as $exercise) {
+            $key = mb_strtolower((string) $exercise->name);
+            $library = $byName->get($key);
+
+            if (! $library && $seedMissing) {
+                $library = LibraryExercise::query()->create([
+                    'user_id'      => $userId,
+                    'name'         => $exercise->name,
+                    'muscle_group' => $exercise->muscle_group,
+                ]);
+                $byName->put($key, $library);
+            }
+
+            if ($library) {
+                $exercise->update(['library_exercise_id' => $library->id]);
+            }
+        }
+    }
+
+    /**
+     * @param  array{name: string, muscle_group: ?string}  $data
+     */
+    private function upsertLibrary(int $userId, array $data): LibraryExercise
+    {
+        return LibraryExercise::query()->updateOrCreate(
+            [
+                'user_id' => $userId,
+                'name'    => $data['name'],
+            ],
+            [
+                'muscle_group' => $data['muscle_group'] ?? null,
+            ],
+        );
+    }
+
     private function summary(int $userId): array
     {
         $from = now()->startOfWeek();
@@ -381,6 +529,22 @@ class TrainingController extends Controller
             'week_minutes'  => (int) $weekSessions->sum('duration_minutes'),
             'week_calories' => (int) $weekSessions->sum('calories'),
         ];
+    }
+
+    /**
+     * @return array{name: string, muscle_group: ?string}
+     */
+    private function validateLibraryExercise(Request $request): array
+    {
+        $validated = $request->validate([
+            'name'         => ['required', 'string', 'max:255'],
+            'muscle_group' => ['nullable', 'string', 'max:80'],
+        ]);
+
+        $validated['name']         = trim($validated['name']);
+        $validated['muscle_group'] = $this->nullableString($validated['muscle_group'] ?? null);
+
+        return $validated;
     }
 
     /**
@@ -539,15 +703,25 @@ class TrainingController extends Controller
     private function serializeExercise(WorkoutExercise $exercise): array
     {
         return [
+            'id'                  => $exercise->id,
+            'library_exercise_id' => $exercise->library_exercise_id,
+            'name'                => $exercise->name,
+            'muscle_group'        => $exercise->muscle_group,
+            'sets'                => (int) $exercise->sets,
+            'reps'                => (int) $exercise->reps,
+            'load_type'           => $exercise->load_type,
+            'load_value'          => $exercise->load_value !== null ? (float) $exercise->load_value : null,
+            'notes'               => $exercise->notes,
+            'sort_order'          => (int) $exercise->sort_order,
+        ];
+    }
+
+    private function serializeLibrary(LibraryExercise $exercise): array
+    {
+        return [
             'id'           => $exercise->id,
             'name'         => $exercise->name,
             'muscle_group' => $exercise->muscle_group,
-            'sets'         => (int) $exercise->sets,
-            'reps'         => (int) $exercise->reps,
-            'load_type'    => $exercise->load_type,
-            'load_value'   => $exercise->load_value !== null ? (float) $exercise->load_value : null,
-            'notes'        => $exercise->notes,
-            'sort_order'   => (int) $exercise->sort_order,
         ];
     }
 
@@ -579,6 +753,11 @@ class TrainingController extends Controller
     private function authorizeDay(Request $request, WorkoutDay $day): void
     {
         abort_unless((int) $day->user_id === (int) $request->user()->id, 404);
+    }
+
+    private function authorizeLibrary(Request $request, LibraryExercise $exercise): void
+    {
+        abort_unless((int) $exercise->user_id === (int) $request->user()->id, 404);
     }
 
     private function authorizeExercise(Request $request, WorkoutExercise $exercise): void

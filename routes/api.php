@@ -52,11 +52,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('training/days/{workoutDay}', [TrainingController::class, 'updateDay']);
     Route::post('training/days/{workoutDay}/reassign', [TrainingController::class, 'reassignDay']);
     Route::post('training/days/{workoutDay}/exercises', [TrainingController::class, 'storeExercise']);
+    Route::post('training/days/{workoutDay}/exercises/attach', [TrainingController::class, 'attachLibraryExercise']);
     Route::put('training/days/{workoutDay}/exercises/reorder', [TrainingController::class, 'reorderExercises']);
     Route::put('training/days/{workoutDay}/groups/reorder', [TrainingController::class, 'reorderGroups']);
     Route::post('training/move-group', [TrainingController::class, 'moveGroup']);
     Route::put('training/exercises/{workoutExercise}', [TrainingController::class, 'updateExercise']);
     Route::delete('training/exercises/{workoutExercise}', [TrainingController::class, 'destroyExercise']);
+    Route::post('training/library', [TrainingController::class, 'storeLibraryExercise']);
+    Route::put('training/library/{libraryExercise}', [TrainingController::class, 'updateLibraryExercise']);
+    Route::delete('training/library/{libraryExercise}', [TrainingController::class, 'destroyLibraryExercise']);
     Route::post('training/sessions', [TrainingController::class, 'storeSession']);
     Route::put('training/sessions/{workoutSession}', [TrainingController::class, 'updateSession']);
     Route::delete('training/sessions/{workoutSession}', [TrainingController::class, 'destroySession']);
