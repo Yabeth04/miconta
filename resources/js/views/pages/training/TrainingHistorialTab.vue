@@ -102,8 +102,8 @@
 </template>
 
 <script>
-import { axios } from '@/plugins/axios'
-import { formatDuration, formatSessionDate, muscleSummary } from '@/utils/trainingFormat'
+import { axios } from '@/plugins/axios';
+import { formatDuration, formatSessionDate, muscleSummary } from '@/utils/trainingFormat';
 
 export default {
   name: 'TrainingHistorialTab',

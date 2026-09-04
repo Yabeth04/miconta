@@ -19,7 +19,7 @@
         </VBtn>
       </div>
       <div
-        v-if="activeTab === 'hoy'"
+        v-if="activeTab === 'hoy' && mdAndUp"
         class="training-hoy-views"
         role="group"
         aria-label="Tipo de vista de Hoy"
@@ -40,6 +40,41 @@
           />
         </button>
       </div>
+
+      <VMenu
+        v-if="activeTab === 'hoy' && !mdAndUp"
+        location="bottom end"
+      >
+        <template #activator="{ props: menuProps }">
+          <VBtn
+            v-bind="menuProps"
+            icon
+            variant="text"
+            size="small"
+            aria-label="Tipo de vista"
+          >
+            <VIcon
+              icon="ri-more-2-fill"
+              size="22"
+            />
+          </VBtn>
+        </template>
+        <VList
+          density="compact"
+          nav
+          :selected="[hoyView]"
+        >
+          <VListItem
+            v-for="option in hoyViewOptions"
+            :key="option.value"
+            :value="option.value"
+            :prepend-icon="option.icon"
+            :title="option.title"
+            rounded="lg"
+            @click="setHoyView(option.value)"
+          />
+        </VList>
+      </VMenu>
     </div>
 
     <VAlert
@@ -276,6 +311,7 @@ import TrainingBibliotecaTab from '@/views/pages/training/TrainingBibliotecaTab.
 import TrainingHistorialTab from '@/views/pages/training/TrainingHistorialTab.vue'
 import TrainingHoyTab from '@/views/pages/training/TrainingHoyTab.vue'
 import TrainingSemanaTab from '@/views/pages/training/TrainingSemanaTab.vue'
+import { useDisplay } from 'vuetify'
 
 const HOY_VIEW_KEY = 'training.hoyView'
 const HOY_VIEWS = ['detalle', 'compacta', 'lista', 'enfoque']
@@ -303,6 +339,12 @@ export default {
     TrainingBibliotecaTab,
   },
 
+  setup() {
+    const { mdAndUp } = useDisplay()
+
+    return { mdAndUp }
+  },
+
   data() {
     return {
       loading: false,
@@ -311,10 +353,10 @@ export default {
       activeTab: 'hoy',
       hoyView: readHoyViewPref(),
       hoyViewOptions: [
-        { value: 'detalle', title: 'Vista detalle', icon: 'ri-layout-masonry-line' },
-        { value: 'compacta', title: 'Vista compacta', icon: 'ri-list-check-2' },
-        { value: 'lista', title: 'Vista lista', icon: 'ri-menu-line' },
-        { value: 'enfoque', title: 'Vista enfoque', icon: 'ri-focus-3-line' },
+        { value: 'detalle', title: 'Detalle', icon: 'ri-layout-masonry-line' },
+        { value: 'compacta', title: 'Compacta', icon: 'ri-list-check-2' },
+        { value: 'lista', title: 'Lista', icon: 'ri-menu-line' },
+        { value: 'enfoque', title: 'Enfoque', icon: 'ri-focus-3-line' },
       ],
       days: [],
       sessions: [],
