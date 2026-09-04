@@ -71,9 +71,11 @@ class TrainingRoutineSeeder extends Seeder
                 ],
             ],
             4 => [
-                'focus'     => null,
+                'focus'     => 'Correr',
                 'is_rest'   => true,
-                'exercises' => [],
+                'exercises' => [
+                    ['name' => 'Correr', 'muscle_group' => 'Cardio', 'reps' => 1, 'sets' => 1, 'load_type' => 'km', 'load_value' => 5, 'notes' => null],
+                ],
             ],
             5 => [
                 'focus'   => 'Piernas + hombros + bíceps + tríceps',
@@ -98,9 +100,11 @@ class TrainingRoutineSeeder extends Seeder
                 ],
             ],
             7 => [
-                'focus'     => null,
+                'focus'     => 'Correr',
                 'is_rest'   => true,
-                'exercises' => [],
+                'exercises' => [
+                    ['name' => 'Correr', 'muscle_group' => 'Cardio', 'reps' => 1, 'sets' => 1, 'load_type' => 'km', 'load_value' => 5, 'notes' => null],
+                ],
             ],
         ];
 

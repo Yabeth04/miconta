@@ -71,7 +71,7 @@
             </p>
             <h2 class="training-hoy__focus mb-0">
               {{ activeDay.is_rest
-                ? 'Descanso / correr'
+                ? (activeDaySummary || 'Descanso / correr')
                 : (activeDaySummary || 'Todavía sin plan') }}
             </h2>
             <p
@@ -121,19 +121,81 @@
             v-if="activeDay.is_rest"
             class="training-hoy__rest"
           >
-            <p class="mb-4">
-              Esta rutina es descanso. Si salís a correr, anotá tiempo y calorías al terminar.
-              O elegí otra rutina arriba.
-            </p>
-            <VBtn
-              color="primary"
-              rounded="lg"
-              block
-              prepend-icon="ri-run-line"
-              @click="openSessionFromDay(activeDay)"
+            <div
+              v-if="!activeDay.exercises?.length"
+              class="training-hoy__empty"
             >
-              Anotar cardio
-            </VBtn>
+              <p class="mb-3">
+                Día libre / correr. Agregá una actividad con kilómetros para ir midiendo.
+              </p>
+              <VBtn
+                color="primary"
+                variant="tonal"
+                rounded="lg"
+                @click="goEditDay(activeDay)"
+              >
+                Armar cardio
+              </VBtn>
+            </div>
+
+            <template v-else>
+              <div class="training-hoy__list">
+                <div
+                  v-for="item in activeDay.exercises"
+                  :key="item.id"
+                  class="training-hoy__ex"
+                >
+                  <div class="min-w-0 flex-grow-1">
+                    <p class="training-hoy__ex-name mb-1">
+                      {{ item.name }}
+                    </p>
+                    <p class="training-hoy__ex-rx mb-0">
+                      {{ formatLoad(item) }}
+                    </p>
+                    <p
+                      v-if="item.notes"
+                      class="training-hoy__ex-note mb-0"
+                    >
+                      {{ item.notes }}
+                    </p>
+                  </div>
+                  <VBtn
+                    icon
+                    variant="text"
+                    size="small"
+                    aria-label="Ajustar kilómetros"
+                    @click="openQuickEdit(item)"
+                  >
+                    <VIcon
+                      icon="ri-pencil-line"
+                      size="18"
+                    />
+                  </VBtn>
+                </div>
+              </div>
+
+              <div class="training-hoy__actions">
+                <VBtn
+                  color="primary"
+                  rounded="lg"
+                  size="large"
+                  block
+                  prepend-icon="ri-checkbox-circle-line"
+                  @click="openSessionFromDay(activeDay)"
+                >
+                  Terminé · registrar
+                </VBtn>
+                <VBtn
+                  variant="text"
+                  rounded="lg"
+                  block
+                  class="mt-1"
+                  @click="goEditDay(activeDay)"
+                >
+                  Editar estas actividades
+                </VBtn>
+              </div>
+            </template>
           </div>
 
           <template v-else>
@@ -164,6 +226,10 @@
                 class="training-hoy__group"
               >
                 <p class="training-hoy__group-title">
+                  <MuscleGroupIcon
+                    v-if="hasMuscleIcon(group.name)"
+                    :group="group.name"
+                  />
                   {{ group.name }}
                 </p>
                 <div
@@ -262,7 +328,9 @@
                 >hoy</span>
               </span>
               <span class="training-board__focus">
-                {{ column.is_rest ? 'Descanso' : (column.focus || 'Sin definir') }}
+                {{ column.is_rest
+                  ? (column.focus || 'Descanso / correr')
+                  : (column.focus || 'Sin definir') }}
               </span>
             </button>
 
@@ -293,28 +361,29 @@
                     size="18"
                   />
                 </button>
-                <div class="min-w-0">
-                  <p class="training-board__group-name mb-0">
-                    {{ group.name }}
-                  </p>
-                  <p class="training-board__group-meta mb-0">
-                    {{ group.count }} ejercicio{{ group.count === 1 ? '' : 's' }}
-                  </p>
+                <div class="min-w-0 d-flex align-center gap-2">
+                  <MuscleGroupIcon
+                    v-if="hasMuscleIcon(group.name)"
+                    :group="group.name"
+                    size="lg"
+                  />
+                  <div class="min-w-0">
+                    <p class="training-board__group-name mb-0">
+                      {{ group.name }}
+                    </p>
+                    <p class="training-board__group-meta mb-0">
+                      {{ group.count }} ejercicio{{ group.count === 1 ? '' : 's' }}
+                    </p>
+                  </div>
                 </div>
               </div>
             </VueDraggable>
 
             <p
-              v-if="!column.is_rest && !column.groups.length"
+              v-if="!column.groups.length"
               class="training-board__empty"
             >
-              Sin grupos
-            </p>
-            <p
-              v-else-if="column.is_rest"
-              class="training-board__empty"
-            >
-              Descanso
+              {{ column.is_rest ? 'Descanso / correr' : 'Sin grupos' }}
             </p>
           </div>
         </div>
@@ -350,7 +419,7 @@
                   </p>
                   <p class="text-subtitle-1 font-weight-medium mb-0">
                     {{ selectedDay.is_rest
-                      ? 'Descanso / correr'
+                      ? (selectedDaySummary || 'Descanso / correr')
                       : (selectedDaySummary || 'Agregá ejercicios con grupo muscular') }}
                   </p>
                 </div>
@@ -366,9 +435,68 @@
 
               <div
                 v-if="selectedDay.is_rest"
-                class="training-empty py-6"
+                class="d-flex flex-column gap-4"
               >
-                Día de descanso / correr.
+                <div class="d-flex align-center justify-space-between gap-2">
+                  <p class="text-subtitle-2 font-weight-medium mb-0">
+                    Actividades (km)
+                  </p>
+                  <VBtn
+                    size="small"
+                    color="primary"
+                    variant="tonal"
+                    rounded="lg"
+                    prepend-icon="ri-add-line"
+                    @click="openCardioExercise()"
+                  >
+                    Agregar
+                  </VBtn>
+                </div>
+
+                <div
+                  v-if="!selectedDay.exercises?.length"
+                  class="training-empty py-6"
+                >
+                  Ej. Correr · 5 km. Vas midiendo distancia, sin series ni nivel.
+                </div>
+
+                <div
+                  v-else
+                  class="training-drag-list"
+                >
+                  <div
+                    v-for="item in selectedDay.exercises"
+                    :key="item.id"
+                    class="training-exercise"
+                  >
+                    <div class="min-w-0 flex-grow-1">
+                      <p class="font-weight-medium mb-0">
+                        {{ item.name }}
+                      </p>
+                      <p class="text-body-2 text-medium-emphasis mb-0">
+                        {{ formatLoad(item) }}
+                      </p>
+                    </div>
+                    <div class="d-flex gap-1">
+                      <VBtn
+                        icon
+                        variant="text"
+                        size="small"
+                        @click="openExerciseFromDay(selectedDay, item)"
+                      >
+                        <VIcon icon="ri-pencil-line" />
+                      </VBtn>
+                      <VBtn
+                        icon
+                        variant="text"
+                        size="small"
+                        @click="deleteExercise(item)"
+                      >
+                        <VIcon icon="ri-delete-bin-line" />
+                      </VBtn>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <template v-else>
@@ -599,7 +727,11 @@
             v-for="group in groupedLibrary"
             :key="group.name"
           >
-            <p class="text-subtitle-2 font-weight-medium mb-2">
+            <p class="text-subtitle-2 font-weight-medium mb-2 d-flex align-center gap-2">
+              <MuscleGroupIcon
+                v-if="hasMuscleIcon(group.name)"
+                :group="group.name"
+              />
               {{ group.name }}
             </p>
             <div class="training-drag-list">
@@ -648,7 +780,7 @@
         </VCardTitle>
         <VCardText>
           <p class="mb-3">
-            <strong>Hoy:</strong> lo que mirás en el gym. Con el lápiz ajustás reps, series o nivel. Podés elegir otra rutina solo por hoy. Para armar el plan, usá Semana.
+            <strong>Hoy:</strong> lo que mirás en el gym. Con el lápiz ajustás reps/nivel o km si es cardio. Podés elegir otra rutina solo por hoy. Para armar el plan, usá Semana.
           </p>
           <p class="mb-3">
             <strong>Semana:</strong> arrastrá grupos (Abdomen, Bíceps…) entre días. Tocá el día para editar ejercicios.
@@ -687,85 +819,114 @@
           </p>
 
           <div class="training-quick">
-            <div class="training-quick__row">
-              <span class="training-quick__label">Reps</span>
-              <div class="training-quick__ctrl">
-                <VBtn
-                  icon
-                  variant="tonal"
-                  size="small"
-                  rounded="lg"
-                  @click="bumpQuick('reps', -1)"
-                >
-                  <VIcon icon="ri-subtract-line" />
-                </VBtn>
-                <span class="training-quick__value">{{ quickEditForm.reps }}</span>
-                <VBtn
-                  icon
-                  variant="tonal"
-                  size="small"
-                  rounded="lg"
-                  @click="bumpQuick('reps', 1)"
-                >
-                  <VIcon icon="ri-add-line" />
-                </VBtn>
+            <template v-if="quickEditForm.load_type === 'km'">
+              <div class="training-quick__row">
+                <span class="training-quick__label">Km</span>
+                <div class="training-quick__ctrl">
+                  <VBtn
+                    icon
+                    variant="tonal"
+                    size="small"
+                    rounded="lg"
+                    @click="bumpQuick('load_value', -0.5)"
+                  >
+                    <VIcon icon="ri-subtract-line" />
+                  </VBtn>
+                  <span class="training-quick__value">{{ quickEditForm.load_value ?? 0 }}</span>
+                  <VBtn
+                    icon
+                    variant="tonal"
+                    size="small"
+                    rounded="lg"
+                    @click="bumpQuick('load_value', 0.5)"
+                  >
+                    <VIcon icon="ri-add-line" />
+                  </VBtn>
+                </div>
               </div>
-            </div>
+            </template>
 
-            <div class="training-quick__row">
-              <span class="training-quick__label">Series</span>
-              <div class="training-quick__ctrl">
-                <VBtn
-                  icon
-                  variant="tonal"
-                  size="small"
-                  rounded="lg"
-                  @click="bumpQuick('sets', -1)"
-                >
-                  <VIcon icon="ri-subtract-line" />
-                </VBtn>
-                <span class="training-quick__value">{{ quickEditForm.sets }}</span>
-                <VBtn
-                  icon
-                  variant="tonal"
-                  size="small"
-                  rounded="lg"
-                  @click="bumpQuick('sets', 1)"
-                >
-                  <VIcon icon="ri-add-line" />
-                </VBtn>
+            <template v-else>
+              <div class="training-quick__row">
+                <span class="training-quick__label">Reps</span>
+                <div class="training-quick__ctrl">
+                  <VBtn
+                    icon
+                    variant="tonal"
+                    size="small"
+                    rounded="lg"
+                    @click="bumpQuick('reps', -1)"
+                  >
+                    <VIcon icon="ri-subtract-line" />
+                  </VBtn>
+                  <span class="training-quick__value">{{ quickEditForm.reps }}</span>
+                  <VBtn
+                    icon
+                    variant="tonal"
+                    size="small"
+                    rounded="lg"
+                    @click="bumpQuick('reps', 1)"
+                  >
+                    <VIcon icon="ri-add-line" />
+                  </VBtn>
+                </div>
               </div>
-            </div>
 
-            <div
-              v-if="quickEditForm.load_type !== 'bodyweight'"
-              class="training-quick__row"
-            >
-              <span class="training-quick__label">
-                {{ quickEditForm.load_type === 'level' ? 'Nivel' : 'Kg' }}
-              </span>
-              <div class="training-quick__ctrl">
-                <VBtn
-                  icon
-                  variant="tonal"
-                  size="small"
-                  rounded="lg"
-                  @click="bumpQuick('load_value', quickEditForm.load_type === 'level' ? -1 : -0.5)"
-                >
-                  <VIcon icon="ri-subtract-line" />
-                </VBtn>
-                <span class="training-quick__value">{{ quickEditForm.load_value ?? 0 }}</span>
-                <VBtn
-                  icon
-                  variant="tonal"
-                  size="small"
-                  rounded="lg"
-                  @click="bumpQuick('load_value', quickEditForm.load_type === 'level' ? 1 : 0.5)"
-                >
-                  <VIcon icon="ri-add-line" />
-                </VBtn>
+              <div class="training-quick__row">
+                <span class="training-quick__label">Series</span>
+                <div class="training-quick__ctrl">
+                  <VBtn
+                    icon
+                    variant="tonal"
+                    size="small"
+                    rounded="lg"
+                    @click="bumpQuick('sets', -1)"
+                  >
+                    <VIcon icon="ri-subtract-line" />
+                  </VBtn>
+                  <span class="training-quick__value">{{ quickEditForm.sets }}</span>
+                  <VBtn
+                    icon
+                    variant="tonal"
+                    size="small"
+                    rounded="lg"
+                    @click="bumpQuick('sets', 1)"
+                  >
+                    <VIcon icon="ri-add-line" />
+                  </VBtn>
+                </div>
               </div>
-            </div>
+
+              <div
+                v-if="quickEditForm.load_type !== 'bodyweight'"
+                class="training-quick__row"
+              >
+                <span class="training-quick__label">
+                  {{ quickEditForm.load_type === 'level' ? 'Nivel' : 'Kg' }}
+                </span>
+                <div class="training-quick__ctrl">
+                  <VBtn
+                    icon
+                    variant="tonal"
+                    size="small"
+                    rounded="lg"
+                    @click="bumpQuick('load_value', quickEditForm.load_type === 'level' ? -1 : -0.5)"
+                  >
+                    <VIcon icon="ri-subtract-line" />
+                  </VBtn>
+                  <span class="training-quick__value">{{ quickEditForm.load_value ?? 0 }}</span>
+                  <VBtn
+                    icon
+                    variant="tonal"
+                    size="small"
+                    rounded="lg"
+                    @click="bumpQuick('load_value', quickEditForm.load_type === 'level' ? 1 : 0.5)"
+                  >
+                    <VIcon icon="ri-add-line" />
+                  </VBtn>
+                </div>
+              </div>
+            </template>
           </div>
         </VCardText>
         <VCardActions>
@@ -883,13 +1044,14 @@
         <VCardText class="d-flex flex-column gap-4 pt-4">
           <VTextField
             v-model="exerciseForm.name"
-            label="Ejercicio"
+            :label="isCardioForm ? 'Actividad' : 'Ejercicio'"
             variant="outlined"
             rounded="lg"
             hide-details="auto"
             autofocus
           />
           <VSelect
+            v-if="!isCardioForm"
             v-model="exerciseForm.muscle_group"
             :items="muscleOptions"
             label="Grupo muscular"
@@ -897,8 +1059,47 @@
             rounded="lg"
             hide-details="auto"
             clearable
-          />
-          <template v-if="exerciseMode === 'day'">
+          >
+            <template #selection="{ item }">
+              <span class="d-inline-flex align-center gap-2">
+                <MuscleGroupIcon
+                  v-if="hasMuscleIcon(item.value)"
+                  :group="item.value"
+                />
+                {{ item.title }}
+              </span>
+            </template>
+            <template #item="{ props: itemProps, item }">
+              <VListItem v-bind="itemProps">
+                <template #prepend>
+                  <MuscleGroupIcon
+                    v-if="hasMuscleIcon(item.value)"
+                    :group="item.value"
+                    class="me-1"
+                  />
+                </template>
+              </VListItem>
+            </template>
+          </VSelect>
+          <template v-if="exerciseMode === 'day' && isCardioForm">
+            <VTextField
+              v-model.number="exerciseForm.load_value"
+              type="number"
+              inputmode="decimal"
+              label="Kilómetros"
+              variant="outlined"
+              rounded="lg"
+              hide-details="auto"
+            />
+            <VTextField
+              v-model="exerciseForm.notes"
+              label="Nota (opcional)"
+              variant="outlined"
+              rounded="lg"
+              hide-details="auto"
+            />
+          </template>
+          <template v-else-if="exerciseMode === 'day'">
             <div class="d-flex gap-3">
               <VTextField
                 v-model.number="exerciseForm.reps"
@@ -1100,6 +1301,7 @@
 <script>
 import { VueDraggable } from 'vue-draggable-plus'
 import { axios } from '@/plugins/axios'
+import MuscleGroupIcon from '@/views/pages/training/MuscleGroupIcon.vue'
 
 const MUSCLE_OPTIONS = [
   'Pecho', 'Hombros', 'Tríceps', 'Espalda', 'Bíceps', 'Antebrazo',
@@ -1182,6 +1384,7 @@ export default {
 
   components: {
     VueDraggable,
+    MuscleGroupIcon,
   },
 
   data() {
@@ -1234,15 +1437,27 @@ export default {
     },
 
     activeDaySummary() {
-      if (!this.activeDay || this.activeDay.is_rest)
+      if (!this.activeDay)
         return null
+
+      if (this.activeDay.is_rest) {
+        const names = (this.activeDay.exercises || []).map(item => item.name).filter(Boolean)
+
+        return names.length ? names.join(' + ') : null
+      }
 
       return this.focusFromGroups(this.groupsFromDay(this.activeDay))
     },
 
     todayDaySummary() {
-      if (!this.todayDay || this.todayDay.is_rest)
+      if (!this.todayDay)
         return null
+
+      if (this.todayDay.is_rest) {
+        const names = (this.todayDay.exercises || []).map(item => item.name).filter(Boolean)
+
+        return names.length ? names.join(' + ') : null
+      }
 
       return this.focusFromGroups(this.groupsFromDay(this.todayDay))
     },
@@ -1271,7 +1486,16 @@ export default {
     },
 
     selectedDaySummary() {
-      return this.focusFromGroups(this.groupsFromDay(this.selectedDay || { exercises: [] }))
+      if (!this.selectedDay)
+        return null
+
+      if (this.selectedDay.is_rest) {
+        const names = (this.selectedDay.exercises || []).map(item => item.name).filter(Boolean)
+
+        return names.length ? names.join(' + ') : null
+      }
+
+      return this.focusFromGroups(this.groupsFromDay(this.selectedDay))
     },
 
     activeGroupedExercises() {
@@ -1282,9 +1506,17 @@ export default {
       return groupExercises(this.selectedDay?.exercises)
     },
 
+    isCardioForm() {
+      return this.exerciseMode === 'day'
+        && (this.exerciseForm.load_type === 'km' || Boolean(this.selectedDay?.is_rest))
+    },
+
     exerciseDialogTitle() {
       if (this.exerciseMode === 'library')
         return this.exerciseForm.id ? 'Editar en biblioteca' : 'Nuevo en biblioteca'
+
+      if (this.isCardioForm)
+        return this.exerciseForm.id ? 'Editar actividad' : 'Nueva actividad'
 
       return this.exerciseForm.id ? 'Editar ejercicio' : 'Nuevo ejercicio'
     },
@@ -1410,7 +1642,9 @@ export default {
           label: day.label,
           weekday: day.weekday,
           is_rest: day.is_rest,
-          focus: day.is_rest ? null : this.focusFromGroups(groups),
+          focus: day.is_rest
+            ? ((day.exercises || []).map(item => item.name).filter(Boolean).join(' + ') || null)
+            : this.focusFromGroups(groups),
           groups,
         }
       })
@@ -1540,6 +1774,27 @@ export default {
       return String(label || '').slice(0, 3)
     },
 
+    hasMuscleIcon(name) {
+      return Boolean(name)
+        && !['Sin grupo', 'Cardio', 'Otro'].includes(name)
+    },
+
+    openCardioExercise(item = null) {
+      this.exerciseMode = 'day'
+      this.exerciseForm = item
+        ? { ...this.emptyExercise(), ...item, load_type: 'km', muscle_group: item.muscle_group || 'Cardio' }
+        : {
+            ...this.emptyExercise(),
+            name: 'Correr',
+            muscle_group: 'Cardio',
+            sets: 1,
+            reps: 1,
+            load_type: 'km',
+            load_value: 5,
+          }
+      this.exerciseDialog = true
+    },
+
     openPickExercise() {
       this.pickQuery = ''
       this.pickExerciseDialog = true
@@ -1618,10 +1873,22 @@ export default {
       if (day?.id)
         this.selectedDayId = day.id
 
+      if (day?.is_rest || item?.load_type === 'km') {
+        this.openCardioExercise(item)
+
+        return
+      }
+
       this.openExercise(item)
     },
 
     openExercise(item = null) {
+      if (this.selectedDay?.is_rest && !item) {
+        this.openCardioExercise()
+
+        return
+      }
+
       this.exerciseMode = 'day'
       this.exerciseForm = item
         ? { ...this.emptyExercise(), ...item }
@@ -1646,12 +1913,32 @@ export default {
 
       const name = String(this.exerciseForm.name || '').trim()
       if (!name) {
-        this.error = 'Indicá el nombre del ejercicio.'
+        this.error = this.isCardioForm ? 'Indicá el nombre de la actividad.' : 'Indicá el nombre del ejercicio.'
 
         return
       }
 
       this.saving = true
+
+      const dayPayload = this.isCardioForm
+        ? {
+            name,
+            muscle_group: 'Cardio',
+            sets: 1,
+            reps: 1,
+            load_type: 'km',
+            load_value: this.exerciseForm.load_value,
+            notes: this.exerciseForm.notes,
+          }
+        : {
+            name,
+            muscle_group: this.exerciseForm.muscle_group,
+            sets: this.exerciseForm.sets,
+            reps: this.exerciseForm.reps,
+            load_type: this.exerciseForm.load_type,
+            load_value: this.exerciseForm.load_type === 'bodyweight' ? null : this.exerciseForm.load_value,
+            notes: this.exerciseForm.notes,
+          }
 
       let request
       if (this.exerciseMode === 'library') {
@@ -1664,46 +1951,30 @@ export default {
           : axios.post('/api/training/library', payload)
       }
       else if (this.exerciseForm.id) {
-        request = axios.put(`/api/training/exercises/${this.exerciseForm.id}`, {
-          name,
-          muscle_group: this.exerciseForm.muscle_group,
-          sets: this.exerciseForm.sets,
-          reps: this.exerciseForm.reps,
-          load_type: this.exerciseForm.load_type,
-          load_value: this.exerciseForm.load_type === 'bodyweight' ? null : this.exerciseForm.load_value,
-          notes: this.exerciseForm.notes,
-        })
+        request = axios.put(`/api/training/exercises/${this.exerciseForm.id}`, dayPayload)
       }
       else if (this.exerciseForm.library_exercise_id) {
         request = axios.post(`/api/training/days/${this.selectedDay.id}/exercises/attach`, {
           library_exercise_id: this.exerciseForm.library_exercise_id,
-          sets: this.exerciseForm.sets,
-          reps: this.exerciseForm.reps,
-          load_type: this.exerciseForm.load_type,
-          load_value: this.exerciseForm.load_type === 'bodyweight' ? null : this.exerciseForm.load_value,
-          notes: this.exerciseForm.notes,
+          sets: dayPayload.sets,
+          reps: dayPayload.reps,
+          load_type: dayPayload.load_type,
+          load_value: dayPayload.load_value,
+          notes: dayPayload.notes,
         })
       }
       else {
-        request = axios.post(`/api/training/days/${this.selectedDay.id}/exercises`, {
-          name,
-          muscle_group: this.exerciseForm.muscle_group,
-          sets: this.exerciseForm.sets,
-          reps: this.exerciseForm.reps,
-          load_type: this.exerciseForm.load_type,
-          load_value: this.exerciseForm.load_type === 'bodyweight' ? null : this.exerciseForm.load_value,
-          notes: this.exerciseForm.notes,
-        })
+        request = axios.post(`/api/training/days/${this.selectedDay.id}/exercises`, dayPayload)
       }
 
       request
         .then(() => {
           this.exerciseDialog = false
-          this.$toast.success('Ejercicio guardado', { timeout: 2000, closeOnClick: true })
+          this.$toast.success('Guardado', { timeout: 2000, closeOnClick: true })
           this.load()
         })
         .catch(error => {
-          this.error = error.response?.data?.message || 'No se pudo guardar el ejercicio.'
+          this.error = error.response?.data?.message || 'No se pudo guardar.'
         })
         .finally(() => {
           this.saving = false
@@ -1867,6 +2138,8 @@ export default {
     },
 
     formatLoad(item) {
+      if (item.load_type === 'km')
+        return item.load_value != null ? `${item.load_value} km` : 'Sin km'
       if (item.load_type === 'bodyweight')
         return 'Peso corporal'
       if (item.load_type === 'level')
@@ -1970,6 +2243,9 @@ export default {
 }
 
 .training-hoy__group-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.08em;

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WorkoutExercise extends Model
 {
-    public const LOAD_TYPES = ['level', 'kg', 'bodyweight'];
+    public const LOAD_TYPES = ['level', 'kg', 'bodyweight', 'km'];
 
     protected $fillable = [
         'workout_day_id',

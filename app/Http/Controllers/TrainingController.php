@@ -610,6 +610,21 @@ class TrainingController extends Controller
     private function rebuildFocusFromExercises(WorkoutDay $day): void
     {
         if ($day->is_rest) {
+            $names = $day->exercises
+                ->sortBy([
+                    ['sort_order', 'asc'],
+                    ['id', 'asc'],
+                ])
+                ->pluck('name')
+                ->map(fn ($value) => $this->nullableString($value))
+                ->filter()
+                ->unique()
+                ->values();
+
+            $day->update([
+                'focus' => $names->isEmpty() ? null : $names->implode(' + '),
+            ]);
+
             return;
         }
 
