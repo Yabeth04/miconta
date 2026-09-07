@@ -1,8 +1,44 @@
 <template>
   <div>
-    <p class="text-body-2 text-medium-emphasis mb-3">
-      Arrastrá un grupo a otro día. Tocá un día para editarlo.
-    </p>
+    <div class="d-flex flex-wrap align-center justify-space-between gap-2 mb-3">
+      <p class="text-body-2 text-medium-emphasis mb-0">
+        Arrastrá un grupo a otro día. Tocá un día para editarlo.
+      </p>
+      <VMenu location="bottom end">
+        <template #activator="{ props: menuProps }">
+          <VBtn
+            v-bind="menuProps"
+            color="primary"
+            variant="tonal"
+            rounded="lg"
+            size="small"
+            prepend-icon="ri-file-copy-line"
+            append-icon="ri-arrow-down-s-line"
+            :loading="copyingWeek"
+          >
+            Copiar rutina
+          </VBtn>
+        </template>
+        <VList
+          density="compact"
+          rounded="lg"
+          min-width="220"
+        >
+          <VListItem
+            prepend-icon="ri-text-snippet"
+            title="Compacto"
+            subtitle="Día y grupos musculares"
+            @click="copyWeekAsText('compact')"
+          />
+          <VListItem
+            prepend-icon="ri-list-check-2"
+            title="Detallado"
+            subtitle="Con ejercicios y series"
+            @click="copyWeekAsText('detailed')"
+          />
+        </VList>
+      </VMenu>
+    </div>
 
     <div
       class="training-board mb-4"
@@ -587,6 +623,7 @@ export default {
   data() {
     return {
       weekBoard: [],
+      copyingWeek: false,
       movingGroup: false,
       editPanelOpen: false,
       selectedDayId: null,
@@ -710,6 +747,109 @@ export default {
   methods: {
     formatLoad,
     hasMuscleIcon,
+
+    buildWeekText(mode = 'detailed') {
+      const detailed = mode === 'detailed'
+      const lines = detailed
+        ? [
+            'Mi rutina semanal de entrenamiento:',
+            'Qué se trabaja cada día (grupos musculares y ejercicios):',
+            '',
+          ]
+        : [
+            'Mi rutina semanal (grupos por día):',
+            '',
+          ]
+
+      this.days.forEach(day => {
+        const exercises = day.exercises || []
+
+        if (day.is_rest) {
+          if (detailed) {
+            const activities = exercises
+              .map(item => {
+                const load = formatLoad(item)
+                return load && load !== 'Sin km' && load !== 'Sin peso'
+                  ? `${item.name} (${load})`
+                  : item.name
+              })
+              .filter(Boolean)
+              .join(', ')
+
+            lines.push(`${day.label}: Descanso / cardio${activities ? ` — ${activities}` : ''}`)
+            lines.push('')
+          }
+          else {
+            lines.push(`- ${day.label}: Descanso / cardio`)
+          }
+
+          return
+        }
+
+        const focus = focusFromGroups(groupsFromDay(day)) || 'Sin definir'
+
+        if (!detailed) {
+          lines.push(`- ${day.label}: ${focus}`)
+
+          return
+        }
+
+        lines.push(`${day.label}: ${focus}`)
+
+        if (!exercises.length) {
+          lines.push('  (sin ejercicios)')
+          lines.push('')
+
+          return
+        }
+
+        exercises.forEach(item => {
+          const load = formatLoad(item)
+          const prescription = item.load_type === 'km'
+            ? load
+            : `${item.reps || '?'}×${item.sets || '?'} · ${load}`
+          lines.push(`  - ${item.name}: ${prescription}`)
+        })
+        lines.push('')
+      })
+
+      return lines.join('\n').trim()
+    },
+
+    async copyWeekAsText(mode = 'detailed') {
+      const text = this.buildWeekText(mode)
+      if (!text) {
+        this.$emit('error', 'No hay rutina para copiar')
+
+        return
+      }
+
+      this.copyingWeek = true
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text)
+        }
+        else {
+          const ta = document.createElement('textarea')
+          ta.value = text
+          ta.setAttribute('readonly', '')
+          ta.style.position = 'fixed'
+          ta.style.left = '-9999px'
+          document.body.appendChild(ta)
+          ta.select()
+          document.execCommand('copy')
+          document.body.removeChild(ta)
+        }
+        const label = mode === 'compact' ? 'Rutina compacta copiada' : 'Rutina detallada copiada'
+        this.$toast?.success?.(label, { timeout: 2000, closeOnClick: true })
+      }
+      catch (error) {
+        this.$emit('error', 'No se pudo copiar la rutina')
+      }
+      finally {
+        this.copyingWeek = false
+      }
+    },
 
     openDay(day) {
       if (!day)
