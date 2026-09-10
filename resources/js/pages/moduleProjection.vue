@@ -226,17 +226,7 @@
               prepend-icon="ri-equalizer-line"
               @click="amountsSheet = true"
             >
-              Ajustar
-            </VBtn>
-            <VBtn
-              color="primary"
-              rounded="lg"
-              class="flex-grow-1"
-              :loading="saving"
-              :disabled="isRangeInvalid"
-              @click="saveAndReload"
-            >
-              Calcular
+              Ajustar montos
             </VBtn>
           </div>
         </template>
@@ -261,7 +251,7 @@
                 variant="outlined"
                 rounded="lg"
                 hide-details="auto"
-                hint="No se descuenta en meses sin pago U"
+                hint="No se descuenta en meses sin pago U · se recalcula solo"
                 persistent-hint
               />
             </VCol>
@@ -305,19 +295,6 @@
               </VTextField>
             </VCol>
           </VRow>
-
-          <div class="projection-form__actions">
-            <VBtn
-              color="primary"
-              rounded="lg"
-              class="projection-form__submit"
-              :loading="saving"
-              :disabled="isRangeInvalid"
-              @click="saveAndReload"
-            >
-              Calcular
-            </VBtn>
-          </div>
         </template>
       </VCardText>
     </VCard>
@@ -398,14 +375,13 @@
           </VTextField>
 
           <VBtn
-            color="primary"
+            variant="tonal"
             rounded="lg"
             block
             :loading="saving"
-            :disabled="isRangeInvalid"
-            @click="saveAndReload({ closeSheet: true })"
+            @click="amountsSheet = false"
           >
-            Calcular
+            Listo
           </VBtn>
         </div>
       </VCard>
@@ -470,6 +446,9 @@ export default {
       error: '',
       amountsSheet: false,
       helpDialog: false,
+      suppressAutoCalc: true,
+      autoCalcTimer: null,
+      pendingPersistFee: false,
       year: currentYear,
       fromYear: currentYear,
       toYear: currentYear,
@@ -595,12 +574,14 @@ export default {
         this.fromMonth = this.minFromMonth
 
       this.clampToPeriod()
+      this.scheduleAutoCalc()
     },
     fromMonth(month) {
       if (this.fromYear === this.minFromYear && month < this.minFromMonth)
         this.fromMonth = this.minFromMonth
 
       this.clampToPeriod()
+      this.scheduleAutoCalc()
     },
     toYear(year) {
       if (year < this.fromYear)
@@ -608,10 +589,14 @@ export default {
 
       if (this.toYear === this.fromYear && this.toMonth < this.fromMonth)
         this.toMonth = this.fromMonth
+
+      this.scheduleAutoCalc()
     },
     toMonth(month) {
       if (this.toYear === this.fromYear && month < this.fromMonth)
         this.toMonth = this.fromMonth
+
+      this.scheduleAutoCalc()
     },
     year(value) {
       if (value < this.minFromYear)
@@ -621,6 +606,8 @@ export default {
         this.fromMonth = this.minFromMonth
         this.fromYear = this.minFromYear
       }
+
+      this.scheduleAutoCalc()
     },
     rangeMode(mode) {
       if (mode === 'year') {
@@ -636,11 +623,25 @@ export default {
         this.toMonth = 12
         this.toYear = now.getFullYear()
       }
+
+      this.scheduleAutoCalc()
+    },
+    universityFeeInput() {
+      this.scheduleAutoCalc({ persistFee: true })
+    },
+    startingBalanceInput() {
+      this.scheduleAutoCalc()
     },
   },
 
   mounted() {
-    this.loadProjection()
+    this.loadProjection().finally(() => {
+      this.suppressAutoCalc = false
+    })
+  },
+
+  beforeUnmount() {
+    clearTimeout(this.autoCalcTimer)
   },
 
   methods: {
@@ -650,6 +651,32 @@ export default {
 
       if (this.toYear === this.fromYear && this.toMonth < this.fromMonth)
         this.toMonth = this.fromMonth
+    },
+
+    scheduleAutoCalc({ persistFee = false } = {}) {
+      if (this.suppressAutoCalc)
+        return
+
+      if (persistFee)
+        this.pendingPersistFee = true
+
+      clearTimeout(this.autoCalcTimer)
+      this.autoCalcTimer = setTimeout(() => {
+        const shouldPersistFee = this.pendingPersistFee
+
+        this.pendingPersistFee = false
+        this.runAutoCalc({ persistFee: shouldPersistFee })
+      }, 450)
+    },
+
+    runAutoCalc({ persistFee = false } = {}) {
+      if (this.isRangeInvalid || this.saving)
+        return
+
+      if (persistFee)
+        this.saveAndReload({ silent: true })
+      else
+        this.loadProjection()
     },
 
     effectiveRange() {
@@ -711,6 +738,8 @@ export default {
     },
 
     applyResponse(data, { preserveStartingInput = false } = {}) {
+      this.suppressAutoCalc = true
+
       this.settings = {
         university_fee: data.settings.university_fee,
       }
@@ -738,37 +767,41 @@ export default {
         const anchor = data.sources.anchor_balance ?? data.sources.account_balance ?? data.starting_balance
         this.startingBalanceInput = this.$formatAmountValue(anchor)
       }
+
+      this.$nextTick(() => {
+        this.suppressAutoCalc = false
+      })
     },
 
     useAccountBalance() {
       this.startingBalanceInput = this.$formatAmountValue(this.sources.account_balance)
+      this.scheduleAutoCalc()
     },
 
-    saveAndReload({ closeSheet = false } = {}) {
+    saveAndReload({ silent = false } = {}) {
       if (this.isRangeInvalid)
-        return
+        return Promise.resolve()
 
       const universityFee = this.$parseAmount(this.universityFeeInput)
 
       if (universityFee === '' || Number.isNaN(universityFee)) {
-        this.error = 'Ingresa una cuota de universidad válida.'
+        if (!silent)
+          this.error = 'Ingresa una cuota de universidad válida.'
 
-        return
+        return Promise.resolve()
       }
 
       this.saving = true
       this.error = ''
 
-      axios
+      return axios
         .put('/api/projection/settings', {
           university_fee: universityFee,
           monthly_remaining: null,
         })
         .then(() => {
-          this.$toast.success('Proyección actualizada', { timeout: 2000, closeOnClick: true })
-
-          if (closeSheet)
-            this.amountsSheet = false
+          if (!silent)
+            this.$toast.success('Proyección actualizada', { timeout: 2000, closeOnClick: true })
 
           return this.loadProjection()
         })
