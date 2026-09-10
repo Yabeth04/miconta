@@ -1,1 +1,25 @@
-// Write your overrides
+// Escala visual ~90% (como zoom del navegador).
+// Compensa el hueco inferior: al hacer zoom, 100vh/100dvh quedan cortos.
+$app-zoom: 0.9;
+
+html {
+  zoom: $app-zoom;
+}
+
+html,
+body,
+#app {
+  min-height: calc(100vh / #{$app-zoom});
+  background: rgb(var(--v-theme-background));
+}
+
+.v-application {
+  min-height: calc(100vh / #{$app-zoom}) !important;
+  background: rgb(var(--v-theme-background));
+}
+
+.layout-wrapper.layout-nav-type-vertical {
+  .layout-content-wrapper {
+    min-block-size: calc(100dvh / #{$app-zoom});
+  }
+}

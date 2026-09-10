@@ -8,6 +8,7 @@ import 'vue-toastification/dist/index.css'
 // Styles
 import '@core-scss/template/index.scss'
 import '@layouts/styles/index.scss'
+import '@styles/styles.scss'
 
 // Create vue app
 const app = createApp(App)

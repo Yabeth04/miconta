@@ -483,9 +483,17 @@
               v-else
               class="text-body-2 text-medium-emphasis"
             >
-              Seleccioná movimientos de la lista
+              Clic en una fila para seleccionarla
             </span>
             <VSpacer />
+            <VBtn
+              variant="text"
+              rounded="lg"
+              size="small"
+              @click="toggleSelectAllVisible"
+            >
+              {{ allVisibleSelected ? 'Ninguno' : 'Todos' }}
+            </VBtn>
             <VBtn
               v-if="selectedCount"
               variant="tonal"
@@ -585,18 +593,6 @@
         <thead>
           <tr>
             <th
-              v-if="selectionMode"
-              class="accounting-table__th accounting-table__th--select"
-            >
-              <VCheckbox
-                :model-value="allVisibleSelected"
-                :indeterminate="someVisibleSelected && !allVisibleSelected"
-                hide-details
-                density="compact"
-                @update:model-value="toggleSelectAllVisible"
-              />
-            </th>
-            <th
               class="accounting-table__th text-start accounting-table__th--date"
             >
               Fecha
@@ -630,20 +626,16 @@
             }"
             @click="onRowClick(item)"
           >
-            <td
-              v-if="selectionMode"
-              class="accounting-table__select"
-              @click.stop="toggleSelectItem(item.id)"
-            >
-              <VCheckbox
-                :model-value="isSelected(item.id)"
-                hide-details
-                density="compact"
-                readonly
-              />
-            </td>
             <td class="text-body-2 text-medium-emphasis accounting-table__date">
-              {{ item.date }}
+              <div class="d-flex align-center gap-2 min-w-0">
+                <VIcon
+                  v-if="selectionMode && isSelected(item.id)"
+                  icon="ri-check-line"
+                  size="16"
+                  class="text-primary flex-shrink-0"
+                />
+                <span>{{ item.date }}</span>
+              </div>
             </td>
             <td class="text-body-2 accounting-table__concept">
               <div class="d-flex align-center gap-1 min-w-0">
@@ -705,7 +697,7 @@
 
           <tr v-if="!accounting.length && !hasMore && !loading">
             <td
-              :colspan="selectionMode ? 8 : 7"
+              colspan="7"
               class="text-body-2 text-medium-emphasis text-center py-8"
             >
               {{ emptyListMessage }}
@@ -714,7 +706,7 @@
 
           <!-- Carga más movimientos -->
           <tr>
-            <td :colspan="selectionMode ? 8 : 7">
+            <td colspan="7">
               <VInfiniteScroll
                 :key="scrollKey"
                 side="end"
@@ -764,22 +756,16 @@
               @click="onRowClick(item)"
             >
               <VCardText class="pa-4 accounting-mobile-card__body">
-                <div class="d-flex align-start gap-3">
-                  <div
-                    v-if="selectionMode"
-                    class="accounting-mobile-card__checkbox flex-shrink-0"
-                  >
-                    <VCheckbox
-                      :model-value="isSelected(item.id)"
-                      hide-details
-                      density="comfortable"
-                      readonly
-                    />
-                  </div>
-
-                  <div class="flex-grow-1 min-w-0">
                 <div class="d-flex justify-space-between align-start gap-2 mb-2">
-                  <span class="text-caption text-medium-emphasis">{{ item.date }}</span>
+                  <div class="d-flex align-center gap-2 min-w-0">
+                    <VIcon
+                      v-if="selectionMode && isSelected(item.id)"
+                      icon="ri-check-line"
+                      size="18"
+                      class="text-primary flex-shrink-0"
+                    />
+                    <span class="text-caption text-medium-emphasis">{{ item.date }}</span>
+                  </div>
                   <div class="d-flex align-center gap-1 flex-shrink-0">
                     <VChip
                       size="small"
@@ -837,8 +823,6 @@
                     >
                       {{ item.movement_type === 'haber' ? $formatAmount(item.amount) : '—' }}
                     </span>
-                  </div>
-                </div>
                   </div>
                 </div>
               </VCardText>
@@ -1086,9 +1070,6 @@ export default {
     allVisibleSelected() {
       return this.accounting.length > 0
         && this.accounting.every(item => this.isSelected(item.id))
-    },
-    someVisibleSelected() {
-      return this.accounting.some(item => this.isSelected(item.id))
     },
     deleteDialogTitle() {
       return this.deleteMode === 'bulk' ? 'Eliminar movimientos' : 'Eliminar movimiento'
@@ -1626,13 +1607,6 @@ export default {
   white-space: nowrap;
 }
 
-.accounting-table__th--select,
-.accounting-table__select {
-  width: 3rem;
-  min-width: 3rem;
-  padding-inline: 0.75rem !important;
-}
-
 .accounting-table__row--selectable {
   cursor: pointer;
   user-select: none;
@@ -1642,12 +1616,9 @@ export default {
   background: rgba(var(--v-theme-on-surface), 0.06) !important;
 }
 
-.accounting-table__select :deep(.v-selection-control) {
-  pointer-events: none;
-}
-
 .accounting-table__row--selected {
-  background: rgba(var(--v-theme-primary), 0.06) !important;
+  background: rgba(var(--v-theme-primary), 0.08) !important;
+  box-shadow: inset 3px 0 0 rgb(var(--v-theme-primary));
 }
 
 .accounting-selection-bar {
@@ -1660,7 +1631,7 @@ export default {
 .accounting-mobile-card--selected {
   border-color: rgba(var(--v-theme-primary), 0.55) !important;
   background: rgba(var(--v-theme-primary), 0.08);
-  box-shadow: inset 0 0 0 1px rgba(var(--v-theme-primary), 0.12);
+  box-shadow: inset 3px 0 0 rgb(var(--v-theme-primary));
 }
 
 .accounting-mobile-list--selection {
@@ -1697,15 +1668,6 @@ export default {
   padding-inline: 0.5rem;
 }
 
-.accounting-mobile-card__checkbox {
-  margin-block-start: -0.25rem;
-  margin-inline-start: -0.5rem;
-}
-
-.accounting-mobile-card__checkbox :deep(.v-selection-control) {
-  pointer-events: none;
-}
-
 .accounting-mobile-card__body {
   width: 100%;
 }
@@ -1725,10 +1687,6 @@ export default {
 
 .accounting-mobile-card--selectable:active {
   transform: scale(0.995);
-}
-
-.accounting-mobile-card :deep(.v-selection-control) {
-  pointer-events: none;
 }
 
 /* Montos compactos y juntos a la derecha */
