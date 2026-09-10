@@ -20,7 +20,7 @@ use Throwable;
  * - fecha desconocida X/XX/XXXX
  * - o un DateTime/serial de Excel
  *
- * Sin fecha real (X/...): se inserta al final.
+ * Sin fecha real (X/...): se guarda con fecha 01/01/2025.
  * Sin método de pago: se guarda como "otros".
  */
 class AccountingMovementsImport implements ToCollection, WithHeadingRow
@@ -41,7 +41,6 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
         $errors        = [];
         $batch         = [];
         $deferred      = [];
-        $lastKnownDate = null;
         $now           = now();
         $closedKeys    = MonthCloseGuard::closedKeys($this->userId);
 
@@ -112,8 +111,7 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
                         continue;
                     }
 
-                    $lastKnownDate = $date;
-                    $batch[]       = array_merge($payload, ['date' => $date]);
+                    $batch[] = array_merge($payload, ['date' => $date]);
 
                     if (count($batch) >= 100) {
                         DB::table('accounting_movements')->insert($batch);
@@ -134,15 +132,12 @@ class AccountingMovementsImport implements ToCollection, WithHeadingRow
         }
 
         if ($deferred !== []) {
-            $fallbackDate = $lastKnownDate ?? $now->toDateString();
-            $fallbackKey  = Carbon::parse($fallbackDate)->format('Y-m');
+            $fallbackDate = '2025-01-01';
+            $fallbackKey  = '2025-01';
 
             if (isset($closedKeys[$fallbackKey])) {
-                $carbon   = Carbon::parse($fallbackDate);
-                $errors[] = MonthCloseGuard::closedMessage(
-                    (int) $carbon->year,
-                    (int) $carbon->month,
-                ) . ' No se importaron filas sin fecha concreta.';
+                $errors[] = MonthCloseGuard::closedMessage(2025, 1)
+                    .' No se importaron filas sin fecha concreta.';
             } else {
                 foreach (array_chunk($deferred, 100) as $chunk) {
                     $rowsToInsert  = array_map(
