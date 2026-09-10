@@ -70,6 +70,7 @@ export default function (app) {
       import('@/pages/moduleProjection.vue')
       import('@/pages/moduleMonthCloses.vue')
       import('@/pages/moduleTraining.vue')
+      import('@/pages/moduleMusic.vue')
       import('@/pages/moduleUsers.vue')
     }
 

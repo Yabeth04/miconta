@@ -75,6 +75,14 @@ const { isSysAdmin } = storeToRefs(auth)
   />
 
   <VerticalNavLink
+    :item="{
+      title: 'Música',
+      icon: 'ri-music-2-line',
+      to: '/musica',
+    }"
+  />
+
+  <VerticalNavLink
     v-if="isSysAdmin"
     :item="{
       title: 'Usuarios',

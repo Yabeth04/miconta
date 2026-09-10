@@ -64,3 +64,9 @@ public/mockServiceWorker.js
 # Env files
 .env*
 !.env.example
+
+# Local media tooling binaries (install via scripts/install-music-tools.sh)
+/bin/yt-dlp
+/bin/ffmpeg
+/bin/ffprobe
+/storage/app/music

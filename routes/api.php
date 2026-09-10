@@ -6,6 +6,7 @@ use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\FixedPaymentController;
 use App\Http\Controllers\MonthCloseController;
+use App\Http\Controllers\MusicDownloadController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectionController;
 use App\Http\Controllers\StudyPlanController;
@@ -48,6 +49,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('month-closes', [MonthCloseController::class, 'index']);
     Route::get('month-closes/preview', [MonthCloseController::class, 'preview']);
     Route::post('month-closes', [MonthCloseController::class, 'store']);
+    Route::delete('month-closes/{monthClose}', [MonthCloseController::class, 'destroy']);
     Route::get('training', [TrainingController::class, 'index']);
     Route::put('training/days/{workoutDay}', [TrainingController::class, 'updateDay']);
     Route::post('training/days/{workoutDay}/reassign', [TrainingController::class, 'reassignDay']);
@@ -64,6 +66,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('training/sessions', [TrainingController::class, 'storeSession']);
     Route::put('training/sessions/{workoutSession}', [TrainingController::class, 'updateSession']);
     Route::delete('training/sessions/{workoutSession}', [TrainingController::class, 'destroySession']);
+
+    Route::get('music/status', [MusicDownloadController::class, 'status']);
+    Route::post('music/download', [MusicDownloadController::class, 'download']);
 
     Route::middleware('sysadmin')->group(function () {
         Route::get('users', [AdminUserController::class, 'index']);

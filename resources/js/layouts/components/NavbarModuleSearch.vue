@@ -42,6 +42,14 @@ const allGroups = computed(() => {
         { title: 'Entrenamiento', icon: 'ri-heart-pulse-line', to: '/entrenamiento' },
       ],
     },
+    {
+      id: 'musica',
+      title: 'Música',
+      icon: 'ri-music-2-line',
+      items: [
+        { title: 'Música', icon: 'ri-music-2-line', to: '/musica' },
+      ],
+    },
   ]
 
   if (isSysAdmin.value) {
